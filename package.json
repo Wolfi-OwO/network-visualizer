@@ -1,0 +1,18 @@
+{
+  "name": "routing-visualizer",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm --prefix application run dev",
+    "dev:client": "npm --prefix application/client run dev",
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "npm --prefix application run build",
+    "build:client": "npm --prefix application/client run build",
+    "lint:client": "npm --prefix application/client run lint",
+    "install:all": "npm install && npm --prefix application install && npm --prefix application/client install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,369 @@
+import { useState, useCallback } from 'react'
+import { Calculator, ChevronDown, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react'
+import type { CIDRResult } from '../../types'
+import { cidr as cidrApi } from '../../api/client'
+
+const PRESETS = [
+  '192.168.1.0/24', '10.0.0.0/8', '172.16.0.0/12',
+  '10.10.0.0/16', '192.168.0.0/16', '203.0.113.0/24',
+]
+
+function CopyBtn({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
+      className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg-700)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors ml-1 font-mono"
+    >
+      {copied ? '✓' : 'copy'}
+    </button>
+  )
+}
+
+function BinaryDisplay({ binary, prefix }: { binary: string; prefix: number }) {
+  const parts = binary.split('.')
+  return (
+    <div className="font-mono text-[11px] flex gap-1">
+      {parts.map((octet, i) => (
+        <span key={i}>
+          {i > 0 && <span className="text-[var(--text-muted)]">.</span>}
+          {octet.split('').map((bit, j) => {
+            const bitIndex = i * 8 + j
+            const isNetwork = bitIndex < prefix
+            return (
+              <span
+                key={j}
+                className={isNetwork ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}
+              >
+                {bit}
+              </span>
+            )
+          })}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function ResultRow({ label, value, mono, copyable, extra }: {
+  label: string; value: string | number; mono?: boolean; copyable?: boolean; extra?: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-2 py-1.5 border-b border-[var(--border)]/50 last:border-0">
+      <span className="text-[11px] text-[var(--text-muted)] w-40 shrink-0">{label}</span>
+      <span className={`text-[11px] text-[var(--text-primary)] flex-1 ${mono ? 'font-mono' : ''}`}>
+        {String(value)}
+        {copyable && <CopyBtn value={String(value)} />}
+      </span>
+      {extra}
+    </div>
+  )
+}
+
+export default function CIDRCalculatorPage() {
+  const [input, setInput] = useState('192.168.1.0/24')
+  const [result, setResult] = useState<CIDRResult | null>(null)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [showSubnets, setShowSubnets] = useState(false)
+  const [subnets, setSubnets] = useState<CIDRResult[]>([])
+  const [subnetCount, setSubnetCount] = useState('4')
+  const [subnetPrefix, setSubnetPrefix] = useState('')
+  const [subnetLoading, setSubnetLoading] = useState(false)
+
+  // Supernet state
+  const [supernetInputs, setSupernetInputs] = useState(['192.168.0.0/24', '192.168.1.0/24'])
+  const [supernetResult, setSupernetResult] = useState<CIDRResult | null>(null)
+
+  const calculate = useCallback(async (value?: string) => {
+    const v = value ?? input
+    if (!v.trim()) return
+    setLoading(true)
+    setError('')
+    setResult(null)
+    setSubnets([])
+    setShowSubnets(false)
+    try {
+      const { data } = await cidrApi.calculate(v.trim())
+      setResult(data)
+      setInput(data.networkAddress + '/' + data.cidrPrefix)
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Invalid CIDR notation'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }, [input])
+
+  const calcSubnets = useCallback(async () => {
+    if (!result) return
+    setSubnetLoading(true)
+    try {
+      const count = subnetPrefix ? undefined : parseInt(subnetCount) || 4
+      const prefix = subnetPrefix ? parseInt(subnetPrefix) : undefined
+      const { data } = await cidrApi.subnets(result.networkAddress + '/' + result.cidrPrefix, count, prefix)
+      setSubnets(data.subnets)
+      setShowSubnets(true)
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Failed'
+      setError(msg)
+    } finally {
+      setSubnetLoading(false)
+    }
+  }, [result, subnetCount, subnetPrefix])
+
+  const calcSupernet = useCallback(async () => {
+    try {
+      const nets = supernetInputs.filter(s => s.trim())
+      const { data } = await cidrApi.supernet(nets)
+      setSupernetResult(data)
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Failed'
+      setError(msg)
+    }
+  }, [supernetInputs])
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-[var(--bg-900)] border-b border-[var(--border)] shrink-0">
+        <Calculator size={16} className="text-[var(--accent)]" />
+        <span className="text-sm font-semibold text-[var(--text-primary)]">CIDR Calculator</span>
+        <span className="text-xs text-[var(--text-muted)]">IPv4 Subnet Calculator & Network Analyzer</span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Input section */}
+        <div className="card p-4 space-y-3">
+          <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Network Input</div>
+          <div className="flex gap-2">
+            <input
+              className="input flex-1 font-mono text-sm"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && calculate()}
+              placeholder="192.168.1.0/24 or 10.0.0.1 255.255.255.0"
+              spellCheck={false}
+            />
+            <button onClick={() => calculate()} disabled={loading} className="btn-primary px-4">
+              {loading ? 'Calculating…' : 'Calculate'}
+            </button>
+          </div>
+
+          {/* Presets */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] text-[var(--text-muted)]">Presets:</span>
+            {PRESETS.map(p => (
+              <button
+                key={p}
+                onClick={() => { setInput(p); calculate(p) }}
+                className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--bg-700)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--bg-600)] transition-colors border border-[var(--border)]"
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-[var(--red)] text-xs">
+              <AlertCircle size={12} /> {error}
+            </div>
+          )}
+        </div>
+
+        {result && (
+          <>
+            {/* Main results */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Left column */}
+              <div className="card p-4 space-y-0.5">
+                <div className="panel-header -mx-4 -mt-4 mb-3">Network Details</div>
+                <ResultRow label="IP Address" value={result.ipAddress} mono copyable />
+                <ResultRow label="Network Address" value={result.networkAddress} mono copyable />
+                <ResultRow label="Broadcast Address" value={result.broadcastAddress} mono copyable />
+                <ResultRow label="First Host" value={result.firstHost} mono copyable />
+                <ResultRow label="Last Host" value={result.lastHost} mono copyable />
+                <ResultRow label="Subnet Mask" value={result.subnetMask} mono copyable />
+                <ResultRow label="Wildcard Mask" value={result.wildcardMask} mono copyable />
+                <ResultRow label="CIDR Notation" value={`${result.networkAddress}/${result.cidrPrefix}`} mono copyable />
+              </div>
+
+              {/* Right column */}
+              <div className="card p-4 space-y-0.5">
+                <div className="panel-header -mx-4 -mt-4 mb-3">Address Info</div>
+                <ResultRow label="Total Hosts" value={result.totalHosts.toLocaleString()} mono />
+                <ResultRow label="Usable Hosts" value={result.usableHosts.toLocaleString()} mono />
+                <ResultRow label="IP Class" value={result.ipClass} />
+                <ResultRow
+                  label="Private Range"
+                  value={result.isPrivate ? 'Yes (RFC 1918)' : 'No (Public)'}
+                  extra={
+                    result.isPrivate
+                      ? <CheckCircle size={12} className="text-[var(--green)]" />
+                      : <AlertCircle size={12} className="text-[var(--yellow)]" />
+                  }
+                />
+                <ResultRow label="Prefix Length" value={`/${result.cidrPrefix}`} mono />
+
+                <div className="pt-2 space-y-1.5">
+                  <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Binary Representation</div>
+                  <div className="space-y-1">
+                    <div>
+                      <span className="text-[10px] text-[var(--text-muted)] block mb-0.5">IP Address</span>
+                      <BinaryDisplay binary={result.binaryIpAddress} prefix={result.cidrPrefix} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-[var(--text-muted)] block mb-0.5">Subnet Mask</span>
+                      <BinaryDisplay binary={result.binarySubnetMask} prefix={result.cidrPrefix} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-[var(--text-muted)] block mb-0.5">Network Address</span>
+                      <BinaryDisplay binary={result.binaryNetworkAddress} prefix={result.cidrPrefix} />
+                    </div>
+                    <div className="text-[10px] text-[var(--text-muted)] mt-1 flex gap-3">
+                      <span><span className="text-[var(--accent)]">■</span> Network bits</span>
+                      <span><span className="text-[var(--text-muted)]">■</span> Host bits</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Visual subnet bar */}
+            <div className="card p-4">
+              <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Address Space Visualization</div>
+              <div className="relative h-8 rounded overflow-hidden bg-[var(--bg-700)]">
+                <div
+                  className="absolute left-0 top-0 h-full bg-[var(--accent)] opacity-30"
+                  style={{ width: `${(result.cidrPrefix / 32) * 100}%` }}
+                />
+                <div className="absolute inset-0 flex items-center justify-between px-3">
+                  <span className="text-[10px] font-mono text-[var(--text-primary)]">{result.networkAddress}</span>
+                  <span className="text-[10px] font-mono text-[var(--text-primary)]">{result.broadcastAddress}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 mt-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-[var(--accent)] opacity-30" />
+                  <span className="text-[10px] text-[var(--text-muted)]">Network portion (/{result.cidrPrefix})</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-[var(--bg-600)]" />
+                  <span className="text-[10px] text-[var(--text-muted)]">Host portion ({32 - result.cidrPrefix} bits = {result.usableHosts.toLocaleString()} hosts)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Subnet Calculator */}
+            <div className="card p-4">
+              <div
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => setShowSubnets(v => !v)}
+              >
+                <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Subnet Calculator</div>
+                {showSubnets ? <ChevronDown size={14} className="text-[var(--text-muted)]" /> : <ChevronRight size={14} className="text-[var(--text-muted)]" />}
+              </div>
+
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-[var(--text-muted)]">Split</span>
+                <input
+                  className="input w-16"
+                  value={subnetCount}
+                  onChange={e => { setSubnetCount(e.target.value); setSubnetPrefix('') }}
+                  placeholder="count"
+                />
+                <span className="text-xs text-[var(--text-muted)]">subnets  — or use prefix</span>
+                <input
+                  className="input w-16 font-mono"
+                  value={subnetPrefix}
+                  onChange={e => { setSubnetPrefix(e.target.value); setSubnetCount('') }}
+                  placeholder="/26"
+                />
+                <button onClick={calcSubnets} disabled={subnetLoading} className="btn-ghost">
+                  {subnetLoading ? 'Calculating…' : 'Generate Subnets'}
+                </button>
+              </div>
+
+              {showSubnets && subnets.length > 0 && (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr className="border-b border-[var(--border)]">
+                        {['#', 'Network', 'First Host', 'Last Host', 'Broadcast', 'Mask', 'Hosts'].map(h => (
+                          <th key={h} className="px-2 py-1.5 text-left text-[var(--text-muted)] font-semibold uppercase text-[9px] tracking-wider whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subnets.map((s, i) => (
+                        <tr key={i} className="border-b border-[var(--border)]/30 hover:bg-[var(--bg-700)] transition-colors">
+                          <td className="px-2 py-1 font-mono text-[var(--text-muted)]">{i + 1}</td>
+                          <td className="px-2 py-1 font-mono text-[var(--accent)]">{s.networkAddress}/{s.cidrPrefix}</td>
+                          <td className="px-2 py-1 font-mono text-[var(--text-primary)]">{s.firstHost}</td>
+                          <td className="px-2 py-1 font-mono text-[var(--text-primary)]">{s.lastHost}</td>
+                          <td className="px-2 py-1 font-mono text-[var(--text-muted)]">{s.broadcastAddress}</td>
+                          <td className="px-2 py-1 font-mono text-[var(--text-muted)]">{s.subnetMask}</td>
+                          <td className="px-2 py-1 font-mono text-[var(--text-secondary)]">{s.usableHosts.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Supernet Calculator */}
+        <div className="card p-4">
+          <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Supernet Calculator</div>
+          <div className="space-y-2">
+            {supernetInputs.map((v, i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  className="input font-mono flex-1"
+                  value={v}
+                  onChange={e => {
+                    const updated = [...supernetInputs]
+                    updated[i] = e.target.value
+                    setSupernetInputs(updated)
+                  }}
+                  placeholder="192.168.0.0/24"
+                />
+                {supernetInputs.length > 2 && (
+                  <button
+                    onClick={() => setSupernetInputs(inp => inp.filter((_, j) => j !== i))}
+                    className="btn-ghost text-[var(--red)] border-[var(--red)]/30"
+                  >✕</button>
+                )}
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSupernetInputs(inp => [...inp, ''])}
+                className="btn-ghost text-xs"
+              >
+                + Add Network
+              </button>
+              <button onClick={calcSupernet} className="btn-primary">
+                Find Supernet
+              </button>
+            </div>
+          </div>
+
+          {supernetResult && (
+            <div className="mt-3 p-3 bg-[var(--bg-800)] rounded border border-[var(--border)]">
+              <div className="text-[10px] text-[var(--text-muted)] mb-1">Smallest common supernet:</div>
+              <div className="font-mono text-sm text-[var(--accent)]">
+                {supernetResult.networkAddress}/{supernetResult.cidrPrefix}
+              </div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-1">
+                Mask: {supernetResult.subnetMask} — {supernetResult.usableHosts.toLocaleString()} usable hosts
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
