@@ -176,6 +176,7 @@ export interface NetworkInterface {
   speed?: string;
   duplex?: 'full' | 'half';
   description?: string;
+  vlan?: number;         // access VLAN of this port (untagged = 1)
 }
 
 export interface RoutingTableEntry {
@@ -264,6 +265,7 @@ export interface NetworkNodeConfig {
   services?: ServiceConfig[];
   webPage?: WebPage;
   powered?: boolean;
+  zone?: string;          // security zone (Internal/DMZ/External/Management/…)
   osType?: string;
   model?: string;
   serialNumber?: string;

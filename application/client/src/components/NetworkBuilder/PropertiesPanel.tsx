@@ -8,6 +8,9 @@ import { meta, canHostServices, hardwareFor, isWireless } from './deviceCatalog'
 
 type PropsTab = 'info' | 'interfaces' | 'routing' | 'firewall' | 'vlans' | 'dhcp' | 'dns' | 'services'
 
+// Security zones a device can be assigned to
+const SECURITY_ZONES = ['Internal', 'DMZ', 'External', 'Management', 'Guest', 'Production', 'Development'] as const
+
 // Common services the user can switch on with one click
 const SERVICE_CATALOG: { name: string; port: number; protocol: 'tcp' | 'udp' }[] = [
   { name: 'HTTP',   port: 80,   protocol: 'tcp' },
@@ -81,6 +84,13 @@ function InterfaceRow({ iface, onUpdate, onDelete }: {
             <Field label="CIDR"><TinyInput value={iface.cidr ?? ''} onChange={v => upd('cidr', v)} placeholder="/24" /></Field>
             <Field label="Speed"><TinyInput value={iface.speed ?? ''} onChange={v => upd('speed', v)} placeholder="1 Gbps" /></Field>
             <Field label="MAC"><TinyInput value={iface.macAddress ?? ''} onChange={v => upd('macAddress', v)} placeholder="aa:bb:cc:dd:ee:ff" /></Field>
+            <Field label="VLAN">
+              <TinyInput
+                value={iface.vlan != null ? String(iface.vlan) : ''}
+                onChange={v => onUpdate({ ...iface, vlan: v === '' ? undefined : (parseInt(v, 10) || undefined) })}
+                type="number" placeholder="1 (untagged)"
+              />
+            </Field>
           </div>
           <Field label="Desc"><TinyInput value={iface.description ?? ''} onChange={v => upd('description', v)} placeholder="WAN link" /></Field>
         </div>
@@ -439,6 +449,16 @@ export default function PropertiesPanel({ node, onClose, onChange }: PropertiesP
             </Field>
             <Field label="Serial">
               <TinyInput value={config.serialNumber ?? ''} onChange={v => push({ serialNumber: v })} placeholder="SN-000001" />
+            </Field>
+            <Field label="Security Zone">
+              <select
+                className="select text-[11px] h-6 py-0 px-2 w-full"
+                value={config.zone ?? ''}
+                onChange={e => push({ zone: e.target.value || undefined })}
+              >
+                <option value="">— none —</option>
+                {SECURITY_ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+              </select>
             </Field>
 
             {/* Hardware / capabilities */}

@@ -226,6 +226,26 @@ function getNodeIp(node: NetworkNode): string {
   return node.config.interfaces?.[0]?.ipAddress ?? ''   // '' = unnumbered (no fabricated/invalid IPs)
 }
 
+// Prefix length of a node's primary interface (cidr → mask → /24 default)
+function ifacePrefix(node: NetworkNode): number {
+  const iface = node.config.interfaces?.[0]
+  if (iface?.cidr) { const p = parseInt(iface.cidr.replace('/', ''), 10); if (!isNaN(p)) return p }
+  if (iface?.subnetMask) return maskToCidr(iface.subnetMask)
+  return 24
+}
+// Network (int) + prefix of a node's primary interface, or null if unnumbered
+function nodeNetwork(node: NetworkNode): { net: number; prefix: number } | null {
+  const ip = node.config.interfaces?.[0]?.ipAddress
+  if (!ip) return null
+  const prefix = ifacePrefix(node)
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0
+  return { net: (ipToInt(ip) & mask) >>> 0, prefix }
+}
+function accessVlan(node: NetworkNode): number | undefined {
+  return node.config.interfaces?.[0]?.vlan
+}
+const isL3Type = (t: string) => t === 'router' || t === 'l3switch' || t === 'firewall'
+
 function randLatency(base: number): number {
   return parseFloat((base + Math.random() * base * 0.3).toFixed(2))
 }
@@ -282,6 +302,38 @@ export function tracePacket(
   let blockedBy: string | undefined
   let dropType: 'deny' | 'drop' | undefined
 
+  // ── Segmentation analysis (Layer-2 VLAN + Layer-3 subnet) ──────────────────
+  // A Layer-2-only path cannot cross IP subnets or VLAN boundaries — that needs
+  // a router / L3 switch (inter-VLAN routing). Detect this up front.
+  const pathNodes = nodePath.map(pid => topology.nodes.find(n => n.id === pid)).filter(Boolean) as NetworkNode[]
+  const l3OnPath = pathNodes.some(n => isL3Type(n.type))
+  const fwOnPath = pathNodes.some(n => n.type === 'firewall')
+  const srcNet = nodeNetwork(srcNode)
+  const dstNet = nodeNetwork(dstNode)
+  const crossSubnet = !!srcNet && !!dstNet && !(srcNet.net === dstNet.net && srcNet.prefix === dstNet.prefix)
+  const sVlan = accessVlan(srcNode), dVlan = accessVlan(dstNode)
+  const vlanMismatch = sVlan !== undefined && dVlan !== undefined && sVlan !== dVlan
+
+  let segBlock: string | null = null
+  if (vlanMismatch && !l3OnPath) {
+    segBlock = `VLAN isolation: ${srcNode.config.hostname ?? srcNode.label} (VLAN ${sVlan}) and ${dstNode.config.hostname ?? dstNode.label} (VLAN ${dVlan}) are in different VLANs — inter-VLAN routing (a router / L3 switch) is required`
+  } else if (crossSubnet && !l3OnPath) {
+    segBlock = `Different IP subnets (${srcIp}/${srcNet!.prefix} ↔ ${dstIp}/${dstNet!.prefix}) on a Layer-2-only path — a router is required to route between subnets`
+  }
+  // Block manifests at the first L2 device on the path (where the frame can't leave), else at the destination
+  const segBlockIndex = (() => {
+    if (!segBlock) return -1
+    for (let k = 1; k < nodePath.length; k++) {
+      const t = pathNodes[k]?.type
+      if (t === 'switch' || t === 'hub' || t === 'wifiap') return k
+    }
+    return nodePath.length - 1
+  })()
+
+  // Zone advisory (non-blocking): crossing security zones without a firewall
+  const sZone = srcNode.config.zone, dZone = dstNode.config.zone
+  const zoneCross = !!sZone && !!dZone && sZone !== dZone && !fwOnPath
+
   // Get edge latencies for each hop
   const edgeLatencyMap = new Map<string, number>()
   for (const e of topology.edges) {
@@ -314,6 +366,18 @@ export function tracePacket(
     const isDestination = i === nodePath.length - 1
     const nodeName = node.config.hostname ?? node.label
     const isL3 = node.type === 'router' || node.type === 'l3switch' || node.type === 'firewall'
+
+    // ── Segmentation block (VLAN isolation / cross-subnet on an L2 path) ──────
+    if (segBlock && i === segBlockIndex) {
+      hops.push({
+        step: i, nodeId: node.id, nodeName, nodeType: node.type,
+        action: 'no_route', detail: segBlock, latencyMs: hopLatency, edgeId,
+      })
+      blocked = true
+      blockedAt = nodeName
+      blockedBy = vlanMismatch ? 'VLAN isolation' : 'No inter-subnet route'
+      break
+    }
 
     // ── TTL: only routers / L3 switches / firewalls decrement it ─────────────
     if (isL3) {
@@ -573,6 +637,12 @@ export function tracePacket(
   }
 
   const success = !blocked && hops.some(h => h.action === 'delivered')
+
+  // Zone advisory: delivered, but it crossed a security-zone boundary unfirewalled
+  if (success && zoneCross) {
+    const last = [...hops].reverse().find(h => h.action === 'delivered')
+    if (last) last.detail += `  ⚠ crosses ${sZone} → ${dZone} zone boundary with no firewall in the path`
+  }
 
   return {
     id,

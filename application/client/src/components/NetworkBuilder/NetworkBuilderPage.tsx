@@ -794,6 +794,10 @@ export default function NetworkBuilderPage() {
       dns:           { label: 'DNS',   color: '#a371f7' },
     }
 
+    // Cap concurrent dots so large topologies don't drown in re-renders
+    const activePulses = edgesRef.current.reduce((s, e) => s + ((e.data?.pulses as PulseDot[] | undefined)?.length ?? 0), 0)
+    if (activePulses > 24) return
+
     const burst = 1 + Math.floor(Math.random() * 3)   // 1–3 concurrent sessions
     for (let k = 0; k < burst; k++) {
       const src = hosts[Math.floor(Math.random() * hosts.length)]
