@@ -15,8 +15,7 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 
 </div>
 
-> *Tip: drop a screenshot or GIF of the Network Builder here — it sells the project instantly.*
-> `docs/screenshot.png`
+![Network Builder](network-builder.png)
 
 ## Features
 
