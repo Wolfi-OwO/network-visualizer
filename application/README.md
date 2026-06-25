@@ -7,11 +7,16 @@ Express + TypeScript API that powers the NetViz frontend: live packet simulation
 
 ```
 src/
-├─ api/            # Express routers (HTTP endpoints)
-│  ├─ packets.ts       # /api/packets   — live capture stream (SSE) + stats
-│  ├─ cidr.ts          # /api/cidr       — subnet / supernet calculations
-│  ├─ network.ts       # /api/network    — topology CRUD
-│  └─ packetSend.ts    # /api/send       — hop-by-hop packet trace
+├─ routes/         # express.Router definitions (path → handler)
+│  ├─ packets.routes.ts    # /api/packets   — live capture stream (SSE) + stats
+│  ├─ cidr.routes.ts       # /api/cidr       — subnet / supernet calculations
+│  ├─ network.routes.ts    # /api/network    — topology CRUD
+│  └─ send.routes.ts       # /api/send       — hop-by-hop packet trace
+├─ handlers/       # Request handlers (controllers) for each route
+│  ├─ packets.handlers.ts
+│  ├─ cidr.handlers.ts
+│  ├─ network.handlers.ts
+│  └─ send.handlers.ts
 ├─ services/       # Business logic
 │  ├─ cidrService.ts
 │  ├─ packetSenderService.ts   # routing, firewall, NAT, VLAN/subnet enforcement
@@ -21,11 +26,13 @@ src/
 ├─ middlewares/    # Cross-cutting Express middleware
 │  ├─ requestLogger.ts
 │  └─ errorHandler.ts
-├─ lib/            # Reusable utilities (logger, …)
+├─ lib/            # Reusable utilities (logger, HTTP error classes)
+│  ├─ logger.ts
+│  └─ errors.ts                # AppError + 4xx/5xx subclasses
 ├─ config/         # Environment-driven configuration
 ├─ types/          # Shared domain types
-├─ app.ts          # Express app assembly (CORS, body parsing, routes)
-└─ server.ts       # Entry point (listens on PORT, default 8080)
+└─ app.ts          # Express app assembly (CORS, body parsing, routes)
+server.ts          # Entry point (binds HOST:PORT, default 0.0.0.0:8080)
 tests/             # Test suite (planned)
 ```
 

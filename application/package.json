@@ -8,17 +8,23 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@godaddy/terminus": "^4.12.1",
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "uuid": "^9.0.0"
+    "mongoose": "^9.7.2",
+    "uuid": "^9.0.0",
+    "winston": "^3.19.0"
   },
   "type": "module",
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^20.11.5",
+    "@types/supertest": "^7.2.0",
     "@types/uuid": "^9.0.7",
+    "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.0.3",
+    "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }

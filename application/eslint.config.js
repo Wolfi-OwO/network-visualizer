@@ -1,0 +1,19 @@
+import js from '@eslint/js';
+import globals from 'globals';
+import { defineConfig } from 'eslint/config';
+
+export default defineConfig([
+    { ignores: ['tests', 'client'] },
+    {
+        files: ['**/*.{js,mjs,cjs}'],
+        plugins: { js },
+        extends: ['js/recommended'],
+        languageOptions: { globals: globals.node },
+        rules: {
+            'no-console': 'warn',
+            'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+            'no-case-declarations': 'warn',
+            camelcase: ['warn', { properties: 'always' }],
+        },
+    },
+]);

@@ -84,7 +84,7 @@ export default function GuidedBuild({ active, nodes, edges, onClearCanvas, onClo
         id: 'laptop',
         label: 'Add a laptop & connect it over Wi-Fi',
         hint: 'Drag a 3rd 💻 PC (your laptop), then drag a link from it to the 📡 Wi-Fi AP.',
-        done: count(nodes, 'pc') >= 3 && edgeBetweenTypes(nodes, edges, 'pc', 'wifiap'),
+        done: count(nodes, 'pc') >= 2 && count(nodes, 'laptop') >= 1 && edgeBetweenTypes(nodes, edges, 'laptop', 'wifiap'),
       },
       {
         id: 'dhcp',

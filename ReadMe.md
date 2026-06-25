@@ -5,7 +5,6 @@
 **Design, visualize and *simulate* real enterprise networks in your browser.**
 Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect traffic like Wireshark, and calculate subnets — all in one tool.
 
-<!-- Replace `Wolfi-OwO` with your GitHub handle so the CI badge resolves -->
 [![CI](https://github.com/Wolfi-OwO/routing-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Wolfi-OwO/routing-visualizer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)
@@ -53,26 +52,29 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 routing-visualizer/
 ├─ application/                 # Express + TypeScript backend (REST + SSE)
 │  ├─ src/
-│  │  ├─ api/                   # Express routers: packets, cidr, network, packetSend
+│  │  ├─ routes/                # express.Router definitions: packets, cidr, network, send
+│  │  ├─ handlers/              # request handlers (controllers) per route
 │  │  ├─ services/              # business logic: packetSimulator, cidrService, packetSenderService
 │  │  ├─ db/                    # data store (in-memory topology repository)
 │  │  ├─ middlewares/           # requestLogger, errorHandler
-│  │  ├─ lib/                   # reusable utilities (logger)
+│  │  ├─ lib/                   # reusable utilities (logger, HTTP error classes)
 │  │  ├─ config/                # environment-driven configuration
 │  │  ├─ types/                 # shared domain types
-│  │  ├─ app.ts                 # express app assembly (CORS, body parsing, routes)
-│  │  └─ server.ts              # entrypoint (PORT 8080)
+│  │  └─ app.ts                 # express app assembly (CORS, body parsing, routes)
+│  ├─ server.ts                 # entrypoint (binds HOST:PORT, default 0.0.0.0:8080)
 │  ├─ tests/                    # test suite (planned)
-│  ├─ Dockerfile · .dockerignore · .prettierrc · README.md
+│  ├─ Dockerfile · .dockerignore · .prettierrc · .env.example · README.md
 │  │
 │  └─ client/                   # React + Vite frontend
 │     ├─ src/
 │     │  ├─ pages/              # route-level views (Dashboard, PacketCapture, NetworkBuilder, CIDR)
 │     │  ├─ components/         # feature components (NetworkBuilder/, PacketCapture/)
 │     │  ├─ layouts/            # Layout + Sidebar
-│     │  ├─ lib/                # axios API client
-│     │  ├─ hooks/ · context/ · common/   # shared React building blocks
+│     │  ├─ common/             # shared UI (Footer)
+│     │  ├─ lib/api/            # axios API client (one module per backend feature)
+│     │  ├─ hooks/ · context/   # shared React building blocks
 │     │  ├─ styles/             # global CSS
+│     │  ├─ config.ts           # frontend config (VITE_* env vars)
 │     │  └─ types/              # shared types (mirror of backend)
 │     ├─ Dockerfile · nginx.conf · .prettierrc
 │     └─ vite.config.ts         # dev proxy  /api → http://localhost:8080
@@ -82,7 +84,7 @@ routing-visualizer/
 └─ ReadMe.md
 ```
 
-> The backend lives in `application/` and the frontend in `application/client/` — two independent npm packages, organized into clear enterprise layers (api / services / db / middlewares / lib / config on the server; pages / components / layouts / lib on the client).
+> The backend lives in `application/` and the frontend in `application/client/` — two independent npm packages, organized into clear enterprise layers (routes / handlers / services / db / middlewares / lib / config on the server; pages / components / layouts / lib on the client).
 
 ## Getting started
 
@@ -135,7 +137,7 @@ Then open **<http://localhost:5173>** 🎉
 
 ## Building for production
 
-**Backend**
+### Backend
 
 ```bash
 cd application
@@ -144,7 +146,7 @@ npm run build      # → application/dist/
 npm start          # node dist/server.js   (set PORT to override 8080)
 ```
 
-**Frontend**
+### Frontend
 
 ```bash
 cd application/client

@@ -76,10 +76,11 @@ export class GatewayTimeoutError extends AppError {
   constructor(message = 'Gateway Timeout') { super(504, message) }
 }
 
-// Wrap an async route handler so thrown/rejected errors reach the error handler.
+// Wrap a route handler so rejected promises (and thrown errors) reach the error
+// handler. Works for both sync and async handlers.
 import type { Request, Response, NextFunction, RequestHandler } from 'express'
 export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>,
+  fn: (req: Request, res: Response, next: NextFunction) => unknown,
 ): RequestHandler {
-  return (req, res, next) => { fn(req, res, next).catch(next) }
+  return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next)
 }

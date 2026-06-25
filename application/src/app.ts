@@ -3,10 +3,10 @@ import cors from 'cors';
 import { config, isOriginAllowed } from './config/index.js';
 import { requestLogger } from './middlewares/requestLogger.js';
 import { notFound, errorHandler } from './middlewares/errorHandler.js';
-import packetsRouter from './api/packets.js';
-import cidrRouter from './api/cidr.js';
-import networkRouter from './api/network.js';
-import packetSendRouter from './api/packetSend.js';
+import packetsRouter from './routes/packets.routes.js';
+import cidrRouter from './routes/cidr.routes.js';
+import networkRouter from './routes/network.routes.js';
+import sendRouter from './routes/send.routes.js';
 import path from 'node:path';
 const __dirname = import.meta.dirname;
 
@@ -30,7 +30,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/packets', packetsRouter);
 app.use('/api/cidr', cidrRouter);
 app.use('/api/network', networkRouter);
-app.use('/api/send', packetSendRouter);
+app.use('/api/send', sendRouter);
 
 app.get(/^(?!\/api).*/, (_req, res) => {
     res.sendFile(path.join(__dirname, '..', 'client', 'dist', 'index.html'));

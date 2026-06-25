@@ -1,17 +1,26 @@
 // Tiny structured logger — swap for pino/winston later without touching callers.
-type Level = 'debug' | 'info' | 'warn' | 'error'
+import winston from 'winston';
 
-function emit(level: Level, message: string, meta?: unknown): void {
-  const ts = new Date().toISOString()
-  const line = `[${ts}] ${level.toUpperCase().padEnd(5)} ${message}`
-  const sink = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log
-  if (meta !== undefined) sink(line, meta)
-  else sink(line)
-}
+const customFormat = winston.format.printf(({ level, message, timestamp, stack }) => {
+    if (stack) {
+        // print log trace
+        return `${timestamp} ${level}: ${message} - ${stack}`;
+    }
+    return `${timestamp} ${level}: ${message}`;
+});
 
-export const logger = {
-  debug: (m: string, meta?: unknown) => emit('debug', m, meta),
-  info: (m: string, meta?: unknown) => emit('info', m, meta),
-  warn: (m: string, meta?: unknown) => emit('warn', m, meta),
-  error: (m: string, meta?: unknown) => emit('error', m, meta),
-}
+const logger = winston.createLogger({
+    level: process.env.LOG_LEVEL || 'info',
+    transports: [
+        new winston.transports.Console(),
+    ],
+    format:
+        winston.format.combine(
+            winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss.mmm" }),
+            winston.format.colorize(),
+            customFormat
+        )
+});
+
+export { logger };
+
