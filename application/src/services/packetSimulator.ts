@@ -1,4 +1,4 @@
-import { Packet, PacketStats, EthernetLayer, IpLayer, UdpLayer, TcpLayer, ProtoView } from '../types';
+import { Packet, PacketStats, EthernetLayer, IpLayer, UdpLayer, TcpLayer, ProtoView } from '../types/index.js';
 
 const HOSTS = [
   { ip: '10.0.0.1', mac: '00:1a:2b:3c:4d:01', name: 'gateway' },

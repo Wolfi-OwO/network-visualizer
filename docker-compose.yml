@@ -1,0 +1,21 @@
+# Run the full stack: `docker compose up --build`
+# Frontend served on http://localhost:8080 (proxies /api → backend)
+services:
+  backend:
+    build: ./application
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+    expose:
+      - "8080"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  frontend:
+    build: ./application/client
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    restart: unless-stopped

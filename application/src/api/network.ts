@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import * as networkService from '../services/networkService';
+import * as networkService from '../db/networkService.js';
+import { BadRequestError, NotFoundError } from '../lib/errors.js';
 
 const router = Router();
 
@@ -17,12 +18,11 @@ function validEdges(v: unknown): boolean {
   return Array.isArray(v) && v.every(e =>
     isObj(e) && typeof e.id === 'string' && typeof e.source === 'string' && typeof e.target === 'string');
 }
-// Returns an error string if the patch is malformed, else null
-function validateTopologyPatch(body: unknown): string | null {
-  if (!isObj(body)) return 'Body must be an object';
-  if ('nodes' in body && !validNodes(body.nodes)) return 'Invalid nodes: each needs id, type, position {x,y}, config';
-  if ('edges' in body && !validEdges(body.edges)) return 'Invalid edges: each needs id, source, target';
-  return null;
+// Throws BadRequestError if the patch is malformed
+function assertValidTopologyPatch(body: unknown): void {
+  if (!isObj(body)) throw new BadRequestError('Body must be an object');
+  if ('nodes' in body && !validNodes(body.nodes)) throw new BadRequestError('Invalid nodes: each needs id, type, position {x,y}, config');
+  if ('edges' in body && !validEdges(body.edges)) throw new BadRequestError('Invalid edges: each needs id, source, target');
 }
 
 router.get('/', (_req: Request, res: Response) => {
@@ -34,103 +34,64 @@ router.get('/', (_req: Request, res: Response) => {
 });
 
 router.get('/default', (_req: Request, res: Response) => {
-  const topology = networkService.getOrCreateDefault();
-  res.json(topology);
+  res.json(networkService.getOrCreateDefault());
 });
 
 router.post('/', (req: Request, res: Response) => {
   const { name, description } = req.body;
-  if (!name) {
-    res.status(400).json({ error: 'name is required' });
-    return;
-  }
-  const topology = networkService.createTopology(name, description);
-  res.status(201).json(topology);
+  if (!name) throw new BadRequestError('name is required');
+  res.status(201).json(networkService.createTopology(name, description));
 });
 
 router.get('/:id', (req: Request, res: Response) => {
   const topology = networkService.getTopology(req.params.id);
-  if (!topology) {
-    res.status(404).json({ error: 'Topology not found' });
-    return;
-  }
+  if (!topology) throw new NotFoundError('Topology not found');
   res.json(topology);
 });
 
 router.put('/:id', (req: Request, res: Response) => {
-  const err = validateTopologyPatch(req.body);
-  if (err) {
-    res.status(400).json({ error: err });
-    return;
-  }
+  assertValidTopologyPatch(req.body);
   const topology = networkService.updateTopology(req.params.id, req.body);
-  if (!topology) {
-    res.status(404).json({ error: 'Topology not found' });
-    return;
-  }
+  if (!topology) throw new NotFoundError('Topology not found');
   res.json(topology);
 });
 
 router.delete('/:id', (req: Request, res: Response) => {
-  const deleted = networkService.deleteTopology(req.params.id);
-  if (!deleted) {
-    res.status(404).json({ error: 'Topology not found' });
-    return;
-  }
+  if (!networkService.deleteTopology(req.params.id)) throw new NotFoundError('Topology not found');
   res.json({ deleted: true });
 });
 
 router.post('/:id/nodes', (req: Request, res: Response) => {
   const node = networkService.addNode(req.params.id, req.body);
-  if (!node) {
-    res.status(404).json({ error: 'Topology not found' });
-    return;
-  }
+  if (!node) throw new NotFoundError('Topology not found');
   res.status(201).json(node);
 });
 
 router.put('/:id/nodes/:nodeId', (req: Request, res: Response) => {
   const node = networkService.updateNode(req.params.id, req.params.nodeId, req.body);
-  if (!node) {
-    res.status(404).json({ error: 'Node not found' });
-    return;
-  }
+  if (!node) throw new NotFoundError('Node not found');
   res.json(node);
 });
 
 router.delete('/:id/nodes/:nodeId', (req: Request, res: Response) => {
-  const deleted = networkService.deleteNode(req.params.id, req.params.nodeId);
-  if (!deleted) {
-    res.status(404).json({ error: 'Node not found' });
-    return;
-  }
+  if (!networkService.deleteNode(req.params.id, req.params.nodeId)) throw new NotFoundError('Node not found');
   res.json({ deleted: true });
 });
 
 router.post('/:id/edges', (req: Request, res: Response) => {
   const edge = networkService.addEdge(req.params.id, req.body);
-  if (!edge) {
-    res.status(404).json({ error: 'Topology not found' });
-    return;
-  }
+  if (!edge) throw new NotFoundError('Topology not found');
   res.status(201).json(edge);
 });
 
 router.put('/:id/edges/:edgeId', (req: Request, res: Response) => {
   const edge = networkService.updateEdge(req.params.id, req.params.edgeId, req.body);
-  if (!edge) {
-    res.status(404).json({ error: 'Edge not found' });
-    return;
-  }
+  if (!edge) throw new NotFoundError('Edge not found');
   res.json(edge);
 });
 
 router.delete('/:id/edges/:edgeId', (req: Request, res: Response) => {
-  const deleted = networkService.deleteEdge(req.params.id, req.params.edgeId);
-  if (!deleted) {
-    res.status(404).json({ error: 'Edge not found' });
-    return;
-  }
+  if (!networkService.deleteEdge(req.params.id, req.params.edgeId)) throw new NotFoundError('Edge not found');
   res.json({ deleted: true });
 });
 

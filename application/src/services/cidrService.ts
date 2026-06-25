@@ -1,4 +1,4 @@
-import { CIDRResult } from '../types';
+import { CIDRResult } from '../types/index.js';
 
 function ipToInt(ip: string): number {
   return ip.split('.').reduce((acc, octet) => (acc << 8) | parseInt(octet, 10), 0) >>> 0;

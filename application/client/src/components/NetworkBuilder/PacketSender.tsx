@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { Send, ChevronDown, Zap, Gauge, Pause, Play } from 'lucide-react'
 import type { NetworkNode, NetworkEdge } from '../../types'
 import type { Edge } from '@xyflow/react'
-import type { TraceResult } from '../../api/client'
+import type { TraceResult } from '../../lib/api'
 import type { PacketEdgeData } from './PacketEdge'
-import { send as sendApi, network as networkApi } from '../../api/client'
+import { send as sendApi, network as networkApi } from '../../lib/api'
 
 const PROTOCOLS = [
   { value: 'icmp', label: 'ICMP (Ping)' },

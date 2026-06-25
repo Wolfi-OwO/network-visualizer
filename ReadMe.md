@@ -53,25 +53,36 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 routing-visualizer/
 ├─ application/                 # Express + TypeScript backend (REST + SSE)
 │  ├─ src/
-│  │  ├─ routes/                # packets, cidr, network, packetSend
-│  │  ├─ services/              # packetSimulator, cidrService, networkService, packetSenderService
+│  │  ├─ api/                   # Express routers: packets, cidr, network, packetSend
+│  │  ├─ services/              # business logic: packetSimulator, cidrService, packetSenderService
+│  │  ├─ db/                    # data store (in-memory topology repository)
+│  │  ├─ middlewares/           # requestLogger, errorHandler
+│  │  ├─ lib/                   # reusable utilities (logger)
+│  │  ├─ config/                # environment-driven configuration
 │  │  ├─ types/                 # shared domain types
-│  │  ├─ app.ts                 # express app, CORS, middleware
-│  │  └─ server.ts              # entrypoint (PORT 3001)
-│  ├─ client/                   # React + Vite frontend
-│  │  ├─ src/
-│  │  │  ├─ components/          # NetworkBuilder, PacketCapture, CIDRCalculator, Dashboard, Layout
-│  │  │  ├─ api/                # axios client
-│  │  │  └─ types/              # shared types (mirror of backend)
-│  │  └─ vite.config.ts         # dev proxy  /api → http://localhost:3001
-│  ├─ package.json              # backend
-│  └─ tsconfig.json
+│  │  ├─ app.ts                 # express app assembly (CORS, body parsing, routes)
+│  │  └─ server.ts              # entrypoint (PORT 8080)
+│  ├─ tests/                    # test suite (planned)
+│  ├─ Dockerfile · .dockerignore · .prettierrc · README.md
+│  │
+│  └─ client/                   # React + Vite frontend
+│     ├─ src/
+│     │  ├─ pages/              # route-level views (Dashboard, PacketCapture, NetworkBuilder, CIDR)
+│     │  ├─ components/         # feature components (NetworkBuilder/, PacketCapture/)
+│     │  ├─ layouts/            # Layout + Sidebar
+│     │  ├─ lib/                # axios API client
+│     │  ├─ hooks/ · context/ · common/   # shared React building blocks
+│     │  ├─ styles/             # global CSS
+│     │  └─ types/              # shared types (mirror of backend)
+│     ├─ Dockerfile · nginx.conf · .prettierrc
+│     └─ vite.config.ts         # dev proxy  /api → http://localhost:8080
 ├─ .github/workflows/ci.yml     # CI: typecheck + lint + build
+├─ docker-compose.yml           # full stack (frontend :8080 + backend :8080)
 ├─ LICENSE
 └─ ReadMe.md
 ```
 
-> The backend lives in `application/` and the frontend in `application/client/` — two independent npm packages.
+> The backend lives in `application/` and the frontend in `application/client/` — two independent npm packages, organized into clear enterprise layers (api / services / db / middlewares / lib / config on the server; pages / components / layouts / lib on the client).
 
 ## Getting started
 
@@ -83,7 +94,7 @@ routing-visualizer/
 
 The app has two parts — run each in its own terminal.
 
-**1) Backend** (REST API + packet stream on **:3001**)
+**1) Backend** (REST API + packet stream on **:8080**)
 
 ```bash
 cd application
@@ -91,7 +102,7 @@ npm install
 npm run dev
 ```
 
-**2) Frontend** (Vite dev server on **:5173**, proxies `/api` → `:3001`)
+**2) Frontend** (Vite dev server on **:5173**, proxies `/api` → `:8080`)
 
 ```bash
 cd application/client
@@ -130,7 +141,7 @@ Then open **<http://localhost:5173>** 🎉
 cd application
 npm install
 npm run build      # → application/dist/
-npm start          # node dist/server.js   (set PORT to override 3001)
+npm start          # node dist/server.js   (set PORT to override 8080)
 ```
 
 **Frontend**
@@ -178,8 +189,8 @@ Both jobs run on Node 22 with npm caching, a least-privilege token, and concurre
 
 | What                 | Where                                       | Default                        |
 | -------------------- | ------------------------------------------- | ------------------------------ |
-| Backend port         | `PORT` env var                              | `3001`                         |
-| Dev API proxy        | `application/client/vite.config.ts`         | `/api → http://localhost:3001` |
+| Backend port         | `PORT` env var                              | `8080`                         |
+| Dev API proxy        | `application/client/vite.config.ts`         | `/api → http://localhost:8080` |
 | Allowed CORS origins | `application/src/app.ts` (`ALLOWED_ORIGIN`) | `localhost` / `127.0.0.1`      |
 
 ## Contributing

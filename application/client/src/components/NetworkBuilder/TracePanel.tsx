@@ -1,5 +1,5 @@
 import { X, CheckCircle, XCircle, AlertTriangle, ArrowRight, Clock } from 'lucide-react'
-import type { TraceResult, TraceHop } from '../../api/client'
+import type { TraceResult, TraceHop } from '../../lib/api'
 import { meta } from './deviceCatalog'
 
 const ACTION_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {

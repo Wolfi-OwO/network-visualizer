@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { NetworkTopology, NetworkNode, NetworkEdge, FirewallRule, RoutingTableEntry } from '../types';
+import { NetworkTopology, NetworkNode, NetworkEdge, FirewallRule, RoutingTableEntry } from '../types/index.js';
 
 const topologies = new Map<string, NetworkTopology>();
 

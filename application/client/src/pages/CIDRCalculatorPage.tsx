@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { Calculator, ChevronDown, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react'
-import type { CIDRResult } from '../../types'
-import { cidr as cidrApi } from '../../api/client'
+import type { CIDRResult } from '../types'
+import { cidr as cidrApi } from '../lib/api'
 
 const PRESETS = [
   '192.168.1.0/24', '10.0.0.0/8', '172.16.0.0/12',

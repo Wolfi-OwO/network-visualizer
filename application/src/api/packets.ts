@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import * as sim from '../services/packetSimulator';
+import * as sim from '../services/packetSimulator.js';
+import { BadRequestError, NotFoundError } from '../lib/errors.js';
 
 const router = Router();
 
@@ -59,11 +60,9 @@ router.get('/', (req: Request, res: Response) => {
 
 router.get('/:id', (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
+  if (Number.isNaN(id)) throw new BadRequestError('id must be a number');
   const packet = sim.getPacketById(id);
-  if (!packet) {
-    res.status(404).json({ error: 'Packet not found' });
-    return;
-  }
+  if (!packet) throw new NotFoundError('Packet not found');
   res.json(packet);
 });
 

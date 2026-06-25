@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import type { NetworkTopology, NetworkNode, FirewallRule, ServiceConfig, RoutingTableEntry } from '../types'
+import type { NetworkTopology, NetworkNode, FirewallRule, ServiceConfig, RoutingTableEntry } from '../types/index.js'
 
 // Realistic application-layer response banner for a reached service
 function serviceBanner(svc: ServiceConfig, node: NetworkNode, dstIp: string): string {

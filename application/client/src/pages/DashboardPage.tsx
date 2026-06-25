@@ -1,16 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Activity, Network, Calculator, Server, Shield, Wifi, ArrowRight } from 'lucide-react'
-import type { PacketStats, NetworkTopology } from '../../types'
-import { packets as packetsApi, network as networkApi } from '../../api/client'
-import type { Page } from '../Layout/Sidebar'
+import type { PacketStats, NetworkTopology } from '../types'
+import { packets as packetsApi, network as networkApi } from '../lib/api'
 
 const PROTO_COLORS: Record<string, string> = {
   HTTP: '#3fb950', DNS: '#58a6ff', TCP: '#8b949e',
   UDP: '#d29922', ICMP: '#f85149', ARP: '#bc8cff', TLS: '#ffa657',
-}
-
-interface DashboardPageProps {
-  onNavigate: (page: Page) => void
 }
 
 function StatCard({ label, value, sub, icon, color }: {
@@ -51,7 +47,8 @@ function QuickAction({ label, desc, icon, color, onClick }: {
   )
 }
 
-export default function DashboardPage({ onNavigate }: DashboardPageProps) {
+export default function DashboardPage() {
+  const navigate = useNavigate()
   const [stats, setStats] = useState<PacketStats | null>(null)
   const [topology, setTopology] = useState<NetworkTopology | null>(null)
 
@@ -128,21 +125,21 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
             desc="Wireshark-like live capture"
             icon={<Activity size={18} />}
             color="#58a6ff"
-            onClick={() => onNavigate('packets')}
+            onClick={() => navigate('/packets')}
           />
           <QuickAction
             label="Network Builder"
             desc="Design & configure topologies"
             icon={<Network size={18} />}
             color="#3fb950"
-            onClick={() => onNavigate('network')}
+            onClick={() => navigate('/network')}
           />
           <QuickAction
             label="CIDR Calculator"
             desc="Subnet & supernet calculator"
             icon={<Calculator size={18} />}
             color="#d29922"
-            onClick={() => onNavigate('cidr')}
+            onClick={() => navigate('/cidr')}
           />
         </div>
 
