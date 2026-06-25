@@ -155,7 +155,7 @@ npm run preview    # optional local preview
 
 Serve `application/client/dist/` from any static host (nginx, Caddy, a CDN, …).
 
-> **Production note:** the SPA talks to the backend at `/api`. Put both behind one origin (reverse-proxy `/api` → the Node server) so the browser stays same-origin. The backend's CORS allowlist accepts `localhost` / `127.0.0.1` out of the box — widen `ALLOWED_ORIGIN` in `application/src/app.ts` for your production domain.
+> **Production note:** the SPA talks to the backend at `/api`. Put both behind one origin (reverse-proxy `/api` → the Node server) so the browser stays same-origin. The backend's CORS allowlist accepts `localhost` / `127.0.0.1` out of the box — set `CORS_ORIGINS` (comma-separated) to your production domain(s). All configuration is environment-driven (see `application/.env.example`).
 
 ## Testing & quality
 
@@ -187,11 +187,18 @@ Both jobs run on Node 22 with npm caching, a least-privilege token, and concurre
 
 ## Configuration
 
-| What                 | Where                                       | Default                        |
-| -------------------- | ------------------------------------------- | ------------------------------ |
-| Backend port         | `PORT` env var                              | `8080`                         |
-| Dev API proxy        | `application/client/vite.config.ts`         | `/api → http://localhost:8080` |
-| Allowed CORS origins | `application/src/app.ts` (`ALLOWED_ORIGIN`) | `localhost` / `127.0.0.1`      |
+All backend configuration is read from the environment in `application/src/config/index.ts` (see `application/.env.example`); the frontend reads `VITE_*` vars in `application/client/src/config.ts` (see `application/client/.env.example`).
+
+| Variable           | Where            | Default                        |
+| ------------------ | ---------------- | ------------------------------ |
+| `HOST`             | backend          | `0.0.0.0`                      |
+| `PORT`             | backend          | `8080`                         |
+| `NODE_ENV`         | backend          | `development`                  |
+| `CORS_ORIGINS`     | backend          | `localhost` / `127.0.0.1`      |
+| `JSON_BODY_LIMIT`  | backend          | `8mb`                          |
+| `VITE_APP_VERSION` | frontend         | `1.0.0`                        |
+| `VITE_REPO_URL`    | frontend         | project repo                   |
+| Dev API proxy      | `vite.config.ts` | `/api → http://localhost:8080` |
 
 ## Contributing
 

@@ -23,8 +23,6 @@ export default function Footer() {
       {/* Right — links */}
       <nav className="flex items-center gap-4 font-medium text-[var(--text-secondary)] whitespace-nowrap">
         <a href={appConfig.repoUrl} target="_blank" rel="noreferrer" className="hover:text-[var(--text-primary)] transition-colors">About</a>
-        <a href="#" className="hover:text-[var(--text-primary)] transition-colors">Privacy Policy</a>
-        <a href="#" className="hover:text-[var(--text-primary)] transition-colors">Contact</a>
       </nav>
     </footer>
   )
