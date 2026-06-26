@@ -62,3 +62,13 @@ jobs:
 
       - name: Type-check & build
         run: npm run build
+
+      # The frontend has no Docker image of its own — it is built here and
+      # published as an artifact. The backend image bakes this dist in
+      # (Dockerfile: COPY client/dist ./client/dist) and serves it.
+      - name: Upload client/dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-dist
+          path: application/client/dist
+          if-no-files-found: error

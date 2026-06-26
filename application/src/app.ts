@@ -10,11 +10,14 @@ import cidrRouter from './routes/cidr.routes.js';
 import packetsRouter from './routes/packets.routes.js';
 import captureRouter from './routes/capture.routes.js';
 
-const __dirname = import.meta.dirname;
+// The built SPA is served from <cwd>/client/dist. In dev the cwd is the
+// `application/` package; in the Docker image it is /app (where the CI-built
+// client/dist artifact is copied to). Same resolution in both cases.
+const clientDist = path.join(process.cwd(), 'client', 'dist');
 
 const app = express();
 
-app.use(express.static(path.join(__dirname, '..', 'client', 'dist')))
+app.use(express.static(clientDist))
 
 // Restrict CORS to local development origins (and same-origin / tooling requests
 // that send no Origin header). Avoids a wide-open `origin: '*'`.
@@ -40,7 +43,7 @@ app.use('/api/packets', packetsRouter);
 app.use('/api/capture', captureRouter);
 
 app.get(/^(?!\/api).*/, (_req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'client', 'dist', 'index.html'));
+    res.sendFile(path.join(clientDist, 'index.html'));
 });
 
 app.use(notFound);

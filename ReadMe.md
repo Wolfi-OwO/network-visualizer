@@ -77,7 +77,7 @@ routing-visualizer/
 │     │  ├─ config/             # frontend config (VITE_* env vars)
 │     │  ├─ styles/             # global CSS
 │     │  └─ types/              # shared types (mirror of backend)
-│     ├─ Dockerfile · nginx.conf · .prettierrc
+│     ├─ .prettierrc            # no Docker image — built in CI as the `client-dist` artifact
 │     └─ vite.config.ts         # dev proxy  /api → http://localhost:8080
 ├─ .github/workflows/ci.yml     # CI: typecheck + lint + build
 ├─ docker-compose.yml           # full stack: mongo + backend (+ frontend)
@@ -158,9 +158,16 @@ npm run build      # → application/client/dist/ (static assets)
 npm run preview    # optional local preview
 ```
 
-Serve `application/client/dist/` from any static host (nginx, Caddy, a CDN, …).
+The frontend has **no Docker image of its own**. In CI it is built and published as the `client-dist` artifact; the backend Docker image then bakes that bundle in (`COPY client/dist ./client/dist`) and serves it as static files with SPA fallback. To build the backend image locally, build the frontend first so `application/client/dist/` exists in the build context:
 
-> **Production note:** the SPA talks to the backend at `/api`. Put both behind one origin (reverse-proxy `/api` → the Node server) so the browser stays same-origin. The backend's CORS allowlist accepts `localhost` / `127.0.0.1` out of the box — set `CORS_ORIGINS` (comma-separated) to your production domain(s). All configuration is environment-driven (see `application/.env.example`).
+```bash
+cd application/client && npm run build      # produces client/dist
+cd ..                && docker build -t netviz .
+```
+
+Alternatively serve `application/client/dist/` from any static host (Caddy, a CDN, …) and point it at the backend.
+
+> **Production note:** the SPA talks to the backend at `/api`, and the backend serves the SPA from `<cwd>/client/dist`, so a single origin works out of the box. The backend's CORS allowlist accepts `localhost` / `127.0.0.1` — set `CORS_ORIGINS` (comma-separated) for your production domain(s). All configuration is environment-driven (see `application/.env.example`).
 
 ## Testing & quality
 
