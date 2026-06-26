@@ -5,7 +5,8 @@
     "dev": "nodemon --watch src --watch server.ts --ext ts --exec \"node --import ./register-tsnode.mjs server.ts\"",
     "build": "tsc",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import ./register-tsnode.mjs --test tests/api.test.ts"
   },
   "dependencies": {
     "@godaddy/terminus": "^4.12.1",

@@ -1,11 +1,23 @@
 # Run the full stack: `docker compose up --build`
 # Frontend served on http://localhost:8080 (proxies /api → backend)
 services:
+  mongo:
+    image: mongo:7
+    # Equivalent of: docker run -p 27017:27017 mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
   backend:
     build: ./application
     environment:
       NODE_ENV: production
       PORT: "8080"
+      MONGO_URI: "mongodb://mongo:27017/netviz"
+    depends_on:
+      - mongo
     expose:
       - "8080"
     ports:
@@ -19,3 +31,6 @@ services:
     ports:
       - "8080:80"
     restart: unless-stopped
+
+volumes:
+  mongo-data:
