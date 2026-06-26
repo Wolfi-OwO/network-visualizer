@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react'
+import { useState, useReducer, useCallback } from 'react'
 import { Calculator, ChevronDown, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react'
-import type { CIDRResult } from '../../types/index.ts'
 import { cidr as cidrApi } from '../../lib/api/index.ts'
+import { cidrReducer, initialCidrState } from './cidr-calculator-page.reducer.ts'
 
 const PRESETS = [
   '192.168.1.0/24', '10.0.0.0/8', '172.16.0.0/12',
@@ -61,54 +61,40 @@ function ResultRow({ label, value, mono, copyable, extra }: {
 }
 
 export default function CIDRCalculatorPage() {
-  const [input, setInput] = useState('192.168.1.0/24')
-  const [result, setResult] = useState<CIDRResult | null>(null)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [showSubnets, setShowSubnets] = useState(false)
-  const [subnets, setSubnets] = useState<CIDRResult[]>([])
-  const [subnetCount, setSubnetCount] = useState('4')
-  const [subnetPrefix, setSubnetPrefix] = useState('')
-  const [subnetLoading, setSubnetLoading] = useState(false)
-
-  // Supernet state
-  const [supernetInputs, setSupernetInputs] = useState(['192.168.0.0/24', '192.168.1.0/24'])
-  const [supernetResult, setSupernetResult] = useState<CIDRResult | null>(null)
+  const [state, dispatch] = useReducer(cidrReducer, initialCidrState)
+  const {
+    input, result, error, loading, showSubnets, subnets,
+    subnetCount, subnetPrefix, subnetLoading, supernetInputs, supernetResult,
+  } = state
 
   const calculate = useCallback(async (value?: string) => {
     const v = value ?? input
     if (!v.trim()) return
-    setLoading(true)
-    setError('')
-    setResult(null)
-    setSubnets([])
-    setShowSubnets(false)
+    dispatch({ type: 'patch', values: { loading: true, error: '', result: null, subnets: [], showSubnets: false } })
     try {
       const { data } = await cidrApi.calculate(v.trim())
-      setResult(data)
-      setInput(data.networkAddress + '/' + data.cidrPrefix)
+      dispatch({ type: 'set', key: 'result', value: data })
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Invalid CIDR notation'
-      setError(msg)
+      dispatch({ type: 'set', key: 'error', value: msg })
     } finally {
-      setLoading(false)
+      dispatch({ type: 'set', key: 'loading', value: false })
     }
   }, [input])
 
   const calcSubnets = useCallback(async () => {
     if (!result) return
-    setSubnetLoading(true)
+    dispatch({ type: 'set', key: 'subnetLoading', value: true })
     try {
       const count = subnetPrefix ? undefined : parseInt(subnetCount) || 4
       const prefix = subnetPrefix ? parseInt(subnetPrefix) : undefined
       const { data } = await cidrApi.subnets(result.networkAddress + '/' + result.cidrPrefix, count, prefix)
-      setSubnets(data.items)
-      setShowSubnets(true)
+      dispatch({ type: 'patch', values: { subnets: data.items, showSubnets: true } })
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Failed'
-      setError(msg)
+      dispatch({ type: 'set', key: 'error', value: msg })
     } finally {
-      setSubnetLoading(false)
+      dispatch({ type: 'set', key: 'subnetLoading', value: false })
     }
   }, [result, subnetCount, subnetPrefix])
 
@@ -116,10 +102,10 @@ export default function CIDRCalculatorPage() {
     try {
       const nets = supernetInputs.filter(s => s.trim())
       const { data } = await cidrApi.supernet(nets)
-      setSupernetResult(data)
+      dispatch({ type: 'set', key: 'supernetResult', value: data })
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Failed'
-      setError(msg)
+      dispatch({ type: 'set', key: 'error', value: msg })
     }
   }, [supernetInputs])
 
@@ -140,7 +126,7 @@ export default function CIDRCalculatorPage() {
             <input
               className="input flex-1 font-mono text-sm"
               value={input}
-              onChange={e => setInput(e.target.value)}
+              onChange={e => dispatch({ type: 'set', key: 'input', value: e.target.value })}
               onKeyDown={e => e.key === 'Enter' && calculate()}
               placeholder="192.168.1.0/24 or 10.0.0.1 255.255.255.0"
               spellCheck={false}
@@ -156,7 +142,7 @@ export default function CIDRCalculatorPage() {
             {PRESETS.map(p => (
               <button
                 key={p}
-                onClick={() => { setInput(p); calculate(p) }}
+                onClick={() => { dispatch({ type: 'set', key: 'input', value: p }); calculate(p) }}
                 className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--bg-700)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--bg-600)] transition-colors border border-[var(--border)]"
               >
                 {p}
@@ -258,7 +244,7 @@ export default function CIDRCalculatorPage() {
             <div className="card p-4">
               <div
                 className="flex items-center justify-between cursor-pointer"
-                onClick={() => setShowSubnets(v => !v)}
+                onClick={() => dispatch({ type: 'set', key: 'showSubnets', value: v => !v })}
               >
                 <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Subnet Calculator</div>
                 {showSubnets ? <ChevronDown size={14} className="text-[var(--text-muted)]" /> : <ChevronRight size={14} className="text-[var(--text-muted)]" />}
@@ -269,14 +255,14 @@ export default function CIDRCalculatorPage() {
                 <input
                   className="input w-16"
                   value={subnetCount}
-                  onChange={e => { setSubnetCount(e.target.value); setSubnetPrefix('') }}
+                  onChange={e => dispatch({ type: 'patch', values: { subnetCount: e.target.value, subnetPrefix: '' } })}
                   placeholder="count"
                 />
                 <span className="text-xs text-[var(--text-muted)]">subnets  — or use prefix</span>
                 <input
                   className="input w-16 font-mono"
                   value={subnetPrefix}
-                  onChange={e => { setSubnetPrefix(e.target.value); setSubnetCount('') }}
+                  onChange={e => dispatch({ type: 'patch', values: { subnetPrefix: e.target.value, subnetCount: '' } })}
                   placeholder="/26"
                 />
                 <button onClick={calcSubnets} disabled={subnetLoading} className="btn-ghost">
@@ -323,16 +309,12 @@ export default function CIDRCalculatorPage() {
                 <input
                   className="input font-mono flex-1"
                   value={v}
-                  onChange={e => {
-                    const updated = [...supernetInputs]
-                    updated[i] = e.target.value
-                    setSupernetInputs(updated)
-                  }}
+                  onChange={e => dispatch({ type: 'set', key: 'supernetInputs', value: prev => prev.map((s, j) => (j === i ? e.target.value : s)) })}
                   placeholder="192.168.0.0/24"
                 />
                 {supernetInputs.length > 2 && (
                   <button
-                    onClick={() => setSupernetInputs(inp => inp.filter((_, j) => j !== i))}
+                    onClick={() => dispatch({ type: 'set', key: 'supernetInputs', value: inp => inp.filter((_, j) => j !== i) })}
                     className="btn-ghost text-[var(--red)] border-[var(--red)]/30"
                   >✕</button>
                 )}
@@ -340,7 +322,7 @@ export default function CIDRCalculatorPage() {
             ))}
             <div className="flex gap-2">
               <button
-                onClick={() => setSupernetInputs(inp => [...inp, ''])}
+                onClick={() => dispatch({ type: 'set', key: 'supernetInputs', value: inp => [...inp, ''] })}
                 className="btn-ghost text-xs"
               >
                 + Add Network

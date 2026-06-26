@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useReducer, useMemo, useCallback, useEffect, useRef, type SetStateAction } from 'react'
 import {
   ReactFlow, Background, Controls, MiniMap,
   addEdge, useNodesState, useEdgesState,
@@ -6,7 +6,7 @@ import {
   BackgroundVariant, ConnectionMode,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Save, RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle, X, GraduationCap, Hammer, Activity, Undo2, Redo2 } from 'lucide-react'
+import { Save, RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle, X, GraduationCap, Hammer, Activity, Undo2, Redo2, ShieldCheck, TerminalSquare, Download } from 'lucide-react'
 import type { NetworkTopology, NetworkNode as NetNode, NetworkEdge as NetEdge, NodeType, NetworkNodeConfig, NetworkInterface } from '../../types/index.ts'
 import type { TraceResult } from '../../lib/api/index.ts'
 import { network as networkApi } from '../../lib/api/index.ts'
@@ -21,6 +21,9 @@ import PacketSender from './packet-sender.tsx'
 import TracePanel from './trace-panel.tsx'
 import Tutorial, { TUTORIAL_SEEN_KEY } from './tutorial.tsx'
 import GuidedBuild from './guided-build.tsx'
+import ValidationPanel from './validation-panel.tsx'
+import DeviceStatePanel from './device-state-panel.tsx'
+import { builderReducer, initialBuilderState, type BuilderState } from './network-builder-page.reducer.ts'
 
 // ── Converters ───────────────────────────────────────────────────────────────
 
@@ -43,6 +46,28 @@ function toFlowEdge(e: NetEdge): Edge<PacketEdgeData> {
       linkStatus: e.config?.status,
     },
   }
+}
+
+// Parse a bandwidth string ("1 Gbps", "100 Mbps", "64 Kbps") to Mbps.
+function bwToMbps(s?: string): number {
+  if (!s) return 100
+  const n = parseFloat(s)
+  if (!Number.isFinite(n) || n <= 0) return 100
+  if (/g/i.test(s)) return n * 1000
+  if (/k/i.test(s)) return n / 1000
+  return n
+}
+
+// Relative per-hop animation duration: a hop takes longer on a high-latency /
+// low-bandwidth link than on a fast one (propagation ∝ latency, serialization ∝
+// 1/bandwidth), referenced to a 100 Mbps / 1 ms link and bounded so it stays
+// watchable. `baseMs` is the Fast/Normal/Slow speed setting.
+function hopDuration(baseMs: number, latencyMs?: number, bandwidth?: string): number {
+  const refLat = 1, refBw = 100
+  const lat = latencyMs && latencyMs > 0 ? latencyMs : refLat
+  const bw = bwToMbps(bandwidth)
+  const mult = Math.sqrt(lat / refLat) * Math.sqrt(refBw / bw)
+  return Math.round(Math.min(baseMs * 3, Math.max(baseMs * 0.35, baseMs * mult)))
 }
 
 // Map a ReactFlow edge back to a persistable NetworkEdge
@@ -280,20 +305,38 @@ interface TopoSnapshot { nodes: NetNode[]; edges: NetEdge[] }
 let nodeCounter = 100
 
 export default function NetworkBuilderPage() {
-  const [topology, setTopology] = useState<NetworkTopology | null>(null)
+  const [builder, dispatch] = useReducer(builderReducer, initialBuilderState)
+  const {
+    topology, selectedNodeId, selectedEdgeId, showValidation, showState,
+    showTutorial, guidedActive, saving, status, traceResult, traceStep,
+    isAnimating, isPaused, animSpeed, liveMode,
+  } = builder
+  // Stable setX wrappers backed by the reducer (dispatch is stable), so existing
+  // call sites and effect dependency arrays keep working unchanged.
+  const {
+    setTopology, setSelectedNodeId, setSelectedEdgeId, setShowValidation, setShowState,
+    setShowTutorial, setGuidedActive, setSaving, setStatus, setTraceResult, setTraceStep,
+    setIsAnimating, setIsPaused, setAnimSpeed, setLiveMode, setHistTick,
+  } = useMemo(() => ({
+    setTopology: (v: SetStateAction<BuilderState['topology']>) => dispatch({ type: 'set', key: 'topology', value: v }),
+    setSelectedNodeId: (v: SetStateAction<BuilderState['selectedNodeId']>) => dispatch({ type: 'set', key: 'selectedNodeId', value: v }),
+    setSelectedEdgeId: (v: SetStateAction<BuilderState['selectedEdgeId']>) => dispatch({ type: 'set', key: 'selectedEdgeId', value: v }),
+    setShowValidation: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'showValidation', value: v }),
+    setShowState: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'showState', value: v }),
+    setShowTutorial: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'showTutorial', value: v }),
+    setGuidedActive: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'guidedActive', value: v }),
+    setSaving: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'saving', value: v }),
+    setStatus: (v: SetStateAction<string>) => dispatch({ type: 'set', key: 'status', value: v }),
+    setTraceResult: (v: SetStateAction<BuilderState['traceResult']>) => dispatch({ type: 'set', key: 'traceResult', value: v }),
+    setTraceStep: (v: SetStateAction<number>) => dispatch({ type: 'set', key: 'traceStep', value: v }),
+    setIsAnimating: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'isAnimating', value: v }),
+    setIsPaused: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'isPaused', value: v }),
+    setAnimSpeed: (v: SetStateAction<number>) => dispatch({ type: 'set', key: 'animSpeed', value: v }),
+    setLiveMode: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'liveMode', value: v }),
+    setHistTick: (v: SetStateAction<number>) => dispatch({ type: 'set', key: 'histTick', value: v }),
+  }), [])
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<NetworkNodeData>>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge<PacketEdgeData>>([])
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
-  const [showTutorial, setShowTutorial] = useState(false)
-  const [guidedActive, setGuidedActive] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [status, setStatus] = useState('')
-  const [traceResult, setTraceResult] = useState<TraceResult | null>(null)
-  const [traceStep, setTraceStep] = useState(-1)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [isPaused, setIsPaused] = useState(false)
-  const [animSpeed, setAnimSpeed] = useState(700)
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const connectingNodeId = useRef<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -310,7 +353,6 @@ export default function NetworkBuilderPage() {
   const remainingRef = useRef(0)
 
   // ── Live simulation (auto-DHCP + background traffic) ──
-  const [liveMode, setLiveMode] = useState(true)
   const liveRef = useRef(true)
   const isAnimatingRef = useRef(false)
   const quietRef = useRef(false)              // current flow is background (no panel)
@@ -367,7 +409,6 @@ export default function NetworkBuilderPage() {
 
   // ── Undo / Redo / Autosave (structural topology only — ignores live state) ──
   const historyRef = useRef<{ past: TopoSnapshot[]; future: TopoSnapshot[] }>({ past: [], future: [] })
-  const [, setHistTick] = useState(0)
 
   // Sanitised snapshot of the editable topology (no pulses/highlights/anim state)
   const serializeTopology = useCallback((): TopoSnapshot => ({
@@ -638,7 +679,9 @@ export default function NetworkBuilderPage() {
         onAbort?.()
         return
       }
-      const edgeDur = animSpeedRef.current   // live speed (changes apply per hop)
+      // Per-hop duration follows the speed setting *and* the link's own
+      // latency/bandwidth, so a slow WAN link visibly lags a fast LAN link.
+      const edgeDur = hopDuration(animSpeedRef.current, edge.data?.latencyMs as number | undefined, edge.data?.bandwidth as string | undefined)
       const reversed = edge.source !== path[i]   // travelling target→source?
       const pulseId = `${agentId}-${i}`
       addPulse(edgeId, { id: pulseId, color, reversed, dur: edgeDur, label })
@@ -777,51 +820,77 @@ export default function NetworkBuilderPage() {
     //    an IP (a device without an address can't make application requests).
     if (!liveRef.current || editingRef.current) return
     const hasIp = (n: Node<NetworkNodeData>) => !!data(n).config.interfaces?.[0]?.ipAddress
-    const hosts = flowNodes.filter(n => isOn(n) && hasIp(n) && ['pc', 'phone', 'printer', 'laptop', 'iot'].includes(data(n).type))
-    const targets = flowNodes.filter(n => isOn(n) && hasIp(n) && ['server', 'www', 'dns', 'mailserver', 'fileserver', 'database', 'load_balancer', 'proxy', 'api_gateway'].includes(data(n).type))
-    if (hosts.length === 0) return
-    const dnsServer = flowNodes.find(n => isOn(n) && hasIp(n) && (data(n).type === 'dns'))
 
-    const APP: Record<string, { label: string; color: string }> = {
-      server:        { label: 'HTTPS', color: '#3fb950' },
-      www:           { label: 'HTTPS', color: '#38bdf8' },
-      proxy:         { label: 'HTTPS', color: '#bc8cff' },
-      api_gateway:   { label: 'API',   color: '#c297ff' },
-      load_balancer: { label: 'HTTPS', color: '#d2a8ff' },
-      mailserver:    { label: 'SMTP',  color: '#e3b341' },
-      fileserver:    { label: 'SMB',   color: '#56d4dd' },
-      database:      { label: 'SQL',   color: '#f778ba' },
-      dns:           { label: 'DNS',   color: '#a371f7' },
+    // Only real clients initiate ambient sessions. Printers, servers and
+    // infrastructure are destinations — a printer never "browses".
+    const clients = flowNodes.filter(n => isOn(n) && hasIp(n) && ['pc', 'phone', 'laptop', 'iot'].includes(data(n).type))
+    if (clients.length === 0) return
+    const dnsServer = flowNodes.find(n => isOn(n) && hasIp(n) && data(n).type === 'dns')
+    const databases = flowNodes.filter(n => isOn(n) && hasIp(n) && data(n).type === 'database')
+
+    // What each server role actually speaks, so the label matches the device:
+    // a printer gets IPP, a file server SMB, a mail server IMAP — not HTTP.
+    const SERVICE: Record<string, { label: string; color: string; usesDns: boolean; appTier?: boolean }> = {
+      www:           { label: 'HTTPS', color: '#38bdf8', usesDns: true, appTier: true },
+      server:        { label: 'HTTPS', color: '#3fb950', usesDns: true, appTier: true },
+      proxy:         { label: 'HTTPS', color: '#bc8cff', usesDns: true, appTier: true },
+      api_gateway:   { label: 'HTTPS', color: '#c297ff', usesDns: true, appTier: true },
+      load_balancer: { label: 'HTTPS', color: '#d2a8ff', usesDns: true, appTier: true },
+      mailserver:    { label: 'IMAP',  color: '#e3b341', usesDns: false },
+      fileserver:    { label: 'SMB',   color: '#56d4dd', usesDns: false },
+      nas:           { label: 'SMB',   color: '#56d4dd', usesDns: false },
+      storage:       { label: 'SMB',   color: '#56d4dd', usesDns: false },
+      printer:       { label: 'IPP',   color: '#f0a35e', usesDns: false },
     }
 
     // Cap concurrent dots so large topologies don't drown in re-renders
     const activePulses = edgesRef.current.reduce((s, e) => s + ((e.data?.pulses as PulseDot[] | undefined)?.length ?? 0), 0)
     if (activePulses > 24) return
 
+    const back = (q: { path: string[]; edgePath: string[] }) => ({ path: [...q.path].reverse(), edgePath: [...q.edgePath].reverse() })
+
     const burst = 1 + Math.floor(Math.random() * 3)   // 1–3 concurrent sessions
     for (let k = 0; k < burst; k++) {
-      const src = hosts[Math.floor(Math.random() * hosts.length)]
-      const pool = targets.filter(t => t.id !== src.id)
-      if (pool.length === 0) continue
-      const dst = pool[Math.floor(Math.random() * pool.length)]
+      const src = clients[Math.floor(Math.random() * clients.length)]
+      const srcType = data(src).type
+
+      // Role-appropriate destination. IoT only sends telemetry to gateways/cloud.
+      let candidates = flowNodes.filter(n => isOn(n) && hasIp(n) && n.id !== src.id && SERVICE[data(n).type])
+      if (srcType === 'iot') candidates = candidates.filter(n => ['api_gateway', 'www', 'server'].includes(data(n).type))
+      if (candidates.length === 0) continue
+      const dst = candidates[Math.floor(Math.random() * candidates.length)]
+      const svc = SERVICE[data(dst).type]
+      if (!svc) continue
+      const label = srcType === 'iot' ? 'MQTT' : svc.label
+      const color = srcType === 'iot' ? '#7ee787' : svc.color
+
       const p = findPath(src.id, dst.id, simpleEdges)
       if (!p) continue
-      const app = APP[data(dst).type] ?? { label: 'TCP', color: '#58a6ff' }
 
-      // Realistic session: resolve the name via DNS first (if a resolver exists
-      // and the target isn't the DNS server itself), then make the app request.
+      // Backend tier: an app/web server queries a database after the request.
+      const maybeBackend = () => {
+        if (!svc.appTier || databases.length === 0 || Math.random() > 0.4) return
+        const db = databases[Math.floor(Math.random() * databases.length)]
+        if (db.id === dst.id) return
+        const q = findPath(dst.id, db.id, simpleEdges)
+        if (!q) return
+        spawnAgent(q.path, q.edgePath, '#f778ba', 'SQL', () => spawnAgent(back(q).path, back(q).edgePath, '#f778ba', 'SQL ◂'))
+      }
+
       const doApp = () => {
-        spawnAgent(p.path, p.edgePath, app.color, app.label, () => {
-          const back = { path: [...p.path].reverse(), edgePath: [...p.edgePath].reverse() }
-          spawnAgent(back.path, back.edgePath, app.color, `${app.label} ◂`)
+        spawnAgent(p.path, p.edgePath, color, label, () => {
+          const rb = back(p)
+          spawnAgent(rb.path, rb.edgePath, color, `${label} ◂`, maybeBackend)
         })
       }
-      if (dnsServer && dnsServer.id !== dst.id && Math.random() < 0.6) {
+
+      // DNS name resolution precedes web/app connections only (file/print/mail
+      // to a known local server don't trigger a fresh lookup every time).
+      if (svc.usesDns && dnsServer && dnsServer.id !== dst.id && Math.random() < 0.6) {
         const dq = findPath(src.id, dnsServer.id, simpleEdges)
         if (dq) {
           spawnAgent(dq.path, dq.edgePath, '#a371f7', 'DNS query', () => {
-            const dback = { path: [...dq.path].reverse(), edgePath: [...dq.edgePath].reverse() }
-            spawnAgent(dback.path, dback.edgePath, '#a371f7', 'DNS reply', doApp)
+            spawnAgent(back(dq).path, back(dq).edgePath, '#a371f7', 'DNS reply', doApp)
           })
           continue
         }
@@ -1038,6 +1107,20 @@ export default function NetworkBuilderPage() {
           <Hammer size={12} />Build
         </button>
         <button
+          onClick={() => { handleSave(); setShowValidation(v => !v) }}
+          className={showValidation ? 'btn-primary' : 'btn-ghost'}
+          title="Validate the design (saves first, then runs all checks)"
+        >
+          <ShieldCheck size={12} />Validate
+        </button>
+        <button
+          onClick={() => { handleSave(); setShowState(v => !v) }}
+          className={showState ? 'btn-primary' : 'btn-ghost'}
+          title="Show the selected device's live state (ARP, MAC, OSPF, STP, ACL, NAT)"
+        >
+          <TerminalSquare size={12} />State
+        </button>
+        <button
           onClick={() => setLiveMode(v => !v)}
           className={liveMode ? 'btn-primary' : 'btn-ghost'}
           title="Toggle live background traffic (hosts request DHCP automatically either way)"
@@ -1052,6 +1135,23 @@ export default function NetworkBuilderPage() {
         </button>
         <div data-tour="toolbar" className="flex items-center gap-2">
           <button onClick={handleSave} disabled={saving} className="btn-primary"><Save size={11} />{saving ? 'Saving…' : 'Save'}</button>
+          <button
+            onClick={async () => {
+              if (!topology?.id) return
+              await handleSave()
+              const { data } = await networkApi.topologyConfig(topology.id)
+              const url = URL.createObjectURL(new Blob([data], { type: 'text/plain' }))
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `${(topology.name ?? 'network').replace(/\s+/g, '-')}.cfg`
+              a.click()
+              URL.revokeObjectURL(url)
+            }}
+            className="btn-ghost"
+            title="Export every device's running-config"
+          >
+            <Download size={11} />Export
+          </button>
           {selectedNode && <button onClick={handleDeleteSelected} className="btn-danger"><Trash2 size={11} />Delete</button>}
           <button onClick={handleReset} className="btn-ghost"><RefreshCw size={11} />Reset</button>
         </div>
@@ -1117,6 +1217,27 @@ export default function NetworkBuilderPage() {
             onClearCanvas={handleClearCanvas}
             onClose={() => setGuidedActive(false)}
           />
+
+          {/* Design-validation "problems" panel */}
+          {showValidation && (
+            <ValidationPanel
+              topologyId={topology?.id}
+              onClose={() => setShowValidation(false)}
+              onFocus={(nodeId, edgeId) => {
+                if (edgeId) { setSelectedNodeId(null); setSelectedEdgeId(edgeId) }
+                else if (nodeId) { setSelectedEdgeId(null); setSelectedNodeId(nodeId) }
+              }}
+            />
+          )}
+
+          {/* Per-device control-plane / operational state */}
+          {showState && (
+            <DeviceStatePanel
+              topologyId={topology?.id}
+              nodeId={selectedNodeId}
+              onClose={() => setShowState(false)}
+            />
+          )}
         </div>
 
         {/* Right inspector (resizable): trace > edge > node properties */}

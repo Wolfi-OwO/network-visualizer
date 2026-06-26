@@ -6,6 +6,8 @@ const topologySchema = new Schema(
   {
     /** Business id (uuid) exposed by the API — distinct from Mongo's _id */
     id: { type: String, required: true, unique: true, index: true },
+    /** Owner: the user id, or 'local' for the anonymous workspace */
+    ownerId: { type: String, required: true, default: 'local', index: true },
     name: { type: String, required: true },
     description: { type: String },
     nodes: { type: [Schema.Types.Mixed], default: [] },
@@ -23,6 +25,7 @@ const topologySchema = new Schema(
         delete ret._id
         delete ret.__v
         delete ret.isDefault
+        delete ret.ownerId
         return ret
       },
     },

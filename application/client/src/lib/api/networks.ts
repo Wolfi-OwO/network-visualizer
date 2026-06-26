@@ -1,6 +1,36 @@
 import { api } from './client.ts'
 import type { NetworkTopology, NetworkNode, NetworkEdge } from '../../types/index.ts'
 
+export type Severity = 'error' | 'warning' | 'info'
+export interface ValidationFinding {
+  id: string
+  severity: Severity
+  category: string
+  message: string
+  nodeId?: string
+  nodeLabel?: string
+  edgeId?: string
+}
+export interface ValidationReport {
+  ok: boolean
+  counts: { error: number; warning: number; info: number }
+  checks: number
+  findings: ValidationFinding[]
+}
+
+export interface ControlPlaneReport {
+  nodeId: string
+  type: string
+  hostname: string
+  arp?: { ip: string; mac: string; iface: string; type: string }[]
+  macTable?: { vlan: number; mac: string; port: string; type: string }[]
+  dhcpLeases?: { ip: string; mac: string; hostname: string; state: string; lease: string }[]
+  ospfNeighbors?: { neighborId: string; state: string; address: string; iface: string }[]
+  stp?: { bridgeId: string; rootBridgeId: string; isRoot: boolean; ports: { port: string; neighbor: string; role: string; state: string }[] }
+  acl?: { seq: number; action: string; protocol: string; src: string; dst: string; direction: string; hits: number; enabled: boolean }[]
+  nat?: { protocol: string; insideLocal: string; insideGlobal: string; outsideGlobal: string }[]
+}
+
 // Topologies — RESTful resource at /api/networks
 export const network = {
   list: () => api.get<{ items: NetworkTopology[]; count: number }>('/networks'),
@@ -23,4 +53,11 @@ export const network = {
     api.put<NetworkEdge>(`/networks/${topologyId}/edges/${edgeId}`, data),
   deleteEdge: (topologyId: string, edgeId: string) =>
     api.delete<void>(`/networks/${topologyId}/edges/${edgeId}`),
+  validate: (id: string) => api.get<ValidationReport>(`/networks/${id}/validation`),
+  controlPlane: (id: string, nodeId: string) =>
+    api.get<ControlPlaneReport>(`/networks/${id}/nodes/${nodeId}/control-plane`),
+  deviceConfig: (id: string, nodeId: string) =>
+    api.get<string>(`/networks/${id}/nodes/${nodeId}/config`, { responseType: 'text' }),
+  topologyConfig: (id: string) =>
+    api.get<string>(`/networks/${id}/config`, { responseType: 'text' }),
 }

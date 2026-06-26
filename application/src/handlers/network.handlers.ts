@@ -1,5 +1,8 @@
 import { Request, Response } from 'express'
 import * as networkService from '../db/network-service.js'
+import { validateTopology } from '../services/validation-service.js'
+import { controlPlaneForNode } from '../services/control-plane-service.js'
+import { deviceRunningConfig, topologyConfigBundle } from '../services/config-export-service.js'
 import { BadRequestError, NotFoundError } from '../lib/errors.js'
 import { withLinks, topologyLinks, networksCollectionLinks } from '../lib/hateoas.js'
 
@@ -46,6 +49,51 @@ export async function getTopologyById(req: Request, res: Response): Promise<void
   const topology = await networkService.getTopology(req.params.id)
   if (!topology) throw new NotFoundError('Topology not found')
   res.json(withLinks(topology, topologyLinks(topology.id)))
+}
+
+// GET /api/networks/:id/validation — design-validation report (:id may be "default")
+export async function getValidation(req: Request, res: Response): Promise<void> {
+  const { id } = req.params
+  const topology = id === 'default' ? await networkService.getOrCreateDefault() : await networkService.getTopology(id)
+  if (!topology) throw new NotFoundError('Topology not found')
+  const report = validateTopology(topology)
+  res.json(withLinks(report as object, {
+    self: { href: `/api/networks/${topology.id}/validation` },
+    topology: { href: `/api/networks/${topology.id}` },
+  }))
+}
+
+// GET /api/networks/:id/nodes/:nodeId/control-plane — operational state tables
+// (ARP, MAC, DHCP leases, OSPF, STP, ACL, NAT) for one device.
+export async function getControlPlane(req: Request, res: Response): Promise<void> {
+  const { id, nodeId } = req.params
+  const topology = id === 'default' ? await networkService.getOrCreateDefault() : await networkService.getTopology(id)
+  if (!topology) throw new NotFoundError('Topology not found')
+  const report = controlPlaneForNode(topology, nodeId)
+  if (!report) throw new NotFoundError('Node not found')
+  res.json(withLinks(report as object, {
+    self: { href: `/api/networks/${topology.id}/nodes/${nodeId}/control-plane` },
+    node: { href: `/api/networks/${topology.id}/nodes/${nodeId}` },
+    topology: { href: `/api/networks/${topology.id}` },
+  }))
+}
+
+// GET /api/networks/:id/config — Cisco-style running-config for every device.
+export async function getTopologyConfig(req: Request, res: Response): Promise<void> {
+  const { id } = req.params
+  const topology = id === 'default' ? await networkService.getOrCreateDefault() : await networkService.getTopology(id)
+  if (!topology) throw new NotFoundError('Topology not found')
+  res.type('text/plain').send(topologyConfigBundle(topology))
+}
+
+// GET /api/networks/:id/nodes/:nodeId/config — running-config for one device.
+export async function getDeviceConfig(req: Request, res: Response): Promise<void> {
+  const { id, nodeId } = req.params
+  const topology = id === 'default' ? await networkService.getOrCreateDefault() : await networkService.getTopology(id)
+  if (!topology) throw new NotFoundError('Topology not found')
+  const node = topology.nodes.find((n) => n.id === nodeId)
+  if (!node) throw new NotFoundError('Node not found')
+  res.type('text/plain').send(deviceRunningConfig(topology, node))
 }
 
 export async function updateTopology(req: Request, res: Response): Promise<void> {

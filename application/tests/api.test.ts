@@ -111,6 +111,83 @@ describe('networks', () => {
   })
 })
 
+describe('validation', () => {
+  test('GET /api/networks/default/validation → clean report', async () => {
+    const res = await request(app).get('/api/networks/default/validation')
+    assert.equal(res.status, 200)
+    assert.equal(res.body.ok, true)
+    assert.equal(res.body.counts.error, 0)
+    assert.ok(Array.isArray(res.body.findings))
+    assert.ok(res.body._links.self)
+  })
+
+  test('flags a duplicate IP as an error', async () => {
+    const t = await request(app).post('/api/networks').send({ name: 'Bad Net' })
+    const id = t.body.id
+    const iface = { name: 'eth0', ipAddress: '10.9.9.9', subnetMask: '255.255.255.0', status: 'up' }
+    await request(app).post(`/api/networks/${id}/nodes`).send({ type: 'pc', label: 'A', position: { x: 0, y: 0 }, config: { interfaces: [iface] } })
+    await request(app).post(`/api/networks/${id}/nodes`).send({ type: 'pc', label: 'B', position: { x: 1, y: 1 }, config: { interfaces: [iface] } })
+
+    const res = await request(app).get(`/api/networks/${id}/validation`)
+    assert.equal(res.status, 200)
+    assert.equal(res.body.ok, false)
+    assert.ok(res.body.counts.error >= 1)
+    assert.ok(res.body.findings.some((f: { category: string }) => f.category === 'duplicate-ip'))
+  })
+})
+
+describe('control-plane', () => {
+  test('switch returns a MAC table + STP info', async () => {
+    const res = await request(app).get('/api/networks/default/nodes/switch-1/control-plane')
+    assert.equal(res.status, 200)
+    assert.equal(res.body.type, 'switch')
+    assert.ok(Array.isArray(res.body.macTable))
+    assert.ok(res.body.macTable.length >= 1)
+    assert.ok(res.body.stp)
+    assert.ok(Array.isArray(res.body.stp.ports))
+    assert.ok(res.body._links.self)
+  })
+
+  test('firewall returns ACL with hit counters + NAT + OSPF', async () => {
+    const res = await request(app).get('/api/networks/default/nodes/fw-1/control-plane')
+    assert.equal(res.status, 200)
+    assert.ok(Array.isArray(res.body.acl))
+    assert.ok(res.body.acl.length >= 1)
+    assert.equal(typeof res.body.acl[0].hits, 'number')
+    assert.ok(Array.isArray(res.body.nat))      // fw has public WAN + private LAN
+    assert.ok(res.body.nat.length >= 1)
+  })
+
+  test('host returns an ARP table', async () => {
+    const res = await request(app).get('/api/networks/default/nodes/pc-1/control-plane')
+    assert.equal(res.status, 200)
+    assert.ok(Array.isArray(res.body.arp))
+  })
+
+  test('unknown node → 404', async () => {
+    const res = await request(app).get('/api/networks/default/nodes/nope/control-plane')
+    assert.equal(res.status, 404)
+  })
+})
+
+describe('config export', () => {
+  test('device running-config is Cisco-style text', async () => {
+    const res = await request(app).get('/api/networks/default/nodes/fw-1/config')
+    assert.equal(res.status, 200)
+    assert.match(res.headers['content-type'], /text\/plain/)
+    assert.match(res.text, /hostname /)
+    assert.match(res.text, /ip access-list extended/)
+    assert.match(res.text, /\nend\n?$/)
+  })
+
+  test('topology config bundle covers every device', async () => {
+    const res = await request(app).get('/api/networks/default/config')
+    assert.equal(res.status, 200)
+    assert.match(res.text, /configuration archive/)
+    assert.ok((res.text.match(/hostname /g) ?? []).length >= 5)
+  })
+})
+
 describe('traces', () => {
   test('POST /api/networks/default/traces → 201', async () => {
     const res = await request(app)

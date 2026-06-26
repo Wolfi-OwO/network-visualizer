@@ -1,42 +1,178 @@
-import { Packet, PacketStats, EthernetLayer, IpLayer, UdpLayer, TcpLayer, ProtoView } from '../types/index.js';
+import {
+  Packet, PacketStats, EthernetLayer, IpLayer, TcpLayer, UdpLayer, ProtoView,
+} from '../types/index.js';
 
-const HOSTS = [
-  { ip: '10.0.0.1', mac: '00:1a:2b:3c:4d:01', name: 'gateway' },
-  { ip: '10.0.0.10', mac: '00:1a:2b:3c:4d:10', name: 'pc1' },
-  { ip: '10.0.0.11', mac: '00:1a:2b:3c:4d:11', name: 'pc2' },
-  { ip: '10.0.0.20', mac: '00:1a:2b:3c:4d:20', name: 'server' },
-  { ip: '10.0.0.30', mac: '00:1a:2b:3c:4d:30', name: 'switch' },
-  { ip: '8.8.8.8', mac: 'aa:bb:cc:dd:ee:ff', name: 'dns-google' },
-  { ip: '1.1.1.1', mac: 'aa:bb:cc:00:11:22', name: 'dns-cloudflare' },
-  { ip: '93.184.216.34', mac: 'bb:cc:dd:ee:ff:00', name: 'web-server' },
-  { ip: '151.101.1.140', mac: 'cc:dd:ee:ff:00:11', name: 'cdn' },
-  { ip: '172.217.23.110', mac: 'dd:ee:ff:00:11:22', name: 'google' },
+// ─────────────────────────────────────────────────────────────────────────────
+// Realistic packet-capture simulator.
+//
+// Rather than emitting independent random packets, this models real *flows*:
+//   • TCP connections with a correct 3-way handshake, consistent seq/ack that
+//     advance by payload length, data exchange, and FIN teardown.
+//   • DNS lookups that precede web connections, with matching transaction IDs.
+//   • DHCP DORA, ARP request/reply, ICMP echo request/reply pairs.
+//   • Correct L2 next-hop MACs (off-subnet traffic is addressed to the gateway).
+//   • Real IPv4 / TCP / UDP / ICMP checksums computed over the actual bytes.
+//   • Bursty, heavy-tailed session arrivals (self-similar-ish) instead of a flat
+//     uniform inter-packet delay.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface Host {
+  ip: string;
+  mac: string;
+  name: string;
+  kind: 'gateway' | 'client' | 'server' | 'dns' | 'internet';
+}
+
+const GATEWAY: Host = { ip: '10.0.0.1', mac: '00:1a:2b:3c:4d:01', name: 'gateway', kind: 'gateway' };
+
+const CLIENTS: Host[] = [
+  { ip: '10.0.0.10', mac: '00:1a:2b:3c:4d:10', name: 'pc1', kind: 'client' },
+  { ip: '10.0.0.11', mac: '00:1a:2b:3c:4d:11', name: 'pc2', kind: 'client' },
+  { ip: '10.0.0.12', mac: '00:1a:2b:3c:4d:12', name: 'laptop', kind: 'client' },
+];
+
+const LOCAL_SERVERS: Host[] = [
+  { ip: '10.0.0.20', mac: '00:1a:2b:3c:4d:20', name: 'intranet', kind: 'server' },
+  { ip: '10.0.0.21', mac: '00:1a:2b:3c:4d:21', name: 'fileserver', kind: 'server' },
+];
+
+const DNS_SERVERS: Host[] = [
+  { ip: '8.8.8.8', mac: 'aa:bb:cc:dd:ee:ff', name: 'dns-google', kind: 'dns' },
+  { ip: '1.1.1.1', mac: 'aa:bb:cc:00:11:22', name: 'dns-cloudflare', kind: 'dns' },
+];
+
+const INTERNET: Host[] = [
+  { ip: '93.184.216.34', mac: 'bb:cc:dd:ee:ff:00', name: 'example.com', kind: 'internet' },
+  { ip: '151.101.1.140', mac: 'cc:dd:ee:ff:00:11', name: 'fastly-cdn', kind: 'internet' },
+  { ip: '172.217.23.110', mac: 'dd:ee:ff:00:11:22', name: 'google', kind: 'internet' },
+  { ip: '140.82.121.4', mac: 'ee:ff:00:11:22:33', name: 'github', kind: 'internet' },
 ];
 
 const BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff';
 
+// ── Capture state ────────────────────────────────────────────────────────────
 let packetIdCounter = 1;
 let captureStartTime = Date.now();
 const packetBuffer: Packet[] = [];
 let isCapturing = false;
-let captureInterval: NodeJS.Timeout | null = null;
+let schedulerInterval: ReturnType<typeof setInterval> | null = null;
 
-function randomBetween(min: number, max: number): number {
+// Scheduled-but-not-yet-emitted packets (id assigned at flush time, in order).
+interface Pending { at: number; pkt: Packet }
+let pending: Pending[] = [];
+
+// Periodic control-plane next-due timestamps (ms epoch).
+const nextDue: Record<string, number> = {};
+
+// ── Small helpers ────────────────────────────────────────────────────────────
+function randInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-
-function randomHex(bytes: number): string {
-  return Array.from({ length: bytes }, () =>
-    Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
-  ).join('');
+function randFloat(min: number, max: number): number {
+  return Math.random() * (max - min) + min;
 }
-
-function randomChoice<T>(arr: T[]): T {
+function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
-
+function randomHex(bytes: number): string {
+  return Array.from({ length: bytes }, () => randInt(0, 255).toString(16).padStart(2, '0')).join('');
+}
+function hex16(n: number): string {
+  return `0x${(n & 0xffff).toString(16).padStart(4, '0')}`;
+}
 function ipToOctets(ip: string): number[] {
   return ip.split('.').map(Number);
+}
+function macToBytes(mac: string): number[] {
+  return mac.split(':').map((h) => parseInt(h, 16));
+}
+function isLocal(ip: string): boolean {
+  return ip.startsWith('10.0.0.');
+}
+
+// Round-trip time (ms) between two endpoints: tiny on the LAN, larger off-net.
+function rtt(a: Host, b: Host): number {
+  const offNet = a.kind === 'internet' || b.kind === 'internet'
+    || a.kind === 'dns' || b.kind === 'dns';
+  return offNet ? randFloat(8, 45) : randFloat(0.2, 1.4);
+}
+
+// ── Checksums (real ones, computed over the actual bytes) ────────────────────
+function onesComplement16(bytes: number[]): number {
+  let sum = 0;
+  for (let i = 0; i < bytes.length; i += 2) {
+    sum += ((bytes[i] << 8) | (bytes[i + 1] ?? 0)) >>> 0;
+  }
+  while (sum > 0xffff) sum = (sum & 0xffff) + (sum >>> 16);
+  return (~sum) & 0xffff;
+}
+
+// ── Byte builders ────────────────────────────────────────────────────────────
+function ethernetBytes(srcMac: string, dstMac: string, etherType: number): number[] {
+  return [...macToBytes(dstMac), ...macToBytes(srcMac), (etherType >> 8) & 0xff, etherType & 0xff];
+}
+
+function ipv4Header(srcIp: string, dstIp: string, proto: number, payloadLen: number, ttl: number, id: number): { bytes: number[]; checksum: number } {
+  const totalLength = 20 + payloadLen;
+  const header = [
+    0x45, 0x00,
+    (totalLength >> 8) & 0xff, totalLength & 0xff,
+    (id >> 8) & 0xff, id & 0xff,
+    0x40, 0x00,            // DF set, no fragment
+    ttl & 0xff, proto,
+    0x00, 0x00,            // checksum placeholder
+    ...ipToOctets(srcIp),
+    ...ipToOctets(dstIp),
+  ];
+  const checksum = onesComplement16(header);
+  header[10] = (checksum >> 8) & 0xff;
+  header[11] = checksum & 0xff;
+  return { bytes: header, checksum };
+}
+
+function pseudoHeader(srcIp: string, dstIp: string, proto: number, transportLen: number): number[] {
+  return [
+    ...ipToOctets(srcIp), ...ipToOctets(dstIp),
+    0x00, proto, (transportLen >> 8) & 0xff, transportLen & 0xff,
+  ];
+}
+
+function tcpSegment(srcPort: number, dstPort: number, seq: number, ack: number, flagsByte: number, window: number, payload: number[], srcIp: string, dstIp: string): { bytes: number[]; checksum: number } {
+  const header = [
+    (srcPort >> 8) & 0xff, srcPort & 0xff,
+    (dstPort >> 8) & 0xff, dstPort & 0xff,
+    (seq >>> 24) & 0xff, (seq >>> 16) & 0xff, (seq >>> 8) & 0xff, seq & 0xff,
+    (ack >>> 24) & 0xff, (ack >>> 16) & 0xff, (ack >>> 8) & 0xff, ack & 0xff,
+    0x50, flagsByte,                       // data offset 5 (no options)
+    (window >> 8) & 0xff, window & 0xff,
+    0x00, 0x00,                            // checksum placeholder
+    0x00, 0x00,                            // urgent pointer
+  ];
+  const segment = [...header, ...payload];
+  const sumInput = [...pseudoHeader(srcIp, dstIp, 6, segment.length), ...segment];
+  if (sumInput.length % 2 !== 0) sumInput.push(0);
+  const checksum = onesComplement16(sumInput);
+  segment[16] = (checksum >> 8) & 0xff;
+  segment[17] = checksum & 0xff;
+  return { bytes: segment, checksum };
+}
+
+function udpDatagram(srcPort: number, dstPort: number, payload: number[], srcIp: string, dstIp: string): { bytes: number[]; checksum: number } {
+  const length = 8 + payload.length;
+  const header = [
+    (srcPort >> 8) & 0xff, srcPort & 0xff,
+    (dstPort >> 8) & 0xff, dstPort & 0xff,
+    (length >> 8) & 0xff, length & 0xff,
+    0x00, 0x00,                            // checksum placeholder
+  ];
+  const datagram = [...header, ...payload];
+  const sumInput = [...pseudoHeader(srcIp, dstIp, 17, datagram.length), ...datagram];
+  if (sumInput.length % 2 !== 0) sumInput.push(0);
+  let checksum = onesComplement16(sumInput);
+  if (checksum === 0) checksum = 0xffff;
+  datagram[6] = (checksum >> 8) & 0xff;
+  datagram[7] = checksum & 0xff;
+  return { bytes: datagram, checksum };
 }
 
 function generateHexDump(bytes: number[]): string[] {
@@ -44,1022 +180,544 @@ function generateHexDump(bytes: number[]): string[] {
   for (let i = 0; i < bytes.length; i += 16) {
     const chunk = bytes.slice(i, i + 16);
     const offset = i.toString(16).padStart(4, '0');
-    const hex = chunk.map(b => b.toString(16).padStart(2, '0')).join(' ');
-    const hexPadded = hex.padEnd(47, ' ');
-    const ascii = chunk.map(b => (b >= 32 && b < 127 ? String.fromCharCode(b) : '.')).join('');
-    lines.push(`${offset}  ${hexPadded}  ${ascii}`);
+    const hex = chunk.map((b) => b.toString(16).padStart(2, '0')).join(' ').padEnd(47, ' ');
+    const ascii = chunk.map((b) => (b >= 32 && b < 127 ? String.fromCharCode(b) : '.')).join('');
+    lines.push(`${offset}  ${hex}  ${ascii}`);
   }
   return lines;
 }
 
-function generateEthernetBytes(srcMac: string, dstMac: string, etherType: number): number[] {
-  const dstBytes = dstMac.split(':').map(h => parseInt(h, 16));
-  const srcBytes = srcMac.split(':').map(h => parseInt(h, 16));
-  const typeBytes = [(etherType >> 8) & 0xff, etherType & 0xff];
-  return [...dstBytes, ...srcBytes, ...typeBytes];
-}
-
-function generateIpBytes(src: string, dst: string, protocol: number, payloadLength: number): number[] {
-  const totalLength = 20 + payloadLength;
-  const srcOctets = ipToOctets(src);
-  const dstOctets = ipToOctets(dst);
-  return [
-    0x45, 0x00,
-    (totalLength >> 8) & 0xff, totalLength & 0xff,
-    randomBetween(0, 255), randomBetween(0, 255),
-    0x40, 0x00,
-    64, protocol,
-    randomBetween(0, 255), randomBetween(0, 255),
-    ...srcOctets,
-    ...dstOctets,
-  ];
-}
-
-function generateTcpBytes(srcPort: number, dstPort: number, flags: number, seq: number): number[] {
-  return [
-    (srcPort >> 8) & 0xff, srcPort & 0xff,
-    (dstPort >> 8) & 0xff, dstPort & 0xff,
-    (seq >> 24) & 0xff, (seq >> 16) & 0xff, (seq >> 8) & 0xff, seq & 0xff,
-    0x00, 0x00, 0x00, 0x00,
-    0x50, flags,
-    0xff, 0xff,
-    randomBetween(0, 255), randomBetween(0, 255),
-    0x00, 0x00,
-  ];
-}
-
-function generateUdpBytes(srcPort: number, dstPort: number, payloadLen: number): number[] {
-  const length = 8 + payloadLen;
-  return [
-    (srcPort >> 8) & 0xff, srcPort & 0xff,
-    (dstPort >> 8) & 0xff, dstPort & 0xff,
-    (length >> 8) & 0xff, length & 0xff,
-    randomBetween(0, 255), randomBetween(0, 255),
-  ];
-}
-
 function getProtocolColor(protocol: string): string {
   const colors: Record<string, string> = {
-    HTTP: '#1b4332',
-    HTTPS: '#0d3b2e',
-    DNS: '#1a3a5c',
-    mDNS: '#16304a',
-    TCP: '#1a1a2e',
-    UDP: '#3d3300',
-    ICMP: '#4a1020',
-    ARP: '#3d3200',
-    TLS: '#2d1b4e',
-    SSH: '#1a2e1a',
-    SMTP: '#2e1a2e',
-    FTP: '#2e2a1a',
-    DHCP: '#103d3a',
-    STP: '#3a2a10',
-    NTP: '#10303d',
-    LLDP: '#2a103d',
-    SNMP: '#3d1030',
-    OSPF: '#103d1a',
-    SSDP: '#2a2a3d',
-    SIP: '#3d2010',
+    HTTP: '#1b4332', HTTPS: '#0d3b2e', DNS: '#1a3a5c', mDNS: '#16304a',
+    TCP: '#1a1a2e', UDP: '#3d3300', ICMP: '#4a1020', ARP: '#3d3200',
+    TLS: '#2d1b4e', SSH: '#1a2e1a', SMTP: '#2e1a2e', DHCP: '#103d3a',
+    STP: '#3a2a10', NTP: '#10303d', LLDP: '#2a103d', SNMP: '#3d1030',
+    OSPF: '#103d1a', SSDP: '#2a2a3d', SIP: '#3d2010',
   };
   return colors[protocol] || '#1a1a1a';
 }
 
-// ── Shared packet factory for the richer protocol generators ─────────────────
-function makePacket(opts: {
-  protocol: string;
-  info: string;
-  ethernet: EthernetLayer;
-  rawBytes: number[];
-  ip?: IpLayer;
-  udp?: UdpLayer;
-  tcp?: TcpLayer;
-  protoViews?: ProtoView[];
-}): Packet {
-  const id = packetIdCounter++;
-  const now = Date.now();
-  return {
-    id,
-    timestamp: now,
-    relativeTime: parseFloat(((now - captureStartTime) / 1000).toFixed(6)),
-    length: opts.rawBytes.length,
-    capturedLength: opts.rawBytes.length,
-    protocol: opts.protocol,
-    info: opts.info,
-    color: getProtocolColor(opts.protocol),
-    ethernet: opts.ethernet,
-    ip: opts.ip,
-    udp: opts.udp,
-    tcp: opts.tcp,
-    protoViews: opts.protoViews,
-    hexDump: generateHexDump(opts.rawBytes),
-    rawBytes: opts.rawBytes,
-  };
+// Next-hop L2 addressing: off-subnet traffic is delivered to the gateway MAC.
+function nextHopMacs(src: Host, dst: Host): { srcMac: string; dstMac: string } {
+  if (isLocal(src.ip) && isLocal(dst.ip)) return { srcMac: src.mac, dstMac: dst.mac };
+  // crossing the router: the on-LAN peer MAC is the gateway
+  if (isLocal(src.ip)) return { srcMac: src.mac, dstMac: GATEWAY.mac };
+  return { srcMac: GATEWAY.mac, dstMac: dst.mac };
 }
 
-function eth(srcMac: string, dstMac: string, etherType: string, etherTypeName: string): EthernetLayer {
-  return { srcMac, dstMac, etherType, etherTypeName };
+function ttlFor(src: Host): number {
+  // Replies coming back in from the internet have a decremented TTL.
+  return src.kind === 'internet' || src.kind === 'dns' ? randInt(48, 58) : 64;
 }
 
-function ipLayer(src: string, dst: string, proto: number, protoName: string, payloadLen: number, ttl = 64): IpLayer {
+// ── Packet assembly ──────────────────────────────────────────────────────────
+function schedule(at: number, pkt: Packet): void {
+  pending.push({ at, pkt });
+}
+
+function baseIpLayer(srcIp: string, dstIp: string, proto: number, protoName: string, payloadLen: number, ttl: number, id: number, checksum: number): IpLayer {
   return {
     version: 4, headerLength: 20, dscp: 0, ecn: 0,
-    totalLength: 20 + payloadLen, identification: `0x${randomHex(2)}`,
-    flags: '0x00', fragmentOffset: 0, ttl, protocol: proto, protocolName: protoName,
-    checksum: `0x${randomHex(2)}`, srcIp: src, dstIp: dst,
+    totalLength: 20 + payloadLen, identification: hex16(id),
+    flags: '0x40', fragmentOffset: 0, ttl, protocol: proto, protocolName: protoName,
+    checksum: hex16(checksum), srcIp, dstIp,
   };
 }
 
-function udpLayer(srcPort: number, dstPort: number, payloadLen: number): UdpLayer {
-  return { srcPort, dstPort, length: 8 + payloadLen, checksum: `0x${randomHex(2)}` };
+interface TcpOpts {
+  at: number; src: Host; dst: Host; srcPort: number; dstPort: number;
+  seq: number; ack: number;
+  flags: { syn?: boolean; ack?: boolean; psh?: boolean; fin?: boolean; rst?: boolean; urg?: boolean };
+  window?: number; payload?: number[];
+  protocol: string; info: string; http?: Packet['http']; tls?: Packet['tls'];
 }
 
+function emitTcp(o: TcpOpts): void {
+  const payload = o.payload ?? [];
+  const window = o.window ?? 64240;
+  const ipId = randInt(0, 0xffff);
+  const ttl = ttlFor(o.src);
+  const flagsByte =
+    (o.flags.fin ? 0x01 : 0) | (o.flags.syn ? 0x02 : 0) | (o.flags.rst ? 0x04 : 0)
+    | (o.flags.psh ? 0x08 : 0) | (o.flags.ack ? 0x10 : 0) | (o.flags.urg ? 0x20 : 0);
+
+  const seg = tcpSegment(o.srcPort, o.dstPort, o.seq, o.ack, flagsByte, window, payload, o.src.ip, o.dst.ip);
+  const ipH = ipv4Header(o.src.ip, o.dst.ip, 6, seg.bytes.length, ttl, ipId);
+  const { srcMac, dstMac } = nextHopMacs(o.src, o.dst);
+  const rawBytes = [...ethernetBytes(srcMac, dstMac, 0x0800), ...ipH.bytes, ...seg.bytes];
+
+  const ethernet: EthernetLayer = { srcMac, dstMac, etherType: '0x0800', etherTypeName: 'IPv4' };
+  const tcp: TcpLayer = {
+    srcPort: o.srcPort, dstPort: o.dstPort, sequenceNumber: o.seq, acknowledgmentNumber: o.ack,
+    dataOffset: 5,
+    flags: {
+      fin: !!o.flags.fin, syn: !!o.flags.syn, rst: !!o.flags.rst,
+      psh: !!o.flags.psh, ack: !!o.flags.ack, urg: !!o.flags.urg,
+    },
+    windowSize: window, checksum: hex16(seg.checksum), urgentPointer: 0,
+  };
+
+  schedule(o.at, {
+    id: 0, timestamp: o.at, relativeTime: 0,
+    length: rawBytes.length, capturedLength: rawBytes.length,
+    protocol: o.protocol, info: o.info, color: getProtocolColor(o.protocol),
+    ethernet, ip: baseIpLayer(o.src.ip, o.dst.ip, 6, 'TCP', seg.bytes.length, ttl, ipId, ipH.checksum),
+    tcp, http: o.http, tls: o.tls,
+    hexDump: generateHexDump(rawBytes), rawBytes,
+  });
+}
+
+interface UdpOpts {
+  at: number; src: Host; dst: Host; srcPort: number; dstPort: number; payload: number[];
+  protocol: string; info: string; dns?: Packet['dns']; protoViews?: ProtoView[];
+  multicastMac?: string;
+}
+
+function emitUdp(o: UdpOpts): void {
+  const ipId = randInt(0, 0xffff);
+  const ttl = ttlFor(o.src);
+  const dg = udpDatagram(o.srcPort, o.dstPort, o.payload, o.src.ip, o.dst.ip);
+  const ipH = ipv4Header(o.src.ip, o.dst.ip, 17, dg.bytes.length, ttl, ipId);
+  const { srcMac, dstMac } = o.multicastMac
+    ? { srcMac: o.src.mac, dstMac: o.multicastMac }
+    : nextHopMacs(o.src, o.dst);
+  const rawBytes = [...ethernetBytes(srcMac, dstMac, 0x0800), ...ipH.bytes, ...dg.bytes];
+
+  const udp: UdpLayer = { srcPort: o.srcPort, dstPort: o.dstPort, length: 8 + o.payload.length, checksum: hex16(dg.checksum) };
+
+  schedule(o.at, {
+    id: 0, timestamp: o.at, relativeTime: 0,
+    length: rawBytes.length, capturedLength: rawBytes.length,
+    protocol: o.protocol, info: o.info, color: getProtocolColor(o.protocol),
+    ethernet: { srcMac, dstMac, etherType: '0x0800', etherTypeName: 'IPv4' },
+    ip: baseIpLayer(o.src.ip, o.dst.ip, 17, 'UDP', dg.bytes.length, ttl, ipId, ipH.checksum),
+    udp, dns: o.dns, protoViews: o.protoViews,
+    hexDump: generateHexDump(rawBytes), rawBytes,
+  });
+}
+
+function bytesOf(s: string): number[] {
+  return Array.from(s).map((c) => c.charCodeAt(0));
+}
 function randomPayload(len: number): number[] {
-  return Array.from({ length: len }, () => randomBetween(0, 255));
+  return Array.from({ length: len }, () => randInt(0, 255));
 }
 
-function generateHttpPacket(src: typeof HOSTS[0], dst: typeof HOSTS[0]): Packet {
-  const isRequest = Math.random() > 0.5;
-  const methods = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD'];
-  const uris = ['/index.html', '/api/data', '/images/logo.png', '/style.css', '/favicon.ico', '/api/users', '/search?q=test'];
-  const statusCodes = [200, 201, 301, 302, 304, 400, 401, 403, 404, 500];
-  const statusMessages: Record<number, string> = {
-    200: 'OK', 201: 'Created', 301: 'Moved Permanently', 302: 'Found',
-    304: 'Not Modified', 400: 'Bad Request', 401: 'Unauthorized',
-    403: 'Forbidden', 404: 'Not Found', 500: 'Internal Server Error',
-  };
-
-  const method = randomChoice(methods);
-  const uri = randomChoice(uris);
-  const status = randomChoice(statusCodes);
-  const srcPort = randomBetween(49152, 65535);
-  const dstPort = 80;
-  const seq = randomBetween(0, 2147483647);
-
-  const payload = isRequest
-    ? `${method} ${uri} HTTP/1.1\r\nHost: ${dst.ip}\r\nUser-Agent: Mozilla/5.0\r\nAccept: */*\r\n\r\n`
-    : `HTTP/1.1 ${status} ${statusMessages[status]}\r\nContent-Type: text/html\r\nContent-Length: 1234\r\n\r\n`;
-
-  const payloadBytes = Array.from(payload).map(c => c.charCodeAt(0));
-  const etherBytes = generateEthernetBytes(src.mac, dst.mac, 0x0800);
-  const ipBytes = generateIpBytes(src.ip, dst.ip, 6, 20 + payloadBytes.length);
-  const tcpBytes = generateTcpBytes(isRequest ? srcPort : dstPort, isRequest ? dstPort : srcPort, 0x18, seq);
-  const rawBytes = [...etherBytes, ...ipBytes, ...tcpBytes, ...payloadBytes];
-
-  const id = packetIdCounter++;
-  const now = Date.now();
-
-  return {
-    id,
-    timestamp: now,
-    relativeTime: parseFloat(((now - captureStartTime) / 1000).toFixed(6)),
-    length: rawBytes.length,
-    capturedLength: rawBytes.length,
-    protocol: 'HTTP',
-    info: isRequest
-      ? `${method} ${uri} HTTP/1.1`
-      : `HTTP/1.1 ${status} ${statusMessages[status]}`,
-    color: getProtocolColor('HTTP'),
-    ethernet: {
-      srcMac: src.mac,
-      dstMac: dst.mac,
-      etherType: '0x0800',
-      etherTypeName: 'IPv4',
-    },
-    ip: {
-      version: 4,
-      headerLength: 20,
-      dscp: 0,
-      ecn: 0,
-      totalLength: 20 + 20 + payloadBytes.length,
-      identification: `0x${randomHex(2)}`,
-      flags: '0x40',
-      fragmentOffset: 0,
-      ttl: 64,
-      protocol: 6,
-      protocolName: 'TCP',
-      checksum: `0x${randomHex(2)}`,
-      srcIp: src.ip,
-      dstIp: dst.ip,
-    },
-    tcp: {
-      srcPort: isRequest ? srcPort : dstPort,
-      dstPort: isRequest ? dstPort : srcPort,
-      sequenceNumber: seq,
-      acknowledgmentNumber: randomBetween(0, 2147483647),
-      dataOffset: 5,
-      flags: { fin: false, syn: false, rst: false, psh: true, ack: true, urg: false },
-      windowSize: 65535,
-      checksum: `0x${randomHex(2)}`,
-      urgentPointer: 0,
-    },
-    http: {
-      isRequest,
-      method: isRequest ? method : undefined,
-      uri: isRequest ? uri : undefined,
-      version: 'HTTP/1.1',
-      statusCode: isRequest ? undefined : status,
-      statusMessage: isRequest ? undefined : statusMessages[status],
-      headers: isRequest
-        ? { Host: dst.ip, 'User-Agent': 'Mozilla/5.0', Accept: '*/*' }
-        : { 'Content-Type': 'text/html', 'Content-Length': '1234', Server: 'nginx/1.24.0' },
-    },
-    hexDump: generateHexDump(rawBytes),
-    rawBytes,
-  };
-}
-
-function generateDnsPacket(src: typeof HOSTS[0]): Packet {
-  const domains = ['google.com', 'github.com', 'cloudflare.com', 'amazon.com', 'microsoft.com', 'apple.com', 'netflix.com', 'youtube.com'];
-  const domain = randomChoice(domains);
-  const isResponse = Math.random() > 0.5;
-  const dnsServer = randomChoice([HOSTS[5], HOSTS[6]]);
-  const srcPort = randomBetween(49152, 65535);
-  const transId = randomBetween(0, 65535);
-  const resolvedIp = `${randomBetween(1, 254)}.${randomBetween(1, 254)}.${randomBetween(1, 254)}.${randomBetween(1, 254)}`;
-
-  const etherBytes = generateEthernetBytes(src.mac, dnsServer.mac, 0x0800);
-  const udpPayloadLen = isResponse ? 60 : 30;
-  const ipBytes = generateIpBytes(isResponse ? dnsServer.ip : src.ip, isResponse ? src.ip : dnsServer.ip, 17, 8 + udpPayloadLen);
-  const udpBytes = generateUdpBytes(isResponse ? 53 : srcPort, isResponse ? srcPort : 53, udpPayloadLen);
-  const dnsPayload = Array.from({ length: udpPayloadLen }, () => randomBetween(0, 255));
-  const rawBytes = [...etherBytes, ...ipBytes, ...udpBytes, ...dnsPayload];
-
-  const id = packetIdCounter++;
-  const now = Date.now();
-
-  return {
-    id,
-    timestamp: now,
-    relativeTime: parseFloat(((now - captureStartTime) / 1000).toFixed(6)),
-    length: rawBytes.length,
-    capturedLength: rawBytes.length,
-    protocol: 'DNS',
-    info: isResponse
-      ? `Standard query response 0x${transId.toString(16).padStart(4, '0')} A ${domain} A ${resolvedIp}`
-      : `Standard query 0x${transId.toString(16).padStart(4, '0')} A ${domain}`,
-    color: getProtocolColor('DNS'),
-    ethernet: {
-      srcMac: isResponse ? dnsServer.mac : src.mac,
-      dstMac: isResponse ? src.mac : dnsServer.mac,
-      etherType: '0x0800',
-      etherTypeName: 'IPv4',
-    },
-    ip: {
-      version: 4,
-      headerLength: 20,
-      dscp: 0,
-      ecn: 0,
-      totalLength: 20 + 8 + udpPayloadLen,
-      identification: `0x${randomHex(2)}`,
-      flags: '0x00',
-      fragmentOffset: 0,
-      ttl: 64,
-      protocol: 17,
-      protocolName: 'UDP',
-      checksum: `0x${randomHex(2)}`,
-      srcIp: isResponse ? dnsServer.ip : src.ip,
-      dstIp: isResponse ? src.ip : dnsServer.ip,
-    },
-    udp: {
-      srcPort: isResponse ? 53 : srcPort,
-      dstPort: isResponse ? srcPort : 53,
-      length: 8 + udpPayloadLen,
-      checksum: `0x${randomHex(2)}`,
-    },
+// ── DNS lookup (query → response, matching transaction id) ───────────────────
+function emitDnsLookup(at: number, client: Host, resolver: Host, domain: string, resolvedIp: string): number {
+  const txid = randInt(0, 0xffff);
+  const sport = randInt(49152, 65535);
+  emitUdp({
+    at, src: client, dst: resolver, srcPort: sport, dstPort: 53, payload: randomPayload(28),
+    protocol: 'DNS', info: `Standard query ${hex16(txid)} A ${domain}`,
     dns: {
-      transactionId: `0x${transId.toString(16).padStart(4, '0')}`,
-      flags: isResponse ? '0x8180' : '0x0100',
-      isResponse,
-      opcode: 'Standard query',
-      questions: 1,
-      answerRRs: isResponse ? 1 : 0,
-      authorityRRs: 0,
-      additionalRRs: 0,
+      transactionId: hex16(txid), flags: '0x0100', isResponse: false, opcode: 'Standard query',
+      questions: 1, answerRRs: 0, authorityRRs: 0, additionalRRs: 0,
+      queries: [{ name: domain, type: 'A', class: 'IN' }], answers: [],
+    },
+  });
+  const respAt = at + rtt(client, resolver);
+  emitUdp({
+    at: respAt, src: resolver, dst: client, srcPort: 53, dstPort: sport, payload: randomPayload(60),
+    protocol: 'DNS', info: `Standard query response ${hex16(txid)} A ${domain} A ${resolvedIp}`,
+    dns: {
+      transactionId: hex16(txid), flags: '0x8180', isResponse: true, opcode: 'Standard query',
+      questions: 1, answerRRs: 1, authorityRRs: 0, additionalRRs: 0,
       queries: [{ name: domain, type: 'A', class: 'IN' }],
-      answers: isResponse
-        ? [{ name: domain, type: 'A', class: 'IN', ttl: 300, dataLength: 4, address: resolvedIp }]
-        : [],
+      answers: [{ name: domain, type: 'A', class: 'IN', ttl: 300, dataLength: 4, address: resolvedIp }],
     },
-    hexDump: generateHexDump(rawBytes),
-    rawBytes,
-  };
+  });
+  return respAt;
 }
 
-function generateIcmpPacket(src: typeof HOSTS[0], dst: typeof HOSTS[0]): Packet {
-  const isReply = Math.random() > 0.5;
-  const seq = randomBetween(1, 256);
-  const identifier = randomBetween(1, 65535);
+// ── A full TCP web session: handshake → request/response(s) → teardown ───────
+function emitWebSession(startAt: number, client: Host, server: Host, secure: boolean): void {
+  const sport = randInt(49152, 65535);
+  const dport = secure ? 443 : 80;
+  const r = rtt(client, server);
+  let cSeq = randInt(0, 0xffffffff) >>> 0;   // client ISN
+  let sSeq = randInt(0, 0xffffffff) >>> 0;   // server ISN
+  let t = startAt;
 
-  const icmpPayload = Array.from({ length: 32 }, () => randomBetween(0, 255));
-  const etherBytes = generateEthernetBytes(src.mac, dst.mac, 0x0800);
-  const ipBytes = generateIpBytes(src.ip, dst.ip, 1, 8 + icmpPayload.length);
-  const icmpHeader = [isReply ? 0 : 8, 0, randomBetween(0, 255), randomBetween(0, 255),
-    (identifier >> 8) & 0xff, identifier & 0xff, (seq >> 8) & 0xff, seq & 0xff];
-  const rawBytes = [...etherBytes, ...ipBytes, ...icmpHeader, ...icmpPayload];
+  // 3-way handshake (SYN consumes one sequence number on each side)
+  emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: 0, flags: { syn: true }, window: 64240, protocol: 'TCP', info: `${sport} → ${dport} [SYN] Seq=${cSeq} Win=64240 Len=0 MSS=1460` });
+  t += r / 2;
+  emitTcp({ at: t, src: server, dst: client, srcPort: dport, dstPort: sport, seq: sSeq, ack: (cSeq + 1) >>> 0, flags: { syn: true, ack: true }, window: 65160, protocol: 'TCP', info: `${dport} → ${sport} [SYN, ACK] Seq=${sSeq} Ack=${(cSeq + 1) >>> 0} Win=65160 Len=0 MSS=1460` });
+  cSeq = (cSeq + 1) >>> 0;
+  sSeq = (sSeq + 1) >>> 0;
+  t += r / 2;
+  emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { ack: true }, protocol: 'TCP', info: `${sport} → ${dport} [ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
 
-  const id = packetIdCounter++;
-  const now = Date.now();
+  const rounds = randInt(1, 3);   // keep-alive request/response rounds
+  for (let i = 0; i < rounds; i++) {
+    t += randFloat(0.1, 1.5);
+    if (secure && i === 0) {
+      // TLS Client Hello / Server Hello
+      const domain = server.name;
+      const chPayload = randomPayload(180);
+      emitTcp({
+        at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq,
+        flags: { psh: true, ack: true }, payload: chPayload, protocol: 'TLS',
+        info: `Client Hello (SNI=${domain})`,
+        tls: { contentType: 'Handshake', version: 'TLS 1.3', length: chPayload.length, handshakeType: 'Client Hello', cipherSuites: ['TLS_AES_256_GCM_SHA384', 'TLS_CHACHA20_POLY1305_SHA256'], serverName: domain },
+      });
+      cSeq = (cSeq + chPayload.length) >>> 0;
+      t += r;
+      const shPayload = randomPayload(220);
+      emitTcp({
+        at: t, src: server, dst: client, srcPort: dport, dstPort: sport, seq: sSeq, ack: cSeq,
+        flags: { psh: true, ack: true }, payload: shPayload, protocol: 'TLS',
+        info: 'Server Hello, Change Cipher Spec, Encrypted Extensions, Certificate',
+        tls: { contentType: 'Handshake', version: 'TLS 1.3', length: shPayload.length, handshakeType: 'Server Hello' },
+      });
+      sSeq = (sSeq + shPayload.length) >>> 0;
+      t += r / 2;
+      emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { ack: true }, protocol: 'TCP', info: `${sport} → ${dport} [ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
+      continue;
+    }
 
-  return {
-    id,
-    timestamp: now,
-    relativeTime: parseFloat(((now - captureStartTime) / 1000).toFixed(6)),
-    length: rawBytes.length,
-    capturedLength: rawBytes.length,
+    // Plain HTTP request / response (or app data inside an established TLS conn)
+    const method = pick(['GET', 'GET', 'GET', 'POST']);
+    const uri = pick(['/', '/index.html', '/api/data', '/assets/app.js', '/style.css', '/favicon.ico']);
+    const reqText = `${method} ${uri} HTTP/1.1\r\nHost: ${server.name}\r\nUser-Agent: Mozilla/5.0\r\nAccept: */*\r\n\r\n`;
+    const reqPayload = bytesOf(reqText);
+    emitTcp({
+      at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq,
+      flags: { psh: true, ack: true }, payload: reqPayload,
+      protocol: secure ? 'TLS' : 'HTTP', info: secure ? 'Application Data' : `${method} ${uri} HTTP/1.1`,
+      http: secure ? undefined : { isRequest: true, method, uri, version: 'HTTP/1.1', headers: { Host: server.name, 'User-Agent': 'Mozilla/5.0', Accept: '*/*' } },
+    });
+    cSeq = (cSeq + reqPayload.length) >>> 0;
+
+    // server ACK of the request
+    t += r;
+    emitTcp({ at: t, src: server, dst: client, srcPort: dport, dstPort: sport, seq: sSeq, ack: cSeq, flags: { ack: true }, protocol: 'TCP', info: `${dport} → ${sport} [ACK] Seq=${sSeq} Ack=${cSeq} Win=65160 Len=0` });
+
+    // server response after some processing time
+    t += randFloat(1, 25);
+    const status = pick([200, 200, 200, 304, 404, 500]);
+    const statusMsg: Record<number, string> = { 200: 'OK', 304: 'Not Modified', 404: 'Not Found', 500: 'Internal Server Error' };
+    const bodyLen = randInt(120, 1400);
+    const respText = `HTTP/1.1 ${status} ${statusMsg[status]}\r\nContent-Type: text/html\r\nContent-Length: ${bodyLen}\r\nServer: nginx/1.24.0\r\n\r\n`;
+    const respPayload = [...bytesOf(respText), ...randomPayload(Math.min(bodyLen, 200))];
+    emitTcp({
+      at: t, src: server, dst: client, srcPort: dport, dstPort: sport, seq: sSeq, ack: cSeq,
+      flags: { psh: true, ack: true }, payload: respPayload,
+      protocol: secure ? 'TLS' : 'HTTP', info: secure ? 'Application Data' : `HTTP/1.1 ${status} ${statusMsg[status]}`,
+      http: secure ? undefined : { isRequest: false, version: 'HTTP/1.1', statusCode: status, statusMessage: statusMsg[status], headers: { 'Content-Type': 'text/html', 'Content-Length': String(bodyLen), Server: 'nginx/1.24.0' } },
+    });
+    sSeq = (sSeq + respPayload.length) >>> 0;
+
+    // client ACK of the response
+    t += r / 2;
+    emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { ack: true }, protocol: 'TCP', info: `${sport} → ${dport} [ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
+  }
+
+  // graceful teardown (client-initiated FIN)
+  t += randFloat(0.5, 6);
+  emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { fin: true, ack: true }, protocol: 'TCP', info: `${sport} → ${dport} [FIN, ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
+  cSeq = (cSeq + 1) >>> 0;
+  t += r / 2;
+  emitTcp({ at: t, src: server, dst: client, srcPort: dport, dstPort: sport, seq: sSeq, ack: cSeq, flags: { fin: true, ack: true }, protocol: 'TCP', info: `${dport} → ${sport} [FIN, ACK] Seq=${sSeq} Ack=${cSeq} Win=65160 Len=0` });
+  sSeq = (sSeq + 1) >>> 0;
+  t += r / 2;
+  emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { ack: true }, protocol: 'TCP', info: `${sport} → ${dport} [ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
+}
+
+// ── ICMP echo session (request/reply pairs with matching id/seq) ─────────────
+function emitPingSession(startAt: number, src: Host, dst: Host): void {
+  const identifier = randInt(0, 0xffff);
+  const count = randInt(3, 5);
+  let t = startAt;
+  for (let seq = 1; seq <= count; seq++) {
+    emitIcmp(t, src, dst, false, identifier, seq);
+    t += rtt(src, dst);
+    emitIcmp(t, dst, src, true, identifier, seq);
+    t += randFloat(700, 1100);   // ping spacing ~1s
+  }
+}
+
+function emitIcmp(at: number, src: Host, dst: Host, reply: boolean, identifier: number, seq: number): void {
+  const data = randomPayload(32);
+  const icmpHeader = [reply ? 0 : 8, 0, 0, 0, (identifier >> 8) & 0xff, identifier & 0xff, (seq >> 8) & 0xff, seq & 0xff];
+  const msg = [...icmpHeader, ...data];
+  const cs = onesComplement16(msg);
+  msg[2] = (cs >> 8) & 0xff; msg[3] = cs & 0xff;
+  const ttl = ttlFor(src);
+  const ipId = randInt(0, 0xffff);
+  const ipH = ipv4Header(src.ip, dst.ip, 1, msg.length, ttl, ipId);
+  const { srcMac, dstMac } = nextHopMacs(src, dst);
+  const rawBytes = [...ethernetBytes(srcMac, dstMac, 0x0800), ...ipH.bytes, ...msg];
+  schedule(at, {
+    id: 0, timestamp: at, relativeTime: 0, length: rawBytes.length, capturedLength: rawBytes.length,
     protocol: 'ICMP',
-    info: isReply
-      ? `Echo (ping) reply    id=0x${identifier.toString(16).padStart(4, '0')}, seq=${seq}/256, ttl=64`
-      : `Echo (ping) request  id=0x${identifier.toString(16).padStart(4, '0')}, seq=${seq}/256, ttl=64`,
+    info: `Echo (ping) ${reply ? 'reply  ' : 'request'}  id=${hex16(identifier)}, seq=${seq}/${seq << 8}, ttl=${ttl}`,
     color: getProtocolColor('ICMP'),
-    ethernet: {
-      srcMac: src.mac,
-      dstMac: dst.mac,
-      etherType: '0x0800',
-      etherTypeName: 'IPv4',
-    },
-    ip: {
-      version: 4,
-      headerLength: 20,
-      dscp: 0,
-      ecn: 0,
-      totalLength: 20 + 8 + icmpPayload.length,
-      identification: `0x${randomHex(2)}`,
-      flags: '0x00',
-      fragmentOffset: 0,
-      ttl: 64,
-      protocol: 1,
-      protocolName: 'ICMP',
-      checksum: `0x${randomHex(2)}`,
-      srcIp: src.ip,
-      dstIp: dst.ip,
-    },
-    icmp: {
-      type: isReply ? 0 : 8,
-      typeName: isReply ? 'Echo (ping) reply' : 'Echo (ping) request',
-      code: 0,
-      checksum: `0x${randomHex(2)}`,
-      identifier,
-      sequenceNumber: seq,
-    },
-    hexDump: generateHexDump(rawBytes),
-    rawBytes,
-  };
+    ethernet: { srcMac, dstMac, etherType: '0x0800', etherTypeName: 'IPv4' },
+    ip: baseIpLayer(src.ip, dst.ip, 1, 'ICMP', msg.length, ttl, ipId, ipH.checksum),
+    icmp: { type: reply ? 0 : 8, typeName: reply ? 'Echo (ping) reply' : 'Echo (ping) request', code: 0, checksum: hex16(cs), identifier, sequenceNumber: seq },
+    hexDump: generateHexDump(rawBytes), rawBytes,
+  });
 }
 
-function generateArpPacket(src: typeof HOSTS[0]): Packet {
-  const targetIp = `10.0.0.${randomBetween(1, 50)}`;
-  const isReply = Math.random() > 0.7;
-
-  const etherBytes = generateEthernetBytes(src.mac, isReply ? src.mac : BROADCAST_MAC, 0x0806);
-  const arpBytes = [
-    0x00, 0x01,
-    0x08, 0x00,
-    0x06, 0x04,
-    0x00, isReply ? 0x02 : 0x01,
-    ...src.mac.split(':').map(h => parseInt(h, 16)),
-    ...ipToOctets(src.ip),
-    ...(isReply ? src.mac : BROADCAST_MAC).split(':').map(h => parseInt(h, 16)),
-    ...ipToOctets(targetIp),
+// ── ARP request → reply ──────────────────────────────────────────────────────
+function emitArpExchange(at: number, asker: Host, target: Host): void {
+  emitArp(at, asker, target, false);
+  emitArp(at + rtt(asker, target), target, asker, true);
+}
+function emitArp(at: number, src: Host, dst: Host, reply: boolean): void {
+  const dstMac = reply ? dst.mac : BROADCAST_MAC;
+  const arp = [
+    0x00, 0x01, 0x08, 0x00, 0x06, 0x04, 0x00, reply ? 0x02 : 0x01,
+    ...macToBytes(src.mac), ...ipToOctets(src.ip),
+    ...macToBytes(reply ? dst.mac : '00:00:00:00:00:00'), ...ipToOctets(dst.ip),
   ];
-  const rawBytes = [...etherBytes, ...arpBytes];
-
-  const id = packetIdCounter++;
-  const now = Date.now();
-
-  return {
-    id,
-    timestamp: now,
-    relativeTime: parseFloat(((now - captureStartTime) / 1000).toFixed(6)),
-    length: rawBytes.length,
-    capturedLength: rawBytes.length,
+  const rawBytes = [...ethernetBytes(src.mac, dstMac, 0x0806), ...arp];
+  schedule(at, {
+    id: 0, timestamp: at, relativeTime: 0, length: rawBytes.length, capturedLength: rawBytes.length,
     protocol: 'ARP',
-    info: isReply
-      ? `${src.ip} is at ${src.mac}`
-      : `Who has ${targetIp}? Tell ${src.ip}`,
+    info: reply ? `${src.ip} is at ${src.mac}` : `Who has ${dst.ip}? Tell ${src.ip}`,
     color: getProtocolColor('ARP'),
-    ethernet: {
-      srcMac: src.mac,
-      dstMac: isReply ? src.mac : BROADCAST_MAC,
-      etherType: '0x0806',
-      etherTypeName: 'ARP',
-    },
+    ethernet: { srcMac: src.mac, dstMac, etherType: '0x0806', etherTypeName: 'ARP' },
     arp: {
-      hardwareType: 1,
-      protocolType: '0x0800',
-      hardwareSize: 6,
-      protocolSize: 4,
-      opcode: isReply ? 2 : 1,
-      opcodeName: isReply ? 'reply' : 'request',
-      senderMac: src.mac,
-      senderIp: src.ip,
-      targetMac: isReply ? src.mac : BROADCAST_MAC,
-      targetIp: targetIp,
+      hardwareType: 1, protocolType: '0x0800', hardwareSize: 6, protocolSize: 4,
+      opcode: reply ? 2 : 1, opcodeName: reply ? 'reply' : 'request',
+      senderMac: src.mac, senderIp: src.ip,
+      targetMac: reply ? dst.mac : '00:00:00:00:00:00', targetIp: dst.ip,
     },
-    hexDump: generateHexDump(rawBytes),
-    rawBytes,
-  };
+    hexDump: generateHexDump(rawBytes), rawBytes,
+  });
 }
 
-function generateTcpHandshakePacket(src: typeof HOSTS[0], dst: typeof HOSTS[0], phase: 'SYN' | 'SYN-ACK' | 'ACK'): Packet {
-  const srcPort = randomBetween(49152, 65535);
-  const dstPort = randomChoice([80, 443, 22, 25, 3306, 5432, 8080]);
-  const seq = randomBetween(0, 2147483647);
-  const ack = phase !== 'SYN' ? randomBetween(0, 2147483647) : 0;
-
-  const flags = phase === 'SYN' ? 0x02 : phase === 'SYN-ACK' ? 0x12 : 0x10;
-  const etherBytes = generateEthernetBytes(src.mac, dst.mac, 0x0800);
-  const ipBytes = generateIpBytes(src.ip, dst.ip, 6, 20);
-  const tcpBytes = generateTcpBytes(srcPort, dstPort, flags, seq);
-  const rawBytes = [...etherBytes, ...ipBytes, ...tcpBytes];
-
-  const id = packetIdCounter++;
-  const now = Date.now();
-
-  const flagStr = phase === 'SYN' ? '[SYN]' : phase === 'SYN-ACK' ? '[SYN, ACK]' : '[ACK]';
-  const services: Record<number, string> = { 80: 'http', 443: 'https', 22: 'ssh', 25: 'smtp', 3306: 'mysql', 5432: 'postgresql', 8080: 'http-alt' };
-
-  return {
-    id,
-    timestamp: now,
-    relativeTime: parseFloat(((now - captureStartTime) / 1000).toFixed(6)),
-    length: rawBytes.length,
-    capturedLength: rawBytes.length,
-    protocol: 'TCP',
-    info: `${srcPort} → ${dstPort} ${flagStr} Seq=${seq} ${phase !== 'SYN' ? `Ack=${ack} ` : ''}Win=65535 Len=0 MSS=1460`,
-    color: getProtocolColor('TCP'),
-    ethernet: {
-      srcMac: src.mac,
-      dstMac: dst.mac,
-      etherType: '0x0800',
-      etherTypeName: 'IPv4',
-    },
-    ip: {
-      version: 4,
-      headerLength: 20,
-      dscp: 0,
-      ecn: 0,
-      totalLength: 40,
-      identification: `0x${randomHex(2)}`,
-      flags: '0x40',
-      fragmentOffset: 0,
-      ttl: 64,
-      protocol: 6,
-      protocolName: 'TCP',
-      checksum: `0x${randomHex(2)}`,
-      srcIp: src.ip,
-      dstIp: dst.ip,
-    },
-    tcp: {
-      srcPort,
-      dstPort,
-      sequenceNumber: seq,
-      acknowledgmentNumber: ack,
-      dataOffset: 5,
-      flags: {
-        fin: false,
-        syn: phase === 'SYN' || phase === 'SYN-ACK',
-        rst: false,
-        psh: false,
-        ack: phase === 'SYN-ACK' || phase === 'ACK',
-        urg: false,
-      },
-      windowSize: 65535,
-      checksum: `0x${randomHex(2)}`,
-      urgentPointer: 0,
-    },
-    hexDump: generateHexDump(rawBytes),
-    rawBytes,
-  };
-}
-
-function generateTlsPacket(src: typeof HOSTS[0], dst: typeof HOSTS[0]): Packet {
-  const srcPort = randomBetween(49152, 65535);
-  const dstPort = 443;
-  const isClientHello = Math.random() > 0.5;
-  const domains = ['github.com', 'google.com', 'cloudflare.com', 'aws.amazon.com'];
-  const domain = randomChoice(domains);
-
-  const tlsPayload = Array.from({ length: isClientHello ? 200 : 100 }, () => randomBetween(0, 255));
-  const etherBytes = generateEthernetBytes(src.mac, dst.mac, 0x0800);
-  const ipBytes = generateIpBytes(src.ip, dst.ip, 6, 20 + tlsPayload.length);
-  const tcpBytes = generateTcpBytes(srcPort, dstPort, 0x18, randomBetween(0, 2147483647));
-  const rawBytes = [...etherBytes, ...ipBytes, ...tcpBytes, ...tlsPayload];
-
-  const id = packetIdCounter++;
-  const now = Date.now();
-
-  return {
-    id,
-    timestamp: now,
-    relativeTime: parseFloat(((now - captureStartTime) / 1000).toFixed(6)),
-    length: rawBytes.length,
-    capturedLength: rawBytes.length,
-    protocol: 'TLS',
-    info: isClientHello
-      ? `Client Hello (SNI=${domain})`
-      : `Server Hello, Certificate, Server Hello Done`,
-    color: getProtocolColor('TLS'),
-    ethernet: {
-      srcMac: src.mac,
-      dstMac: dst.mac,
-      etherType: '0x0800',
-      etherTypeName: 'IPv4',
-    },
-    ip: {
-      version: 4,
-      headerLength: 20,
-      dscp: 0,
-      ecn: 0,
-      totalLength: 20 + 20 + tlsPayload.length,
-      identification: `0x${randomHex(2)}`,
-      flags: '0x40',
-      fragmentOffset: 0,
-      ttl: 64,
-      protocol: 6,
-      protocolName: 'TCP',
-      checksum: `0x${randomHex(2)}`,
-      srcIp: src.ip,
-      dstIp: dst.ip,
-    },
-    tcp: {
-      srcPort,
-      dstPort,
-      sequenceNumber: randomBetween(0, 2147483647),
-      acknowledgmentNumber: randomBetween(0, 2147483647),
-      dataOffset: 5,
-      flags: { fin: false, syn: false, rst: false, psh: true, ack: true, urg: false },
-      windowSize: 65535,
-      checksum: `0x${randomHex(2)}`,
-      urgentPointer: 0,
-    },
-    tls: {
-      contentType: 'Handshake',
-      version: 'TLS 1.3',
-      length: tlsPayload.length,
-      handshakeType: isClientHello ? 'Client Hello' : 'Server Hello',
-      cipherSuites: ['TLS_AES_256_GCM_SHA384', 'TLS_CHACHA20_POLY1305_SHA256'],
-      serverName: isClientHello ? domain : undefined,
-    },
-    hexDump: generateHexDump(rawBytes),
-    rawBytes,
-  };
-}
-
-function generateUdpPacket(src: typeof HOSTS[0], dst: typeof HOSTS[0]): Packet {
-  const srcPort = randomBetween(49152, 65535);
-  const dstPort = randomChoice([1194, 500, 4500, 5353, 67, 68, 123, 5060]);
-  const services: Record<number, string> = {
-    1194: 'OpenVPN', 500: 'ISAKMP', 4500: 'NAT-T', 5353: 'mDNS',
-    67: 'DHCP', 68: 'DHCP', 123: 'NTP', 5060: 'SIP',
-  };
-  const payload = Array.from({ length: randomBetween(20, 100) }, () => randomBetween(0, 255));
-  const etherBytes = generateEthernetBytes(src.mac, dst.mac, 0x0800);
-  const ipBytes = generateIpBytes(src.ip, dst.ip, 17, 8 + payload.length);
-  const udpBytes = generateUdpBytes(srcPort, dstPort, payload.length);
-  const rawBytes = [...etherBytes, ...ipBytes, ...udpBytes, ...payload];
-
-  const id = packetIdCounter++;
-  const now = Date.now();
-
-  return {
-    id,
-    timestamp: now,
-    relativeTime: parseFloat(((now - captureStartTime) / 1000).toFixed(6)),
-    length: rawBytes.length,
-    capturedLength: rawBytes.length,
-    protocol: 'UDP',
-    info: `${srcPort} → ${dstPort} ${services[dstPort] ? `(${services[dstPort]})` : ''} Len=${payload.length}`,
-    color: getProtocolColor('UDP'),
-    ethernet: {
-      srcMac: src.mac,
-      dstMac: dst.mac,
-      etherType: '0x0800',
-      etherTypeName: 'IPv4',
-    },
-    ip: {
-      version: 4,
-      headerLength: 20,
-      dscp: 0,
-      ecn: 0,
-      totalLength: 20 + 8 + payload.length,
-      identification: `0x${randomHex(2)}`,
-      flags: '0x00',
-      fragmentOffset: 0,
-      ttl: 64,
-      protocol: 17,
-      protocolName: 'UDP',
-      checksum: `0x${randomHex(2)}`,
-      srcIp: src.ip,
-      dstIp: dst.ip,
-    },
-    udp: {
-      srcPort,
-      dstPort,
-      length: 8 + payload.length,
-      checksum: `0x${randomHex(2)}`,
-    },
-    hexDump: generateHexDump(rawBytes),
-    rawBytes,
-  };
-}
-
-const STP_MAC = '01:80:c2:00:00:00';
-const LLDP_MAC = '01:80:c2:00:00:0e';
-
-// ── DHCP (DORA) ──────────────────────────────────────────────────────────────
-function generateDhcpPacket(): Packet {
-  const phase = randomChoice(['Discover', 'Offer', 'Request', 'ACK'] as const);
-  const client = randomChoice([HOSTS[1], HOSTS[2]]);
-  const server = HOSTS[0];
-  const fromClient = phase === 'Discover' || phase === 'Request';
-  const offered = `10.0.0.${randomBetween(100, 200)}`;
-  const xid = `0x${randomHex(4)}`;
-
-  const srcMac = fromClient ? client.mac : server.mac;
-  const dstMac = phase === 'ACK' || phase === 'Offer' ? client.mac : BROADCAST_MAC;
-  const srcIp = fromClient ? '0.0.0.0' : server.ip;
-  const dstIp = phase === 'ACK' || phase === 'Offer' ? offered : '255.255.255.255';
-  const payload = randomPayload(240);
-
-  const ethernet = eth(srcMac, dstMac, '0x0800', 'IPv4');
-  const ip = ipLayer(srcIp, dstIp, 17, 'UDP', 8 + payload.length);
-  const udp = udpLayer(fromClient ? 68 : 67, fromClient ? 67 : 68, payload.length);
-  const rawBytes = [
-    ...generateEthernetBytes(srcMac, dstMac, 0x0800),
-    ...generateIpBytes(srcIp, dstIp, 17, 8 + payload.length),
-    ...generateUdpBytes(udp.srcPort, udp.dstPort, payload.length),
-    ...payload,
+// ── DHCP DORA (correlated 4-packet exchange) ─────────────────────────────────
+function emitDhcpDora(at: number, client: Host): void {
+  const xid = hex16(randInt(0, 0xffffffff));
+  const offered = `10.0.0.${randInt(100, 200)}`;
+  const phases: Array<{ phase: 'Discover' | 'Offer' | 'Request' | 'ACK'; fromClient: boolean }> = [
+    { phase: 'Discover', fromClient: true }, { phase: 'Offer', fromClient: false },
+    { phase: 'Request', fromClient: true }, { phase: 'ACK', fromClient: false },
   ];
-
-  const fields = [
-    { key: 'Message Type', value: `Boot ${fromClient ? 'Request (1)' : 'Reply (2)'}` },
-    { key: 'DHCP Message Type', value: `${phase}` },
-    { key: 'Transaction ID', value: xid },
-    { key: 'Client MAC', value: client.mac },
-    { key: 'Your (client) IP', value: phase === 'Offer' || phase === 'ACK' ? offered : '0.0.0.0' },
-    { key: 'DHCP Server ID', value: server.ip },
-    { key: 'Subnet Mask', value: '255.255.255.0' },
-    { key: 'Router', value: server.ip },
-    { key: 'Domain Name Server', value: '8.8.8.8, 1.1.1.1' },
-    { key: 'IP Address Lease Time', value: '86400s (1 day)' },
-  ];
-
-  return makePacket({
-    protocol: 'DHCP',
-    info: `DHCP ${phase} - Transaction ID ${xid}${phase === 'Offer' || phase === 'ACK' ? ` - ${offered}` : ''}`,
-    ethernet, ip, udp, rawBytes,
-    protoViews: [{ name: 'Dynamic Host Configuration Protocol', summary: `(${phase})`, fields }],
-  });
+  let t = at;
+  for (const { phase, fromClient } of phases) {
+    const src = fromClient ? client : GATEWAY;
+    const dst = fromClient ? GATEWAY : client;
+    const srcIp = fromClient ? '0.0.0.0' : GATEWAY.ip;
+    const dstIp = phase === 'Offer' || phase === 'ACK' ? offered : '255.255.255.255';
+    const fields = [
+      { key: 'Message Type', value: `Boot ${fromClient ? 'Request (1)' : 'Reply (2)'}` },
+      { key: 'DHCP Message Type', value: phase },
+      { key: 'Transaction ID', value: xid },
+      { key: 'Client MAC', value: client.mac },
+      { key: 'Your (client) IP', value: phase === 'Offer' || phase === 'ACK' ? offered : '0.0.0.0' },
+      { key: 'DHCP Server', value: GATEWAY.ip },
+      { key: 'Subnet Mask', value: '255.255.255.0' }, { key: 'Router', value: GATEWAY.ip },
+      { key: 'DNS', value: '8.8.8.8, 1.1.1.1' }, { key: 'Lease Time', value: '86400s (1 day)' },
+    ];
+    emitUdp({
+      at: t,
+      src: { ...src, ip: srcIp }, dst: { ...dst, ip: dstIp },
+      srcPort: fromClient ? 68 : 67, dstPort: fromClient ? 67 : 68, payload: randomPayload(240),
+      protocol: 'DHCP', info: `DHCP ${phase} - Transaction ID ${xid}${phase === 'Offer' || phase === 'ACK' ? ` - ${offered}` : ''}`,
+      protoViews: [{ name: 'Dynamic Host Configuration Protocol', summary: `(${phase})`, fields }],
+      multicastMac: dstIp === '255.255.255.255' ? BROADCAST_MAC : client.mac,
+    });
+    t += randFloat(1, 8);
+  }
 }
 
-// ── STP / Spanning Tree (BPDU) ───────────────────────────────────────────────
-function generateStpPacket(): Packet {
-  const sw = randomChoice([HOSTS[4], HOSTS[0]]);
-  const rootPriority = 32768;
-  const rootMac = '00:1a:2b:3c:4d:00';
-  const cost = randomChoice([0, 4, 19, 23]);
-  const portId = `0x800${randomBetween(1, 9)}`;
-  const payload = randomPayload(35);
-  const ethernet = eth(sw.mac, STP_MAC, '0x0026', 'IEEE 802.3 / LLC');
-  const rawBytes = [...generateEthernetBytes(sw.mac, STP_MAC, 0x0026), ...payload];
-
-  return makePacket({
-    protocol: 'STP',
-    info: `Conf. Root = ${rootPriority}/${rootMac}  Cost = ${cost}  Port = ${portId}`,
-    ethernet, rawBytes,
-    protoViews: [{
-      name: 'Spanning Tree Protocol', summary: '(Configuration BPDU)',
-      fields: [
-        { key: 'Protocol Identifier', value: 'Spanning Tree Protocol (0x0000)' },
-        { key: 'Protocol Version', value: 'Rapid Spanning Tree (2)' },
-        { key: 'BPDU Type', value: 'Rapid/Multiple (0x02)' },
-        { key: 'Root Identifier', value: `${rootPriority} / ${rootMac}` },
-        { key: 'Root Path Cost', value: String(cost) },
-        { key: 'Bridge Identifier', value: `${rootPriority} / ${sw.mac}` },
-        { key: 'Port Identifier', value: portId },
-        { key: 'Message Age', value: '0' },
-        { key: 'Max Age', value: '20' },
-        { key: 'Hello Time', value: '2' },
-        { key: 'Forward Delay', value: '15' },
-      ],
-    }],
-  });
+// ── Periodic control-plane single packets ────────────────────────────────────
+function emitNtp(at: number, client: Host): void {
+  const sport = randInt(49152, 65535);
+  emitUdp({ at, src: client, dst: GATEWAY, srcPort: sport, dstPort: 123, payload: randomPayload(48), protocol: 'NTP', info: 'NTP Version 4, client',
+    protoViews: [{ name: 'Network Time Protocol', summary: '(client)', fields: [{ key: 'Version', value: '4' }, { key: 'Mode', value: 'client (3)' }, { key: 'Stratum', value: 'unspecified (0)' }] }] });
+  emitUdp({ at: at + rtt(client, GATEWAY), src: GATEWAY, dst: client, srcPort: 123, dstPort: sport, payload: randomPayload(48), protocol: 'NTP', info: 'NTP Version 4, server',
+    protoViews: [{ name: 'Network Time Protocol', summary: '(server)', fields: [{ key: 'Version', value: '4' }, { key: 'Mode', value: 'server (4)' }, { key: 'Stratum', value: 'secondary reference (2)' }, { key: 'Reference ID', value: '129.6.15.28' }] }] });
 }
 
-// ── LLDP (Link Layer Discovery) ──────────────────────────────────────────────
-function generateLldpPacket(): Packet {
-  const dev = randomChoice([HOSTS[0], HOSTS[4]]);
-  const port = `Gi0/${randomBetween(1, 24)}`;
-  const payload = randomPayload(80);
-  const ethernet = eth(dev.mac, LLDP_MAC, '0x88cc', 'LLDP');
-  const rawBytes = [...generateEthernetBytes(dev.mac, LLDP_MAC, 0x88cc), ...payload];
-
-  return makePacket({
-    protocol: 'LLDP',
-    info: `${dev.name} Port ${port} TTL=120`,
-    ethernet, rawBytes,
-    protoViews: [{
-      name: 'Link Layer Discovery Protocol',
-      fields: [
-        { key: 'Chassis ID', value: `MAC address (${dev.mac})` },
-        { key: 'Port ID', value: `Interface name (${port})` },
-        { key: 'Time To Live', value: '120 seconds' },
-        { key: 'System Name', value: dev.name },
-        { key: 'System Description', value: 'Cisco IOS Software, C2960' },
-        { key: 'Capabilities', value: 'Bridge, Router' },
-      ],
-    }],
-  });
+function emitSnmp(at: number): void {
+  const target = LOCAL_SERVERS[0];
+  emitUdp({ at, src: GATEWAY, dst: target, srcPort: randInt(49152, 65535), dstPort: 161, payload: randomPayload(60), protocol: 'SNMP', info: 'get-request 1.3.6.1.2.1.1.3.0',
+    protoViews: [{ name: 'Simple Network Management Protocol', summary: '(get-request)', fields: [{ key: 'Version', value: 'v2c (1)' }, { key: 'Community', value: 'public' }, { key: 'OID', value: '1.3.6.1.2.1.1.3.0 (sysUpTime)' }] }] });
 }
 
-// ── NTP ──────────────────────────────────────────────────────────────────────
-function generateNtpPacket(): Packet {
-  const isClient = Math.random() > 0.5;
-  const src = isClient ? randomChoice([HOSTS[1], HOSTS[2]]) : HOSTS[0];
-  const dst = isClient ? HOSTS[0] : randomChoice([HOSTS[1], HOSTS[2]]);
-  const payload = randomPayload(48);
-  const ethernet = eth(src.mac, dst.mac, '0x0800', 'IPv4');
-  const ip = ipLayer(src.ip, dst.ip, 17, 'UDP', 8 + payload.length);
-  const udp = udpLayer(123, 123, payload.length);
-  const rawBytes = [
-    ...generateEthernetBytes(src.mac, dst.mac, 0x0800),
-    ...generateIpBytes(src.ip, dst.ip, 17, 8 + payload.length),
-    ...generateUdpBytes(123, 123, payload.length), ...payload,
-  ];
-  return makePacket({
-    protocol: 'NTP', info: `NTP Version 4, ${isClient ? 'client' : 'server'}`,
-    ethernet, ip, udp, rawBytes,
-    protoViews: [{
-      name: 'Network Time Protocol', summary: `(${isClient ? 'client' : 'server'})`,
-      fields: [
-        { key: 'Leap Indicator', value: 'no warning (0)' },
-        { key: 'Version', value: '4' },
-        { key: 'Mode', value: isClient ? 'client (3)' : 'server (4)' },
-        { key: 'Stratum', value: isClient ? 'unspecified (0)' : 'secondary reference (2)' },
-        { key: 'Reference ID', value: '129.6.15.28' },
-      ],
-    }],
-  });
-}
-
-// ── SNMP ─────────────────────────────────────────────────────────────────────
-function generateSnmpPacket(): Packet {
-  const pdu = randomChoice(['get-request', 'get-next-request', 'get-response', 'trap']);
-  const src = randomChoice([HOSTS[0], HOSTS[4]]);
-  const dst = HOSTS[3];
-  const payload = randomPayload(60);
-  const port = pdu === 'trap' ? 162 : 161;
-  const ethernet = eth(src.mac, dst.mac, '0x0800', 'IPv4');
-  const ip = ipLayer(src.ip, dst.ip, 17, 'UDP', 8 + payload.length);
-  const udp = udpLayer(randomBetween(49152, 65535), port, payload.length);
-  const rawBytes = [
-    ...generateEthernetBytes(src.mac, dst.mac, 0x0800),
-    ...generateIpBytes(src.ip, dst.ip, 17, 8 + payload.length),
-    ...generateUdpBytes(udp.srcPort, port, payload.length), ...payload,
-  ];
-  return makePacket({
-    protocol: 'SNMP', info: `${pdu}  1.3.6.1.2.1.1.3.0`,
-    ethernet, ip, udp, rawBytes,
-    protoViews: [{
-      name: 'Simple Network Management Protocol', summary: `(${pdu})`,
-      fields: [
-        { key: 'Version', value: 'v2c (1)' },
-        { key: 'Community', value: 'public' },
-        { key: 'PDU Type', value: pdu },
-        { key: 'Request ID', value: String(randomBetween(1, 99999)) },
-        { key: 'Object Identifier', value: '1.3.6.1.2.1.1.3.0 (sysUpTime)' },
-      ],
-    }],
-  });
-}
-
-// ── OSPF ─────────────────────────────────────────────────────────────────────
-function generateOspfPacket(): Packet {
-  const src = randomChoice([HOSTS[0], HOSTS[4]]);
-  const dst = '224.0.0.5';
+function emitOspfHello(at: number): void {
+  const src = GATEWAY;
   const payload = randomPayload(44);
-  const ethernet = eth(src.mac, '01:00:5e:00:00:05', '0x0800', 'IPv4');
-  const ip = ipLayer(src.ip, dst, 89, 'OSPF', payload.length, 1);
-  const rawBytes = [
-    ...generateEthernetBytes(src.mac, '01:00:5e:00:00:05', 0x0800),
-    ...generateIpBytes(src.ip, dst, 89, payload.length), ...payload,
-  ];
-  return makePacket({
-    protocol: 'OSPF', info: 'Hello Packet',
-    ethernet, ip, rawBytes,
-    protoViews: [{
-      name: 'Open Shortest Path First', summary: '(Hello Packet)',
-      fields: [
-        { key: 'Version', value: '2' },
-        { key: 'Message Type', value: 'Hello Packet (1)' },
-        { key: 'Source OSPF Router', value: src.ip },
-        { key: 'Area ID', value: '0.0.0.0 (backbone)' },
-        { key: 'Hello Interval', value: '10 seconds' },
-        { key: 'Router Dead Interval', value: '40 seconds' },
-      ],
-    }],
+  const ipId = randInt(0, 0xffff);
+  const ipH = ipv4Header(src.ip, '224.0.0.5', 89, payload.length, 1, ipId);
+  const rawBytes = [...ethernetBytes(src.mac, '01:00:5e:00:00:05', 0x0800), ...ipH.bytes, ...payload];
+  schedule(at, {
+    id: 0, timestamp: at, relativeTime: 0, length: rawBytes.length, capturedLength: rawBytes.length,
+    protocol: 'OSPF', info: 'Hello Packet', color: getProtocolColor('OSPF'),
+    ethernet: { srcMac: src.mac, dstMac: '01:00:5e:00:00:05', etherType: '0x0800', etherTypeName: 'IPv4' },
+    ip: baseIpLayer(src.ip, '224.0.0.5', 89, 'OSPF', payload.length, 1, ipId, ipH.checksum),
+    protoViews: [{ name: 'Open Shortest Path First', summary: '(Hello Packet)', fields: [{ key: 'Version', value: '2' }, { key: 'Message Type', value: 'Hello Packet (1)' }, { key: 'Source OSPF Router', value: src.ip }, { key: 'Area ID', value: '0.0.0.0 (backbone)' }, { key: 'Hello Interval', value: '10 seconds' }, { key: 'Dead Interval', value: '40 seconds' }] }],
+    hexDump: generateHexDump(rawBytes), rawBytes,
   });
 }
 
-// ── SSDP (UPnP discovery) ────────────────────────────────────────────────────
-function generateSsdpPacket(): Packet {
-  const isSearch = Math.random() > 0.5;
-  const src = randomChoice([HOSTS[1], HOSTS[2]]);
-  const dst = '239.255.255.250';
-  const payload = randomPayload(120);
-  const ethernet = eth(src.mac, '01:00:5e:7f:ff:fa', '0x0800', 'IPv4');
-  const ip = ipLayer(src.ip, dst, 17, 'UDP', 8 + payload.length);
-  const udp = udpLayer(randomBetween(49152, 65535), 1900, payload.length);
-  const rawBytes = [
-    ...generateEthernetBytes(src.mac, '01:00:5e:7f:ff:fa', 0x0800),
-    ...generateIpBytes(src.ip, dst, 17, 8 + payload.length),
-    ...generateUdpBytes(udp.srcPort, 1900, payload.length), ...payload,
-  ];
-  return makePacket({
-    protocol: 'SSDP', info: isSearch ? 'M-SEARCH * HTTP/1.1' : 'NOTIFY * HTTP/1.1',
-    ethernet, ip, udp, rawBytes,
-    protoViews: [{
-      name: 'Simple Service Discovery Protocol',
-      fields: [
-        { key: 'Method', value: isSearch ? 'M-SEARCH' : 'NOTIFY' },
-        { key: 'Host', value: '239.255.255.250:1900' },
-        { key: isSearch ? 'ST' : 'NT', value: 'ssdp:all' },
-        { key: 'Man', value: isSearch ? '"ssdp:discover"' : '—' },
-      ],
-    }],
+function emitStpBpdu(at: number): void {
+  const src = GATEWAY;
+  const STP_MAC = '01:80:c2:00:00:00';
+  const payload = randomPayload(35);
+  const rawBytes = [...ethernetBytes(src.mac, STP_MAC, 0x0026), ...payload];
+  schedule(at, {
+    id: 0, timestamp: at, relativeTime: 0, length: rawBytes.length, capturedLength: rawBytes.length,
+    protocol: 'STP', info: 'Conf. Root = 32768/00:1a:2b:3c:4d:00  Cost = 0', color: getProtocolColor('STP'),
+    ethernet: { srcMac: src.mac, dstMac: STP_MAC, etherType: '0x0026', etherTypeName: 'IEEE 802.3' },
+    protoViews: [{ name: 'Spanning Tree Protocol', summary: '(Rapid/Configuration BPDU)', fields: [{ key: 'Protocol', value: 'STP (0x0000)' }, { key: 'Version', value: 'RSTP (2)' }, { key: 'Root', value: '32768 / 00:1a:2b:3c:4d:00' }, { key: 'Hello Time', value: '2' }, { key: 'Max Age', value: '20' }, { key: 'Forward Delay', value: '15' }] }],
+    hexDump: generateHexDump(rawBytes), rawBytes,
   });
 }
 
-// ── mDNS ─────────────────────────────────────────────────────────────────────
-function generateMdnsPacket(): Packet {
-  const src = randomChoice([HOSTS[1], HOSTS[2], HOSTS[3]]);
-  const names = ['_services._dns-sd._udp.local', '_airplay._tcp.local', '_ipp._tcp.local', `${src.name}.local`];
-  const name = randomChoice(names);
-  const payload = randomPayload(40);
-  const ethernet = eth(src.mac, '01:00:5e:00:00:fb', '0x0800', 'IPv4');
-  const ip = ipLayer(src.ip, '224.0.0.251', 17, 'UDP', 8 + payload.length);
-  const udp = udpLayer(5353, 5353, payload.length);
-  const rawBytes = [
-    ...generateEthernetBytes(src.mac, '01:00:5e:00:00:fb', 0x0800),
-    ...generateIpBytes(src.ip, '224.0.0.251', 17, 8 + payload.length),
-    ...generateUdpBytes(5353, 5353, payload.length), ...payload,
-  ];
-  return makePacket({
-    protocol: 'mDNS', info: `Standard query 0x0000 PTR ${name}`,
-    ethernet, ip, udp, rawBytes,
-    protoViews: [{
-      name: 'Multicast DNS',
-      fields: [
-        { key: 'Transaction ID', value: '0x0000' },
-        { key: 'Type', value: 'Standard query' },
-        { key: 'Question', value: `${name}  PTR  IN` },
-      ],
-    }],
+function emitLldp(at: number): void {
+  const src = GATEWAY;
+  const LLDP_MAC = '01:80:c2:00:00:0e';
+  const payload = randomPayload(80);
+  const port = `Gi0/${randInt(1, 24)}`;
+  const rawBytes = [...ethernetBytes(src.mac, LLDP_MAC, 0x88cc), ...payload];
+  schedule(at, {
+    id: 0, timestamp: at, relativeTime: 0, length: rawBytes.length, capturedLength: rawBytes.length,
+    protocol: 'LLDP', info: `${src.name} Port ${port} TTL=120`, color: getProtocolColor('LLDP'),
+    ethernet: { srcMac: src.mac, dstMac: LLDP_MAC, etherType: '0x88cc', etherTypeName: 'LLDP' },
+    protoViews: [{ name: 'Link Layer Discovery Protocol', fields: [{ key: 'Chassis ID', value: `MAC (${src.mac})` }, { key: 'Port ID', value: port }, { key: 'TTL', value: '120 seconds' }, { key: 'System Name', value: src.name }, { key: 'Capabilities', value: 'Bridge, Router' }] }],
+    hexDump: generateHexDump(rawBytes), rawBytes,
   });
 }
 
-// ── SIP (VoIP signalling) ────────────────────────────────────────────────────
-function generateSipPacket(): Packet {
-  const method = randomChoice(['REGISTER', 'INVITE', 'ACK', 'BYE', '200 OK', '100 Trying']);
-  const src = randomChoice([HOSTS[1], HOSTS[2]]);
-  const dst = HOSTS[3];
-  const payload = randomPayload(150);
-  const ethernet = eth(src.mac, dst.mac, '0x0800', 'IPv4');
-  const ip = ipLayer(src.ip, dst.ip, 17, 'UDP', 8 + payload.length);
-  const udp = udpLayer(5060, 5060, payload.length);
-  const rawBytes = [
-    ...generateEthernetBytes(src.mac, dst.mac, 0x0800),
-    ...generateIpBytes(src.ip, dst.ip, 17, 8 + payload.length),
-    ...generateUdpBytes(5060, 5060, payload.length), ...payload,
-  ];
-  const isResp = method.includes('OK') || method.includes('Trying');
-  return makePacket({
-    protocol: 'SIP', info: isResp ? `Status: ${method}` : `Request: ${method} sip:user@${dst.ip}`,
-    ethernet, ip, udp, rawBytes,
-    protoViews: [{
-      name: 'Session Initiation Protocol', summary: `(${method})`,
-      fields: [
-        { key: isResp ? 'Status-Line' : 'Request-Line', value: isResp ? `SIP/2.0 ${method}` : `${method} sip:user@${dst.ip} SIP/2.0` },
-        { key: 'From', value: `sip:${src.name}@${src.ip}` },
-        { key: 'To', value: `sip:user@${dst.ip}` },
-        { key: 'Call-ID', value: `${randomHex(8)}@${src.ip}` },
-        { key: 'CSeq', value: `${randomBetween(1, 999)} ${isResp ? 'INVITE' : method}` },
-      ],
-    }],
-  });
+function emitMdns(at: number, src: Host): void {
+  const name = pick(['_services._dns-sd._udp.local', '_airplay._tcp.local', '_ipp._tcp.local', `${src.name}.local`]);
+  emitUdp({ at, src, dst: { ...src, ip: '224.0.0.251' }, srcPort: 5353, dstPort: 5353, payload: randomPayload(40), protocol: 'mDNS', info: `Standard query 0x0000 PTR ${name}`, multicastMac: '01:00:5e:00:00:fb',
+    protoViews: [{ name: 'Multicast DNS', fields: [{ key: 'Type', value: 'Standard query' }, { key: 'Question', value: `${name}  PTR  IN` }] }] });
 }
 
-function generateRandomPacket(): Packet {
-  const src = randomChoice(HOSTS.slice(0, 5));
-  let dst = randomChoice(HOSTS);
-  while (dst.ip === src.ip) dst = randomChoice(HOSTS);
+function emitSsdp(at: number, src: Host): void {
+  emitUdp({ at, src, dst: { ...src, ip: '239.255.255.250' }, srcPort: randInt(49152, 65535), dstPort: 1900, payload: randomPayload(120), protocol: 'SSDP', info: 'M-SEARCH * HTTP/1.1', multicastMac: '01:00:5e:7f:ff:fa',
+    protoViews: [{ name: 'Simple Service Discovery Protocol', fields: [{ key: 'Method', value: 'M-SEARCH' }, { key: 'Host', value: '239.255.255.250:1900' }, { key: 'ST', value: 'ssdp:all' }, { key: 'Man', value: '"ssdp:discover"' }] }] });
+}
 
+// ── Session arrival (the realistic, bursty part) ─────────────────────────────
+function startUserSession(at: number): void {
+  const client = pick(CLIENTS);
   const roll = Math.random();
-  // Core IP traffic (~60%)
-  if (roll < 0.16) return generateHttpPacket(src, dst);
-  if (roll < 0.28) return generateDnsPacket(src);
-  if (roll < 0.36) return generateTlsPacket(src, dst);
-  if (roll < 0.42) return generateIcmpPacket(src, dst);
-  if (roll < 0.50) return generateTcpHandshakePacket(src, dst, randomChoice<'SYN' | 'SYN-ACK' | 'ACK'>(['SYN', 'SYN-ACK', 'ACK']));
-  if (roll < 0.56) return generateUdpPacket(src, dst);
-  if (roll < 0.60) return generateArpPacket(src);
-  // Infrastructure & control-plane traffic (~40%)
-  if (roll < 0.70) return generateDhcpPacket();
-  if (roll < 0.78) return generateStpPacket();
-  if (roll < 0.83) return generateLldpPacket();
-  if (roll < 0.88) return generateMdnsPacket();
-  if (roll < 0.91) return generateNtpPacket();
-  if (roll < 0.94) return generateSnmpPacket();
-  if (roll < 0.97) return generateOspfPacket();
-  if (roll < 0.99) return generateSsdpPacket();
-  return generateSipPacket();
+
+  if (roll < 0.55) {
+    // Browse an internet site: DNS lookup first, then an HTTPS connection.
+    const server = pick(INTERNET);
+    const resolver = pick(DNS_SERVERS);
+    const afterDns = emitDnsLookup(at, client, resolver, server.name, server.ip);
+    emitWebSession(afterDns + randFloat(0.2, 2), client, server, true);
+  } else if (roll < 0.75) {
+    // Talk to a local server (intranet/file) — no DNS, plain or TLS.
+    const server = pick(LOCAL_SERVERS);
+    emitWebSession(at, client, server, Math.random() < 0.5);
+  } else if (roll < 0.88) {
+    // Ping something.
+    emitPingSession(at, client, Math.random() < 0.5 ? GATEWAY : pick(INTERNET));
+  } else {
+    // Local discovery chatter.
+    if (Math.random() < 0.5) emitMdns(at, client); else emitSsdp(at, client);
+  }
 }
 
-// Seed a representative mix so every protocol is visible immediately on start
-function seedInitialPackets(): void {
-  const client = HOSTS[1];
-  const web = HOSTS[7];
-  const seeds: Packet[] = [
-    generateDhcpPacket(),
-    generateStpPacket(),
-    generateArpPacket(client),
-    generateDnsPacket(client),
-    generateTcpHandshakePacket(client, web, 'SYN'),
-    generateTcpHandshakePacket(web, client, 'SYN-ACK'),
-    generateTlsPacket(client, web),
-    generateHttpPacket(client, web),
-    generateLldpPacket(),
-    generateMdnsPacket(),
-    generateNtpPacket(),
-    generateSnmpPacket(),
-    generateOspfPacket(),
-    generateSsdpPacket(),
-    generateSipPacket(),
-    generateIcmpPacket(client, HOSTS[0]),
-  ];
-  for (const p of seeds) packetBuffer.push(p);
+// ── Scheduler ────────────────────────────────────────────────────────────────
+const SCHED_TICK = 60;          // ms between scheduler runs
+const SESSION_RATE = 2.2;       // avg user sessions per second
+
+function due(key: string, now: number, intervalMs: number, jitter = 0): boolean {
+  if (nextDue[key] === undefined) { nextDue[key] = now + Math.random() * intervalMs; return false; }
+  if (now >= nextDue[key]) { nextDue[key] = now + intervalMs + (jitter ? randFloat(-jitter, jitter) : 0); return true; }
+  return false;
 }
 
+function tick(): void {
+  if (!isCapturing) return;
+  const now = Date.now();
+
+  // New user sessions — Poisson-ish with occasional bursts (heavy-tailed).
+  const lambda = SESSION_RATE * (SCHED_TICK / 1000);
+  let starts = 0;
+  while (Math.random() < lambda && starts < 4) starts++;            // base arrivals
+  if (Math.random() < 0.06) starts += randInt(2, 5);               // burst
+  for (let i = 0; i < starts; i++) startUserSession(now + randFloat(0, SCHED_TICK));
+
+  // Periodic control-plane traffic at realistic cadences.
+  if (due('stp', now, 2000)) emitStpBpdu(now);
+  if (due('ospf', now, 10000, 500)) emitOspfHello(now);
+  if (due('lldp', now, 30000, 2000)) emitLldp(now);
+  if (due('ntp', now, 64000, 4000)) emitNtp(now, pick(CLIENTS));
+  if (due('snmp', now, 15000, 3000)) emitSnmp(now);
+  if (due('arp', now, 4000, 1500)) emitArpExchange(now, pick(CLIENTS), GATEWAY);
+  if (due('dhcp', now, 45000, 10000)) emitDhcpDora(now, pick(CLIENTS));
+
+  // Flush everything whose scheduled time has arrived, in time order.
+  const ready = pending.filter((p) => p.at <= now).sort((a, b) => a.at - b.at);
+  if (ready.length) {
+    pending = pending.filter((p) => p.at > now);
+    for (const { at, pkt } of ready) {
+      pkt.id = packetIdCounter++;
+      pkt.timestamp = at;
+      pkt.relativeTime = parseFloat(((at - captureStartTime) / 1000).toFixed(6));
+      packetBuffer.push(pkt);
+      if (packetBuffer.length > 10000) packetBuffer.shift();
+    }
+  }
+}
+
+// ── Public API (unchanged) ───────────────────────────────────────────────────
 export function startCapture(): void {
   if (isCapturing) return;
   isCapturing = true;
   captureStartTime = Date.now();
   packetIdCounter = 1;
   packetBuffer.length = 0;
-  seedInitialPackets();
+  pending = [];
+  for (const k of Object.keys(nextDue)) delete nextDue[k];
 
-  const addPacket = () => {
-    if (!isCapturing) return;
-    const packet = generateRandomPacket();
-    packetBuffer.push(packet);
-    if (packetBuffer.length > 10000) packetBuffer.shift();
-    const delay = randomBetween(50, 500);
-    captureInterval = setTimeout(addPacket, delay);
-  };
-  addPacket();
+  // Seed an immediate representative burst so the UI is lively at once.
+  const now = Date.now();
+  emitStpBpdu(now);
+  emitArpExchange(now + 5, CLIENTS[0], GATEWAY);
+  emitDhcpDora(now + 10, CLIENTS[2]);
+  startUserSession(now + 20);
+  startUserSession(now + 30);
+  emitPingSession(now + 40, CLIENTS[1], GATEWAY);
+
+  schedulerInterval = setInterval(tick, SCHED_TICK);
 }
 
 export function stopCapture(): void {
   isCapturing = false;
-  if (captureInterval) {
-    clearTimeout(captureInterval);
-    captureInterval = null;
-  }
+  if (schedulerInterval) { clearInterval(schedulerInterval); schedulerInterval = null; }
 }
 
 export function clearPackets(): void {
   packetBuffer.length = 0;
+  pending = [];
   packetIdCounter = 1;
   captureStartTime = Date.now();
 }
 
 export function getPackets(since?: number, limit = 200): Packet[] {
-  if (since !== undefined) {
-    return packetBuffer.filter(p => p.id > since).slice(-limit);
-  }
+  if (since !== undefined) return packetBuffer.filter((p) => p.id > since).slice(-limit);
   return packetBuffer.slice(-limit);
 }
 
 export function getPacketById(id: number): Packet | undefined {
-  return packetBuffer.find(p => p.id === id);
+  return packetBuffer.find((p) => p.id === id);
 }
 
 export function getStats(): PacketStats {
   const byProtocol: Record<string, number> = {};
   let bytesTotal = 0;
-
   for (const p of packetBuffer) {
     byProtocol[p.protocol] = (byProtocol[p.protocol] || 0) + 1;
     bytesTotal += p.length;
   }
-
   const duration = (Date.now() - captureStartTime) / 1000;
   return {
-    total: packetBuffer.length,
-    byProtocol,
-    bytesTotal,
-    startTime: captureStartTime,
-    duration,
+    total: packetBuffer.length, byProtocol, bytesTotal, startTime: captureStartTime, duration,
     packetsPerSecond: duration > 0 ? packetBuffer.length / duration : 0,
     bytesPerSecond: duration > 0 ? bytesTotal / duration : 0,
   };

@@ -13,6 +13,16 @@ router.get('/:id', asyncHandler(handlers.getTopologyById))
 router.put('/:id', asyncHandler(handlers.updateTopology))
 router.delete('/:id', asyncHandler(handlers.deleteTopology))
 
+// Design-validation report (sub-resource)
+router.get('/:id/validation', asyncHandler(handlers.getValidation))
+
+// Per-device control-plane / operational state tables
+router.get('/:id/nodes/:nodeId/control-plane', asyncHandler(handlers.getControlPlane))
+
+// Config export (Cisco-style running-config)
+router.get('/:id/config', asyncHandler(handlers.getTopologyConfig))
+router.get('/:id/nodes/:nodeId/config', asyncHandler(handlers.getDeviceConfig))
+
 // Nodes (sub-resource)
 router.post('/:id/nodes', asyncHandler(handlers.addNode))
 router.put('/:id/nodes/:nodeId', asyncHandler(handlers.updateNode))

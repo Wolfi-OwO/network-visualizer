@@ -6,20 +6,25 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "fill-demo-data": "node --import ./register-tsnode.mjs src/db/fill-demo-data.ts",
     "test": "node --import ./register-tsnode.mjs --test tests/api.test.ts"
   },
   "dependencies": {
     "@godaddy/terminus": "^4.12.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.2",
     "uuid": "^9.0.0",
     "winston": "^3.19.0"
   },
   "type": "module",
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.11.5",
     "@types/supertest": "^7.2.0",
     "@types/uuid": "^9.0.7",

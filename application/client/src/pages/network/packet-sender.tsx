@@ -22,9 +22,9 @@ const PRESET_PORTS = [
 ]
 
 const SPEED_PRESETS = [
-  { label: 'Fast',   ms: 300 },
-  { label: 'Normal', ms: 700 },
-  { label: 'Slow',   ms: 1500 },
+  { label: 'Fast',   ms: 1300 },
+  { label: 'Normal', ms: 2000 },
+  { label: 'Slow',   ms: 5000 },
 ] as const
 
 interface PacketSenderProps {
