@@ -7,9 +7,15 @@ import PacketCapturePage from './pages/packets/packet-capture-page.tsx'
 import NetworkBuilderPage from './pages/network/network-builder-page.tsx'
 import CIDRCalculatorPage from './pages/cidr/cidr-calculator-page.tsx'
 import AdminPage from './pages/admin/admin-page.tsx'
+import LoginPage from './pages/auth/login-page.tsx'
 
 // URL ↔ layout/page mapping (React Browser Router).
 export const router = createBrowserRouter([
+  {
+    path: '/login',
+    element: <LoginPage />,
+    errorElement: <ErrorPage />,
+  },
   {
     path: '/',
     element: <RegularLayout />,

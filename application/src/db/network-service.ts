@@ -3,7 +3,9 @@ import { TopologyModel } from './models/topology.model.js'
 import { buildDemoTopology } from './seed.js'
 import type { NetworkTopology, NetworkNode, NetworkEdge } from '../types/index.js'
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Every operation is scoped to an owner (the user id, or 'local' for the
+// anonymous workspace) so each account's topologies are stored independently.
+
 type TopologyDoc = Awaited<ReturnType<typeof TopologyModel.findOne>>
 
 function toTopology(doc: NonNullable<TopologyDoc>): NetworkTopology {
@@ -11,39 +13,33 @@ function toTopology(doc: NonNullable<TopologyDoc>): NetworkTopology {
 }
 
 // ── Topology collection ───────────────────────────────────────────────────────
-export async function getOrCreateDefault(): Promise<NetworkTopology> {
-  const existing = await TopologyModel.findOne({ isDefault: true })
+export async function getOrCreateDefault(ownerId: string): Promise<NetworkTopology> {
+  const existing = await TopologyModel.findOne({ ownerId, isDefault: true })
   if (existing) return toTopology(existing)
-  const created = await TopologyModel.create({ ...buildDemoTopology(), isDefault: true })
+  const created = await TopologyModel.create({ ...buildDemoTopology(), ownerId, isDefault: true })
   return toTopology(created)
 }
 
-export async function getAllTopologies(): Promise<NetworkTopology[]> {
-  const docs = await TopologyModel.find().sort({ createdAt: 1 })
+export async function getAllTopologies(ownerId: string): Promise<NetworkTopology[]> {
+  const docs = await TopologyModel.find({ ownerId }).sort({ createdAt: 1 })
   return docs.map(toTopology)
 }
 
-export async function getTopology(id: string): Promise<NetworkTopology | null> {
-  const doc = await TopologyModel.findOne({ id })
+export async function getTopology(id: string, ownerId: string): Promise<NetworkTopology | null> {
+  const doc = await TopologyModel.findOne({ id, ownerId })
   return doc ? toTopology(doc) : null
 }
 
-export async function createTopology(name: string, description?: string): Promise<NetworkTopology> {
+export async function createTopology(name: string, description: string | undefined, ownerId: string): Promise<NetworkTopology> {
   const now = Date.now()
   const doc = await TopologyModel.create({
-    id: uuidv4(),
-    name,
-    description,
-    nodes: [],
-    edges: [],
-    createdAt: now,
-    updatedAt: now,
+    id: uuidv4(), ownerId, name, description, nodes: [], edges: [], createdAt: now, updatedAt: now,
   })
   return toTopology(doc)
 }
 
-export async function updateTopology(id: string, updates: Partial<NetworkTopology>): Promise<NetworkTopology | null> {
-  const doc = await TopologyModel.findOne({ id })
+export async function updateTopology(id: string, updates: Partial<NetworkTopology>, ownerId: string): Promise<NetworkTopology | null> {
+  const doc = await TopologyModel.findOne({ id, ownerId })
   if (!doc) return null
   if (updates.name !== undefined) doc.name = updates.name
   if (updates.description !== undefined) doc.description = updates.description
@@ -54,14 +50,14 @@ export async function updateTopology(id: string, updates: Partial<NetworkTopolog
   return toTopology(doc)
 }
 
-export async function deleteTopology(id: string): Promise<boolean> {
-  const res = await TopologyModel.deleteOne({ id })
+export async function deleteTopology(id: string, ownerId: string): Promise<boolean> {
+  const res = await TopologyModel.deleteOne({ id, ownerId })
   return res.deletedCount > 0
 }
 
 // ── Nodes ─────────────────────────────────────────────────────────────────────
-export async function addNode(topologyId: string, node: Omit<NetworkNode, 'id'>): Promise<NetworkNode | null> {
-  const doc = await TopologyModel.findOne({ id: topologyId })
+export async function addNode(topologyId: string, node: Omit<NetworkNode, 'id'>, ownerId: string): Promise<NetworkNode | null> {
+  const doc = await TopologyModel.findOne({ id: topologyId, ownerId })
   if (!doc) return null
   const newNode: NetworkNode = { ...node, id: uuidv4() }
   ;(doc.nodes as NetworkNode[]).push(newNode)
@@ -71,8 +67,8 @@ export async function addNode(topologyId: string, node: Omit<NetworkNode, 'id'>)
   return newNode
 }
 
-export async function updateNode(topologyId: string, nodeId: string, updates: Partial<NetworkNode>): Promise<NetworkNode | null> {
-  const doc = await TopologyModel.findOne({ id: topologyId })
+export async function updateNode(topologyId: string, nodeId: string, updates: Partial<NetworkNode>, ownerId: string): Promise<NetworkNode | null> {
+  const doc = await TopologyModel.findOne({ id: topologyId, ownerId })
   if (!doc) return null
   const nodes = doc.nodes as NetworkNode[]
   const idx = nodes.findIndex((n) => n.id === nodeId)
@@ -84,8 +80,8 @@ export async function updateNode(topologyId: string, nodeId: string, updates: Pa
   return nodes[idx]
 }
 
-export async function deleteNode(topologyId: string, nodeId: string): Promise<boolean> {
-  const doc = await TopologyModel.findOne({ id: topologyId })
+export async function deleteNode(topologyId: string, nodeId: string, ownerId: string): Promise<boolean> {
+  const doc = await TopologyModel.findOne({ id: topologyId, ownerId })
   if (!doc) return false
   const nodes = doc.nodes as NetworkNode[]
   const edges = doc.edges as NetworkEdge[]
@@ -100,8 +96,8 @@ export async function deleteNode(topologyId: string, nodeId: string): Promise<bo
 }
 
 // ── Edges ─────────────────────────────────────────────────────────────────────
-export async function addEdge(topologyId: string, edge: Omit<NetworkEdge, 'id'>): Promise<NetworkEdge | null> {
-  const doc = await TopologyModel.findOne({ id: topologyId })
+export async function addEdge(topologyId: string, edge: Omit<NetworkEdge, 'id'>, ownerId: string): Promise<NetworkEdge | null> {
+  const doc = await TopologyModel.findOne({ id: topologyId, ownerId })
   if (!doc) return null
   const newEdge: NetworkEdge = { ...edge, id: uuidv4() }
   ;(doc.edges as NetworkEdge[]).push(newEdge)
@@ -111,8 +107,8 @@ export async function addEdge(topologyId: string, edge: Omit<NetworkEdge, 'id'>)
   return newEdge
 }
 
-export async function updateEdge(topologyId: string, edgeId: string, updates: Partial<NetworkEdge>): Promise<NetworkEdge | null> {
-  const doc = await TopologyModel.findOne({ id: topologyId })
+export async function updateEdge(topologyId: string, edgeId: string, updates: Partial<NetworkEdge>, ownerId: string): Promise<NetworkEdge | null> {
+  const doc = await TopologyModel.findOne({ id: topologyId, ownerId })
   if (!doc) return null
   const edges = doc.edges as NetworkEdge[]
   const idx = edges.findIndex((e) => e.id === edgeId)
@@ -124,8 +120,8 @@ export async function updateEdge(topologyId: string, edgeId: string, updates: Pa
   return edges[idx]
 }
 
-export async function deleteEdge(topologyId: string, edgeId: string): Promise<boolean> {
-  const doc = await TopologyModel.findOne({ id: topologyId })
+export async function deleteEdge(topologyId: string, edgeId: string, ownerId: string): Promise<boolean> {
+  const doc = await TopologyModel.findOne({ id: topologyId, ownerId })
   if (!doc) return false
   const edges = doc.edges as NetworkEdge[]
   const before = edges.length
