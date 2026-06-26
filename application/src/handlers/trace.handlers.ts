@@ -3,6 +3,7 @@ import { tracePacket, type SendPacketRequest } from '../services/packet-sender-s
 import { getTopology, getOrCreateDefault } from '../db/network-service.js'
 import { BadRequestError, NotFoundError } from '../lib/errors.js'
 import { withLinks, type Links } from '../lib/hateoas.js'
+import { ownerOf } from '../middlewares/auth.js'
 
 // POST /api/networks/:id/traces — create a packet trace through a topology.
 // :id may be a topology id or the well-known alias "default".
@@ -14,7 +15,8 @@ export async function createTrace(req: Request, res: Response): Promise<void> {
     throw new BadRequestError('srcNodeId, dstNodeId, and protocol are required')
   }
 
-  const topology = id === 'default' ? await getOrCreateDefault() : await getTopology(id)
+  const owner = ownerOf(req)
+  const topology = id === 'default' ? await getOrCreateDefault(owner) : await getTopology(id, owner)
   if (!topology) throw new NotFoundError('Topology not found')
 
   const result = tracePacket(topology, body)

@@ -1,5 +1,7 @@
 // Barrel for the API layer — one module per backend resource.
 export { api } from './client.ts'
+export { auth } from './auth.ts'
+export type { AuthUser, ProvidersInfo } from './auth.ts'
 export { packets } from './packets.ts'
 export { capture } from './capture.ts'
 export { cidr } from './cidr.ts'

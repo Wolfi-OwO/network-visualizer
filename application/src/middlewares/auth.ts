@@ -39,9 +39,13 @@ export function requireRole(...roles: string[]): RequestHandler {
   }
 }
 
-/** Block writes for signed-in viewers (anonymous local users may write). */
+const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+
+/** Block mutating requests for signed-in viewers (anonymous local users may write). */
 export function requireWrite(req: Request, _res: Response, next: NextFunction): void {
-  if (req.user && req.user.role === 'viewer') throw new ForbiddenError('Viewers cannot modify data')
+  if (MUTATING.has(req.method) && req.user && req.user.role === 'viewer') {
+    throw new ForbiddenError('Viewers cannot modify data')
+  }
   next()
 }
 

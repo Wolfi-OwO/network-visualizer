@@ -210,11 +210,11 @@ export function buildDemoTopology(): NetworkTopology {
 
 /** Inserts the demo topology if the database has no default topology yet. */
 export async function fillDemoData(): Promise<void> {
-  const existing = await TopologyModel.countDocuments({ isDefault: true })
+  const existing = await TopologyModel.countDocuments({ ownerId: 'local', isDefault: true })
   if (existing > 0) {
     logger.info('DB - demo data already present, skipping seed')
     return
   }
-  await TopologyModel.create({ ...buildDemoTopology(), isDefault: true })
+  await TopologyModel.create({ ...buildDemoTopology(), ownerId: 'local', isDefault: true })
   logger.info('DB - demo data inserted (Enterprise Network)')
 }

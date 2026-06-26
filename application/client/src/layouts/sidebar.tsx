@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom'
-import { Activity, Network, Calculator, LayoutDashboard, Shield, Radio } from 'lucide-react'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { Activity, Network, Calculator, LayoutDashboard, Radio, LogIn, LogOut, User } from 'lucide-react'
+import { useAuth } from '../context/auth-context.tsx'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -9,6 +10,8 @@ const navItems = [
 ]
 
 export default function Sidebar() {
+  const { user, signOut } = useAuth()
+  const navigate = useNavigate()
   return (
     <aside className="flex flex-col w-52 shrink-0 bg-[var(--bg-900)] border-r border-[var(--border)]">
       {/* Logo */}
@@ -45,15 +48,31 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer */}
+      {/* Account */}
       <div className="p-3 border-t border-[var(--border)]">
-        <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-[var(--bg-800)]">
-          <Shield size={12} className="text-[var(--green)] shrink-0" />
-          <div>
-            <div className="text-[10px] font-medium text-[var(--text-primary)]">Backend Connected</div>
-            <div className="text-[10px] text-[var(--text-muted)]">localhost:8080</div>
+        {user ? (
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-[var(--bg-800)]">
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--accent)] shrink-0">
+              <User size={12} className="text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-medium text-[var(--text-primary)] truncate">{user.name}</div>
+              <div className="text-[10px] text-[var(--text-muted)] truncate">{user.role}</div>
+            </div>
+            <button onClick={() => signOut()} title="Sign out" className="text-[var(--text-muted)] hover:text-[var(--text-primary)] shrink-0">
+              <LogOut size={13} />
+            </button>
           </div>
-        </div>
+        ) : (
+          <button
+            onClick={() => navigate('/login')}
+            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md bg-[var(--bg-800)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+          >
+            <LogIn size={13} className="text-[var(--accent)]" />
+            <span className="text-[10px] font-medium">Sign in</span>
+            <span className="text-[10px] text-[var(--text-muted)] ml-auto">local workspace</span>
+          </button>
+        )}
       </div>
     </aside>
   )

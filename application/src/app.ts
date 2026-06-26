@@ -1,10 +1,15 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import { config, isOriginAllowed } from './config/index.js';
 import { requestLogger } from './middlewares/request-logger.js';
 import { notFound, errorHandler } from './middlewares/error-handler.js';
+import { authenticate, requireWrite } from './middlewares/auth.js';
+import { audit } from './middlewares/audit.js';
 import { apiRootLinks } from './lib/hateoas.js';
+import authRouter from './routes/auth.routes.js';
+import auditRouter from './routes/audit.routes.js';
 import networksRouter from './routes/networks.routes.js';
 import cidrRouter from './routes/cidr.routes.js';
 import packetsRouter from './routes/packets.routes.js';
@@ -20,13 +25,17 @@ const app = express();
 app.use(express.static(clientDist))
 
 // Restrict CORS to local development origins (and same-origin / tooling requests
-// that send no Origin header). Avoids a wide-open `origin: '*'`.
+// that send no Origin header). `credentials` lets the session cookie flow.
 app.use(cors({
   origin: (origin, cb) => cb(null, !origin || isOriginAllowed(origin)),
+  credentials: true,
 }));
 
 app.use(express.json({ limit: config.jsonBodyLimit })); // topologies can be large
+app.use(cookieParser());
+app.use(authenticate);     // populates req.user from the session cookie, if any
 app.use(requestLogger);
+app.use(audit);            // record mutating actions by signed-in users
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
@@ -37,7 +46,9 @@ app.get('/api', (_req, res) => {
   res.json({ name: 'NetViz API', version: 1, _links: apiRootLinks() });
 });
 
-app.use('/api/networks', networksRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/audit', auditRouter);
+app.use('/api/networks', requireWrite, networksRouter);   // per-user, viewers read-only
 app.use('/api/cidr', cidrRouter);
 app.use('/api/packets', packetsRouter);
 app.use('/api/capture', captureRouter);
