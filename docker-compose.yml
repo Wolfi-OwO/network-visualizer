@@ -1,8 +1,9 @@
 services:
   mongo:
-    image: mongo:7
+    image: mongo
     ports:
       - "27017:27017"
+    attach: false
     restart: unless-stopped
 
   backend:
@@ -11,6 +12,10 @@ services:
       NODE_ENV: production
       PORT: "8080"
       MONGO_URI: "mongodb://mongo:27017/netviz"
+    env_file:
+      - path: ./application/.env
+        required: true
+
     depends_on:
       - mongo
     ports:
