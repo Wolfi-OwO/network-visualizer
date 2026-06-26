@@ -23,6 +23,8 @@ export function apiRootLinks(): Links {
     packets: { href: `${API_BASE}/packets` },
     capture: { href: `${API_BASE}/capture` },
     cidr: { href: `${API_BASE}/cidr` },
+    auth: { href: `${API_BASE}/auth/me` },
+    audit: { href: `${API_BASE}/audit` },
     ready: { href: `${API_BASE}/ready` },
     live: { href: `${API_BASE}/live` },
   }

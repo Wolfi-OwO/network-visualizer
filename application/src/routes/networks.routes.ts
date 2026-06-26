@@ -23,6 +23,12 @@ router.get('/:id/nodes/:nodeId/control-plane', asyncHandler(handlers.getControlP
 router.get('/:id/config', asyncHandler(handlers.getTopologyConfig))
 router.get('/:id/nodes/:nodeId/config', asyncHandler(handlers.getDeviceConfig))
 
+// Version history (snapshots)
+router.get('/:id/versions', asyncHandler(handlers.listVersions))
+router.post('/:id/versions', asyncHandler(handlers.createVersion))
+router.get('/:id/versions/:versionId', asyncHandler(handlers.getVersion))
+router.post('/:id/versions/:versionId/restore', asyncHandler(handlers.restoreVersion))
+
 // Nodes (sub-resource)
 router.post('/:id/nodes', asyncHandler(handlers.addNode))
 router.put('/:id/nodes/:nodeId', asyncHandler(handlers.updateNode))

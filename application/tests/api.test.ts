@@ -188,6 +188,50 @@ describe('config export', () => {
   })
 })
 
+describe('auth & per-user isolation', () => {
+  test('providers listed; unauthenticated /me is 401', async () => {
+    const p = await request(app).get('/api/auth/providers')
+    assert.equal(p.status, 200)
+    assert.equal(p.body.devLogin, true)
+    const me = await request(app).get('/api/auth/me')
+    assert.equal(me.status, 401)
+  })
+
+  test('dev-login starts a session; first user is admin; logout clears it', async () => {
+    const agent = request.agent(app)
+    const login = await agent.post('/api/auth/dev-login').send({ email: 'admin@netviz.local', name: 'Admin' })
+    assert.equal(login.status, 200)
+    assert.equal(login.body.email, 'admin@netviz.local')
+    const me = await agent.get('/api/auth/me')
+    assert.equal(me.status, 200)
+    assert.equal(me.body.role, 'admin')           // first registered user
+    const aud = await agent.get('/api/audit')      // admin can read the audit log
+    assert.equal(aud.status, 200)
+    assert.ok(Array.isArray(aud.body.items))
+    const out = await agent.post('/api/auth/logout')
+    assert.equal(out.status, 200)
+    assert.equal((await agent.get('/api/auth/me')).status, 401)
+  })
+
+  test("each account's topologies are stored independently", async () => {
+    const alice = request.agent(app)
+    await alice.post('/api/auth/dev-login').send({ email: 'alice@example.com' })
+    const bob = request.agent(app)
+    await bob.post('/api/auth/dev-login').send({ email: 'bob@example.com' })
+
+    const created = await alice.post('/api/networks').send({ name: 'Alice Net' })
+    assert.equal(created.status, 201)
+    const id = created.body.id
+
+    assert.equal((await alice.get(`/api/networks/${id}`)).status, 200)   // owner sees it
+    assert.equal((await bob.get(`/api/networks/${id}`)).status, 404)     // other user cannot
+    const bobList = await bob.get('/api/networks')
+    assert.ok(!bobList.body.items.some((t: { id: string }) => t.id === id))
+
+    assert.equal((await bob.get('/api/audit')).status, 403)              // editor ≠ admin
+  })
+})
+
 describe('traces', () => {
   test('POST /api/networks/default/traces → 201', async () => {
     const res = await request(app)
