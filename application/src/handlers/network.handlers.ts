@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
-import * as networkService from '../db/networkService.js'
+import * as networkService from '../db/network-service.js'
 import { BadRequestError, NotFoundError } from '../lib/errors.js'
+import { withLinks, topologyLinks, networksCollectionLinks } from '../lib/hateoas.js'
 
 // ── Lightweight schema validation for incoming topology data ──────────────────
 function isObj(v: unknown): v is Record<string, unknown> {
@@ -25,42 +26,45 @@ function assertValidTopologyPatch(body: unknown): void {
 // ── Topology collection ───────────────────────────────────────────────────────
 export async function listTopologies(_req: Request, res: Response): Promise<void> {
   if ((await networkService.getAllTopologies()).length === 0) await networkService.getOrCreateDefault()
-  res.json(await networkService.getAllTopologies())
+  const items = (await networkService.getAllTopologies()).map((t) => withLinks(t, topologyLinks(t.id)))
+  res.json({ _links: networksCollectionLinks(), count: items.length, items })
 }
 
 export async function getDefaultTopology(_req: Request, res: Response): Promise<void> {
-  res.json(await networkService.getOrCreateDefault())
+  const topology = await networkService.getOrCreateDefault()
+  res.json(withLinks(topology, topologyLinks(topology.id)))
 }
 
 export async function createTopology(req: Request, res: Response): Promise<void> {
   const { name, description } = req.body
   if (!name) throw new BadRequestError('name is required')
-  res.status(201).json(await networkService.createTopology(name, description))
+  const topology = await networkService.createTopology(name, description)
+  res.status(201).location(`/api/networks/${topology.id}`).json(withLinks(topology, topologyLinks(topology.id)))
 }
 
 export async function getTopologyById(req: Request, res: Response): Promise<void> {
   const topology = await networkService.getTopology(req.params.id)
   if (!topology) throw new NotFoundError('Topology not found')
-  res.json(topology)
+  res.json(withLinks(topology, topologyLinks(topology.id)))
 }
 
 export async function updateTopology(req: Request, res: Response): Promise<void> {
   assertValidTopologyPatch(req.body)
   const topology = await networkService.updateTopology(req.params.id, req.body)
   if (!topology) throw new NotFoundError('Topology not found')
-  res.json(topology)
+  res.json(withLinks(topology, topologyLinks(topology.id)))
 }
 
 export async function deleteTopology(req: Request, res: Response): Promise<void> {
   if (!(await networkService.deleteTopology(req.params.id))) throw new NotFoundError('Topology not found')
-  res.json({ deleted: true })
+  res.status(204).end()
 }
 
 // ── Nodes ─────────────────────────────────────────────────────────────────────
 export async function addNode(req: Request, res: Response): Promise<void> {
   const node = await networkService.addNode(req.params.id, req.body)
   if (!node) throw new NotFoundError('Topology not found')
-  res.status(201).json(node)
+  res.status(201).location(`/api/networks/${req.params.id}/nodes/${node.id}`).json(node)
 }
 
 export async function updateNode(req: Request, res: Response): Promise<void> {
@@ -71,14 +75,14 @@ export async function updateNode(req: Request, res: Response): Promise<void> {
 
 export async function deleteNode(req: Request, res: Response): Promise<void> {
   if (!(await networkService.deleteNode(req.params.id, req.params.nodeId))) throw new NotFoundError('Node not found')
-  res.json({ deleted: true })
+  res.status(204).end()
 }
 
 // ── Edges ─────────────────────────────────────────────────────────────────────
 export async function addEdge(req: Request, res: Response): Promise<void> {
   const edge = await networkService.addEdge(req.params.id, req.body)
   if (!edge) throw new NotFoundError('Topology not found')
-  res.status(201).json(edge)
+  res.status(201).location(`/api/networks/${req.params.id}/edges/${edge.id}`).json(edge)
 }
 
 export async function updateEdge(req: Request, res: Response): Promise<void> {
@@ -89,5 +93,5 @@ export async function updateEdge(req: Request, res: Response): Promise<void> {
 
 export async function deleteEdge(req: Request, res: Response): Promise<void> {
   if (!(await networkService.deleteEdge(req.params.id, req.params.edgeId))) throw new NotFoundError('Edge not found')
-  res.json({ deleted: true })
+  res.status(204).end()
 }

@@ -3,9 +3,10 @@ import * as handlers from '../handlers/cidr.handlers.js'
 
 const router = Router()
 
-router.post('/calculate', handlers.calculate)
+router.get('/', handlers.index)
+router.post('/calculations', handlers.calculate)
 router.post('/subnets', handlers.generateSubnets)
-router.post('/supernet', handlers.findSupernet)
-router.get('/validate/:ip', handlers.validateIp)
+router.post('/supernets', handlers.findSupernet)
+router.get('/validations/:ip', handlers.validateIp)
 
 export default router

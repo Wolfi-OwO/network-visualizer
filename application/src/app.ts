@@ -1,13 +1,15 @@
 import express from 'express';
 import cors from 'cors';
-import { config, isOriginAllowed } from './config/index.js';
-import { requestLogger } from './middlewares/requestLogger.js';
-import { notFound, errorHandler } from './middlewares/errorHandler.js';
-import packetsRouter from './routes/packets.routes.js';
-import cidrRouter from './routes/cidr.routes.js';
-import networkRouter from './routes/network.routes.js';
-import sendRouter from './routes/send.routes.js';
 import path from 'node:path';
+import { config, isOriginAllowed } from './config/index.js';
+import { requestLogger } from './middlewares/request-logger.js';
+import { notFound, errorHandler } from './middlewares/error-handler.js';
+import { apiRootLinks } from './lib/hateoas.js';
+import networksRouter from './routes/networks.routes.js';
+import cidrRouter from './routes/cidr.routes.js';
+import packetsRouter from './routes/packets.routes.js';
+import captureRouter from './routes/capture.routes.js';
+
 const __dirname = import.meta.dirname;
 
 const app = express();
@@ -27,10 +29,15 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 
-app.use('/api/packets', packetsRouter);
+// API entry point — hypermedia root (RMM level 3 discoverability)
+app.get('/api', (_req, res) => {
+  res.json({ name: 'NetViz API', version: 1, _links: apiRootLinks() });
+});
+
+app.use('/api/networks', networksRouter);
 app.use('/api/cidr', cidrRouter);
-app.use('/api/network', networkRouter);
-app.use('/api/send', sendRouter);
+app.use('/api/packets', packetsRouter);
+app.use('/api/capture', captureRouter);
 
 app.get(/^(?!\/api).*/, (_req, res) => {
     res.sendFile(path.join(__dirname, '..', 'client', 'dist', 'index.html'));
