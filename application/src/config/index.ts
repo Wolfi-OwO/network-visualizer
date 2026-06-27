@@ -1,5 +1,7 @@
 // Centralised application configuration (12-factor: read from the environment).
 // Every tunable value lives here so the rest of the code never touches process.env.
+import { logger } from '../lib/logger.js'
+
 export const config = {
   /** Interface/hostname the server binds to */
   host: process.env.HOST ?? '0.0.0.0',
@@ -34,6 +36,12 @@ export const config = {
   appUrl: process.env.APP_URL || process.env.API_URL || 'http://localhost:8080',
   /** Allow the username/password-less dev login (disabled in production by default) */
   allowDevLogin: process.env.ALLOW_DEV_LOGIN === 'true' || process.env.NODE_ENV !== 'production',
+  /** Require authentication for topology data (block the anonymous local workspace) */
+  requireAuth: process.env.REQUIRE_AUTH === 'true',
+  /** How long to keep audit-log entries (days) */
+  auditRetentionDays: Number(process.env.AUDIT_RETENTION_DAYS) || 90,
+  /** Interval between health samples used for the status page / uptime tracking */
+  healthSampleSeconds: Number(process.env.HEALTH_SAMPLE_SECONDS) || 30,
   oauth: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID ?? '',
@@ -48,6 +56,30 @@ export const config = {
 } as const
 
 export const isProduction = config.nodeEnv === 'production'
+
+const INSECURE_SECRET = 'dev-insecure-secret-change-me'
+
+/**
+ * Fail fast on insecure / missing configuration in production. Called from the
+ * server entrypoint (not app.ts) so tests can import the app without tripping it.
+ */
+export function validateConfig(): void {
+  if (!isProduction) return
+  // Fatal: a default / weak signing secret is never acceptable in production.
+  const errors: string[] = []
+  if (!process.env.JWT_SECRET || config.jwtSecret === INSECURE_SECRET) {
+    errors.push('JWT_SECRET must be set to a strong random value in production')
+  } else if (config.jwtSecret.length < 32) {
+    errors.push('JWT_SECRET should be at least 32 characters')
+  }
+  if (errors.length > 0) {
+    throw new Error(`Insecure configuration:\n  - ${errors.join('\n  - ')}`)
+  }
+  // Warnings: allowed, but flagged so they aren't left on by accident.
+  if (config.allowDevLogin) {
+    logger.warn('ALLOW_DEV_LOGIN is enabled in production — disable it unless you need the password-less local login')
+  }
+}
 
 /** Which OAuth providers are configured (have client id + secret). */
 export function enabledProviders(): string[] {

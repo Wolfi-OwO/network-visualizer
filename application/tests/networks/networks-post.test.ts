@@ -22,4 +22,15 @@ describe('networks: POST', () => {
     assert.equal(edge.status, 201)
     assert.ok(edge.headers.location)
   })
+
+  it('rejects an invalid node body (400)', async () => {
+    const id = await createTopology('BadNode')
+    assert.equal((await request(app).post(`/api/networks/${id}/nodes`).send({ label: 'no type' })).status, 400)
+    assert.equal((await request(app).post(`/api/networks/${id}/nodes`).send({ type: 'pc' })).status, 400)
+  })
+
+  it('rejects an invalid edge body (400)', async () => {
+    const id = await createTopology('BadEdge')
+    assert.equal((await request(app).post(`/api/networks/${id}/edges`).send({ source: 'x' })).status, 400)
+  })
 })
