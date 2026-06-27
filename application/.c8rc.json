@@ -1,0 +1,16 @@
+{
+  "all": false,
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/**/*.d.ts",
+    "src/types/**",
+    "src/lib/health-checks.ts",
+    "src/db/fill-demo-data.ts"
+  ],
+  "reporter": ["text", "text-summary"],
+  "check-coverage": true,
+  "lines": 90,
+  "functions": 0,
+  "branches": 0,
+  "statements": 0
+}
