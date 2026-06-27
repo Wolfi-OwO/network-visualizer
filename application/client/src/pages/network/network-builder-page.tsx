@@ -6,7 +6,7 @@ import {
   BackgroundVariant, ConnectionMode,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Save, RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle, X, GraduationCap, Hammer, Activity, Undo2, Redo2, ShieldCheck, TerminalSquare, Download } from 'lucide-react'
+import { Save, RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle, X, GraduationCap, Hammer, Activity, Undo2, Redo2, ShieldCheck, TerminalSquare, Download, History } from 'lucide-react'
 import type { NetworkTopology, NetworkNode as NetNode, NetworkEdge as NetEdge, NodeType, NetworkNodeConfig, NetworkInterface } from '../../types/index.ts'
 import type { TraceResult } from '../../lib/api/index.ts'
 import { network as networkApi } from '../../lib/api/index.ts'
@@ -23,6 +23,7 @@ import Tutorial, { TUTORIAL_SEEN_KEY } from './tutorial.tsx'
 import GuidedBuild from './guided-build.tsx'
 import ValidationPanel from './validation-panel.tsx'
 import DeviceStatePanel from './device-state-panel.tsx'
+import VersionsPanel from './versions-panel.tsx'
 import { builderReducer, initialBuilderState, type BuilderState } from './network-builder-page.reducer.ts'
 
 // ── Converters ───────────────────────────────────────────────────────────────
@@ -307,14 +308,14 @@ let nodeCounter = 100
 export default function NetworkBuilderPage() {
   const [builder, dispatch] = useReducer(builderReducer, initialBuilderState)
   const {
-    topology, selectedNodeId, selectedEdgeId, showValidation, showState,
+    topology, selectedNodeId, selectedEdgeId, showValidation, showState, showVersions,
     showTutorial, guidedActive, saving, status, traceResult, traceStep,
     isAnimating, isPaused, animSpeed, liveMode,
   } = builder
   // Stable setX wrappers backed by the reducer (dispatch is stable), so existing
   // call sites and effect dependency arrays keep working unchanged.
   const {
-    setTopology, setSelectedNodeId, setSelectedEdgeId, setShowValidation, setShowState,
+    setTopology, setSelectedNodeId, setSelectedEdgeId, setShowValidation, setShowState, setShowVersions,
     setShowTutorial, setGuidedActive, setSaving, setStatus, setTraceResult, setTraceStep,
     setIsAnimating, setIsPaused, setAnimSpeed, setLiveMode, setHistTick,
   } = useMemo(() => ({
@@ -323,6 +324,7 @@ export default function NetworkBuilderPage() {
     setSelectedEdgeId: (v: SetStateAction<BuilderState['selectedEdgeId']>) => dispatch({ type: 'set', key: 'selectedEdgeId', value: v }),
     setShowValidation: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'showValidation', value: v }),
     setShowState: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'showState', value: v }),
+    setShowVersions: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'showVersions', value: v }),
     setShowTutorial: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'showTutorial', value: v }),
     setGuidedActive: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'guidedActive', value: v }),
     setSaving: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'saving', value: v }),
@@ -1121,6 +1123,13 @@ export default function NetworkBuilderPage() {
           <TerminalSquare size={12} />State
         </button>
         <button
+          onClick={() => { handleSave(); setShowVersions(v => !v) }}
+          className={showVersions ? 'btn-primary' : 'btn-ghost'}
+          title="Snapshot history — save and restore versions of this topology"
+        >
+          <History size={12} />Versions
+        </button>
+        <button
           onClick={() => setLiveMode(v => !v)}
           className={liveMode ? 'btn-primary' : 'btn-ghost'}
           title="Toggle live background traffic (hosts request DHCP automatically either way)"
@@ -1236,6 +1245,23 @@ export default function NetworkBuilderPage() {
               topologyId={topology?.id}
               nodeId={selectedNodeId}
               onClose={() => setShowState(false)}
+            />
+          )}
+
+          {/* Snapshot history */}
+          {showVersions && (
+            <VersionsPanel
+              topologyId={topology?.id}
+              onClose={() => setShowVersions(false)}
+              onRestored={(topo) => {
+                setNodes(topo.nodes.map(toFlowNode))
+                setEdges(topo.edges.map(toFlowEdge))
+                setTopology(topo)
+                setSelectedNodeId(null)
+                setSelectedEdgeId(null)
+                setStatus('Snapshot restored')
+                setTimeout(() => setStatus(''), 2000)
+              }}
             />
           )}
         </div>

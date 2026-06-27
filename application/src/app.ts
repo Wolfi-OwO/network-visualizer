@@ -22,6 +22,10 @@ const clientDist = path.join(process.cwd(), 'client', 'dist');
 
 const app = express();
 
+// Behind a TLS-terminating reverse proxy, trust X-Forwarded-* so req.secure /
+// req.protocol reflect the original HTTPS request (controls the cookie Secure flag).
+app.set('trust proxy', true);
+
 app.use(express.static(clientDist))
 
 // Restrict CORS to local development origins (and same-origin / tooling requests

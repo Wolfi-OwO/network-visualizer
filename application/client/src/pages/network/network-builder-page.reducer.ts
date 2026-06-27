@@ -9,6 +9,7 @@ export interface BuilderState {
   selectedEdgeId: string | null
   showValidation: boolean
   showState: boolean
+  showVersions: boolean
   showTutorial: boolean
   guidedActive: boolean
   saving: boolean
@@ -28,6 +29,7 @@ export const initialBuilderState: BuilderState = {
   selectedEdgeId: null,
   showValidation: false,
   showState: false,
+  showVersions: false,
   showTutorial: false,
   guidedActive: false,
   saving: false,

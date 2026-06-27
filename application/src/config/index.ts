@@ -8,7 +8,7 @@ export const config = {
   /** Runtime environment */
   nodeEnv: process.env.NODE_ENV ?? 'development',
   /** MongoDB connection string */
-  mongoUri: process.env.MONGO_URI ?? 'mongodb://localhost:27017/netviz',
+  mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/netviz',
   /** Drop & recreate the database on startup (for a clean demo) */
   dbRecreate: process.env.DB_RECREATE === 'true',
   /** Default origins allowed by CORS (localhost/127.0.0.1 on any port) */
@@ -22,15 +22,16 @@ export const config = {
   jsonBodyLimit: process.env.JSON_BODY_LIMIT ?? '8mb',
 
   // ── Auth ─────────────────────────────────────────────────────────────────
-  /** Secret used to sign session JWTs */
-  jwtSecret: process.env.JWT_SECRET ?? 'dev-insecure-secret-change-me',
+  /** Secret used to sign session JWTs ( `||` so an empty .env value falls back) */
+  jwtSecret: process.env.JWT_SECRET || 'dev-insecure-secret-change-me',
   /** How long a session token is valid */
-  jwtTtl: process.env.JWT_TTL ?? '7d',
+  jwtTtl: process.env.JWT_TTL || '7d',
   /** Base URL the API is reached at (for OAuth callbacks) */
-  apiUrl: process.env.API_URL ?? 'http://localhost:8080',
+  apiUrl: process.env.API_URL || 'http://localhost:8080',
   /** Public base URL of the app users land on after sign-in. When the SPA is
-   *  served by the backend (single origin) this is the same as the API URL. */
-  appUrl: process.env.APP_URL ?? process.env.API_URL ?? 'http://localhost:8080',
+   *  served by the backend (single origin) this is the same as the API URL.
+   *  `||` (not `??`) so an empty `APP_URL=` in .env still falls back. */
+  appUrl: process.env.APP_URL || process.env.API_URL || 'http://localhost:8080',
   /** Allow the username/password-less dev login (disabled in production by default) */
   allowDevLogin: process.env.ALLOW_DEV_LOGIN === 'true' || process.env.NODE_ENV !== 'production',
   oauth: {

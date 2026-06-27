@@ -7,15 +7,18 @@ import {
   type PublicUser,
 } from '../services/auth-service.js'
 import { BadRequestError, NotFoundError, UnauthorizedError } from '../lib/errors.js'
+import { logger } from '../lib/logger.js'
 
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000
 
-function setSession(res: Response, user: PublicUser): void {
+function setSession(req: Request, res: Response, user: PublicUser): void {
   const token = signSession({ sub: user.id, email: user.email, name: user.name, role: user.role })
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: config.nodeEnv === 'production',
+    // Only mark Secure when actually served over HTTPS, otherwise the browser
+    // drops the cookie on plain-HTTP deployments (e.g. http://localhost:8080).
+    secure: req.secure,
     maxAge: SEVEN_DAYS,
     path: '/',
   })
@@ -50,7 +53,7 @@ export async function devLogin(req: Request, res: Response): Promise<void> {
   const { email, name } = req.body as { email?: string; name?: string }
   if (!email) throw new BadRequestError('email is required')
   const user = await findOrCreateUser({ provider: 'local', providerId: email, email, name: name || email })
-  setSession(res, user)
+  setSession(req, res, user)
   res.json(user)
 }
 
@@ -61,12 +64,7 @@ export function googleStart(_req: Request, res: Response): void {
 }
 
 export async function googleCallback(req: Request, res: Response): Promise<void> {
-  const code = req.query.code as string | undefined
-  if (!code) throw new BadRequestError('Missing authorization code')
-  const profile = await googleProfile(code, callbackUri('google'))
-  const user = await findOrCreateUser(profile)
-  setSession(res, user)
-  res.redirect(config.appUrl)
+  await handleCallback(req, res, 'google', googleProfile)
 }
 
 export function microsoftStart(_req: Request, res: Response): void {
@@ -75,10 +73,29 @@ export function microsoftStart(_req: Request, res: Response): void {
 }
 
 export async function microsoftCallback(req: Request, res: Response): Promise<void> {
-  const code = req.query.code as string | undefined
-  if (!code) throw new BadRequestError('Missing authorization code')
-  const profile = await microsoftProfile(code, callbackUri('microsoft'))
-  const user = await findOrCreateUser(profile)
-  setSession(res, user)
-  res.redirect(config.appUrl)
+  await handleCallback(req, res, 'microsoft', microsoftProfile)
+}
+
+// Shared OAuth callback: exchange code → profile → session, and on ANY failure
+// redirect to the login page with an error (instead of dumping a 500 page).
+async function handleCallback(
+  req: Request, res: Response, provider: 'google' | 'microsoft',
+  exchange: (code: string, redirectUri: string) => Promise<Parameters<typeof findOrCreateUser>[0]>,
+): Promise<void> {
+  try {
+    const code = req.query.code as string | undefined
+    if (req.query.error) throw new Error(String(req.query.error_description ?? req.query.error))
+    if (!code) throw new BadRequestError('Missing authorization code')
+    const profile = await exchange(code, callbackUri(provider))
+    const user = await findOrCreateUser(profile)
+    setSession(req, res, user)
+    res.redirect(config.appUrl)
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : 'sign-in failed'
+    // "fetch failed" hides the real network error in `.cause` (DNS / timeout / TLS).
+    const cause = (err as { cause?: unknown }).cause
+    const detail = cause instanceof Error ? ` (${cause.message})` : ''
+    logger.error(`${provider} OAuth callback failed: ${reason}${detail}`, err)
+    res.redirect(`${config.appUrl}/login?error=${encodeURIComponent(`${provider}: ${reason}${detail}`)}`)
+  }
 }
