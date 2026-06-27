@@ -1,0 +1,7 @@
+{
+  "extension": ["ts"],
+  "node-option": ["import=./register-tsnode.mjs", "no-warnings"],
+  "recursive": true,
+  "timeout": 10000,
+  "exit": true
+}

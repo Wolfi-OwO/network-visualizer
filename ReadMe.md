@@ -184,9 +184,14 @@ npm run build         # type-check + bundle
 cd application
 npm run typecheck     # tsc (no emit)
 npm run build         # compile
+npm test              # Mocha + c8 — unit + integration, fails under 90% line coverage
+npm run test-ci       # same, with cobertura + JUnit reports (for CI)
 ```
 
-> A dedicated unit-test suite (e.g. Vitest for `cidrService` / `packetSenderService`) is on the roadmap.
+> The backend test suite (Mocha + Supertest + c8) covers every API route plus the
+> services and libs directly — **62 tests, ≥90% line coverage** (enforced by `.c8rc.json`).
+> It uses an in-memory MongoDB by default, or `MONGODB_CONNECTION_STRING` if reachable.
+> HTML coverage is written to `application/coverage/`.
 
 ## CI/CD — GitHub Actions
 
