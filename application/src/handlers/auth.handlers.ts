@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import type { Request, Response } from 'express'
 import { config, enabledProviders } from '../config/index.js'
 import { signSession, SESSION_COOKIE } from '../lib/jwt.js'
@@ -58,18 +59,32 @@ export async function devLogin(req: Request, res: Response): Promise<void> {
 }
 
 // ── OAuth (Google / Microsoft) ───────────────────────────────────────────────
-export function googleStart(_req: Request, res: Response): void {
-  if (!enabledProviders().includes('google')) throw new BadRequestError('Google login is not configured')
-  res.redirect(googleAuthUrl(callbackUri('google'), 'google'))
+const OAUTH_STATE_COOKIE = 'netviz_oauth_state'
+
+// Start the flow with a random `state` stored in a short-lived cookie; the
+// callback verifies it to prevent login CSRF.
+function startOAuth(
+  provider: 'google' | 'microsoft', req: Request, res: Response,
+  urlBuilder: (redirectUri: string, state: string) => string,
+): void {
+  if (!enabledProviders().includes(provider)) throw new BadRequestError(`${provider} login is not configured`)
+  const state = randomBytes(16).toString('hex')
+  res.cookie(OAUTH_STATE_COOKIE, state, {
+    httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: 10 * 60 * 1000, path: '/api/auth',
+  })
+  res.redirect(urlBuilder(callbackUri(provider), state))
+}
+
+export function googleStart(req: Request, res: Response): void {
+  startOAuth('google', req, res, googleAuthUrl)
 }
 
 export async function googleCallback(req: Request, res: Response): Promise<void> {
   await handleCallback(req, res, 'google', googleProfile)
 }
 
-export function microsoftStart(_req: Request, res: Response): void {
-  if (!enabledProviders().includes('microsoft')) throw new BadRequestError('Microsoft login is not configured')
-  res.redirect(microsoftAuthUrl(callbackUri('microsoft'), 'microsoft'))
+export function microsoftStart(req: Request, res: Response): void {
+  startOAuth('microsoft', req, res, microsoftAuthUrl)
 }
 
 export async function microsoftCallback(req: Request, res: Response): Promise<void> {
@@ -86,16 +101,37 @@ async function handleCallback(
     const code = req.query.code as string | undefined
     if (req.query.error) throw new Error(String(req.query.error_description ?? req.query.error))
     if (!code) throw new BadRequestError('Missing authorization code')
+    // CSRF: the returned state must match the nonce we set when starting the flow.
+    const expectedState = req.cookies?.[OAUTH_STATE_COOKIE] as string | undefined
+    res.clearCookie(OAUTH_STATE_COOKIE, { path: '/api/auth' })
+    if (!expectedState || req.query.state !== expectedState) {
+      throw new BadRequestError('Invalid OAuth state (possible CSRF)')
+    }
     const profile = await exchange(code, callbackUri(provider))
     const user = await findOrCreateUser(profile)
     setSession(req, res, user)
     res.redirect(config.appUrl)
   } catch (err) {
     const reason = err instanceof Error ? err.message : 'sign-in failed'
-    // "fetch failed" hides the real network error in `.cause` (DNS / timeout / TLS).
-    const cause = (err as { cause?: unknown }).cause
-    const detail = cause instanceof Error ? ` (${cause.message})` : ''
+    const detail = describeCause(err)
     logger.error(`${provider} OAuth callback failed: ${reason}${detail}`, err)
     res.redirect(`${config.appUrl}/login?error=${encodeURIComponent(`${provider}: ${reason}${detail}`)}`)
   }
+}
+
+// "fetch failed" hides the real network error in `.cause`. Surface DNS/timeout/TLS
+// codes — and for an AggregateError (IPv6+IPv4 both failed), the nested codes.
+function describeCause(err: unknown): string {
+  const cause = (err as { cause?: unknown }).cause
+  if (cause instanceof AggregateError) {
+    const codes = cause.errors
+      .map((e) => (e as { code?: string }).code || (e as Error)?.message)
+      .filter(Boolean)
+    return codes.length ? ` (${[...new Set(codes)].join(', ')})` : ''
+  }
+  if (cause instanceof Error) {
+    const code = (cause as { code?: string }).code
+    return ` (${code ? `${code}: ` : ''}${cause.message})`
+  }
+  return ''
 }

@@ -1,15 +1,20 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import path from 'node:path';
 import { config, isOriginAllowed } from './config/index.js';
 import { requestLogger } from './middlewares/request-logger.js';
 import { notFound, errorHandler } from './middlewares/error-handler.js';
-import { authenticate, requireWrite } from './middlewares/auth.js';
+import { authenticate, requireWrite, requireAuth } from './middlewares/auth.js';
 import { audit } from './middlewares/audit.js';
+import { apiLimiter, authLimiter } from './middlewares/rate-limit.js';
+import { countRequest } from './services/metrics-service.js';
 import { apiRootLinks } from './lib/hateoas.js';
 import authRouter from './routes/auth.routes.js';
 import auditRouter from './routes/audit.routes.js';
+import metricsRouter from './routes/metrics.routes.js';
+import statusRouter from './routes/status.routes.js';
 import networksRouter from './routes/networks.routes.js';
 import cidrRouter from './routes/cidr.routes.js';
 import packetsRouter from './routes/packets.routes.js';
@@ -22,9 +27,14 @@ const clientDist = path.join(process.cwd(), 'client', 'dist');
 
 const app = express();
 
-// Behind a TLS-terminating reverse proxy, trust X-Forwarded-* so req.secure /
-// req.protocol reflect the original HTTPS request (controls the cookie Secure flag).
-app.set('trust proxy', true);
+// Trust one reverse-proxy hop so req.secure / req.protocol reflect the original
+// HTTPS request (controls the cookie Secure flag) without over-trusting
+// X-Forwarded-For (which would let clients spoof their IP past rate limiting).
+app.set('trust proxy', 1);
+
+// Security headers. CSP is left off so the bundled SPA (inline React styles) is
+// not broken; tighten it per deployment if you serve from a fixed origin.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
 app.use(express.static(clientDist))
 
@@ -50,9 +60,16 @@ app.get('/api', (_req, res) => {
   res.json({ name: 'NetViz API', version: 1, _links: apiRootLinks() });
 });
 
-app.use('/api/auth', authRouter);
+// When REQUIRE_AUTH is on, the anonymous local workspace is disabled and every
+// topology request must be authenticated.
+const networkGuards = config.requireAuth ? [requireAuth, requireWrite] : [requireWrite];
+
+app.use('/api/auth', authLimiter, authRouter);
+app.use('/api', apiLimiter, countRequest);
+app.use('/api/status', statusRouter);
 app.use('/api/audit', auditRouter);
-app.use('/api/networks', requireWrite, networksRouter);   // per-user, viewers read-only
+app.use('/api/metrics', metricsRouter);
+app.use('/api/networks', ...networkGuards, networksRouter);   // per-user, viewers read-only
 app.use('/api/cidr', cidrRouter);
 app.use('/api/packets', packetsRouter);
 app.use('/api/capture', captureRouter);

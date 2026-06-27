@@ -1,4 +1,5 @@
-import { Code2 } from 'lucide-react'
+import { Code2, Activity } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { appConfig } from '../../config/index.ts'
 
 export default function Footer() {
@@ -22,6 +23,9 @@ export default function Footer() {
 
       {/* Right — links */}
       <nav className="flex items-center gap-4 font-medium text-[var(--text-secondary)] whitespace-nowrap">
+        <Link to="/status" className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors">
+          <Activity size={11} className="text-[var(--green)]" /> Status
+        </Link>
         <a href={appConfig.repoUrl} target="_blank" rel="noreferrer" className="hover:text-[var(--text-primary)] transition-colors">About</a>
       </nav>
     </footer>

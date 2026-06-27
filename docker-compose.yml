@@ -1,9 +1,13 @@
 services:
   mongo:
     image: mongo
-    ports:
-      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-netviz}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-change-me-in-production}
+    volumes:
+      - mongo-data:/data/db          # persist data across restarts
     attach: false
+    # No host port — Mongo is only reachable by the backend on the internal network.
     restart: unless-stopped
 
   backend:
@@ -11,7 +15,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: "8080"
-      MONGO_URI: "mongodb://mongo:27017/netviz"
+      # Authenticated connection string (overrides any MONGO_URI in the env_file).
+      MONGO_URI: "mongodb://${MONGO_ROOT_USER:-netviz}:${MONGO_ROOT_PASSWORD:-change-me-in-production}@mongo:27017/netviz?authSource=admin"
     env_file:
       - path: ./application/.env
         required: true
@@ -20,4 +25,13 @@ services:
       - mongo
     ports:
       - "8080:8080"
+    # Use public resolvers for outbound lookups (Docker's embedded DNS still
+    # resolves the `mongo` service name). Fixes "fetch failed" reaching OAuth
+    # endpoints like login.microsoftonline.com when the default resolver is flaky.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     restart: unless-stopped
+
+volumes:
+  mongo-data:
