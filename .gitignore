@@ -27,3 +27,9 @@ Thumbs.db
 # Caches
 .vite/
 *.tsbuildinfo
+
+# Test coverage / reports
+coverage/
+**/coverage/
+.nyc_output/
+test-results.xml
