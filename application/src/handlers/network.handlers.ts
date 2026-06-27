@@ -28,6 +28,20 @@ function assertValidTopologyPatch(body: unknown): void {
   if ('nodes' in body && !validNodes(body.nodes)) throw new BadRequestError('Invalid nodes: each needs id, type, position {x,y}, config')
   if ('edges' in body && !validEdges(body.edges)) throw new BadRequestError('Invalid edges: each needs id, source, target')
 }
+function assertValidNodeBody(body: unknown): void {
+  if (!isObj(body)) throw new BadRequestError('Body must be an object')
+  if (typeof body.type !== 'string' || !body.type) throw new BadRequestError('node.type is required')
+  if (!isObj(body.position) || typeof body.position.x !== 'number' || typeof body.position.y !== 'number') {
+    throw new BadRequestError('node.position {x, y} (numbers) is required')
+  }
+  if (body.config !== undefined && !isObj(body.config)) throw new BadRequestError('node.config must be an object')
+}
+function assertValidEdgeBody(body: unknown): void {
+  if (!isObj(body)) throw new BadRequestError('Body must be an object')
+  if (typeof body.source !== 'string' || !body.source || typeof body.target !== 'string' || !body.target) {
+    throw new BadRequestError('edge.source and edge.target are required')
+  }
+}
 
 // Resolve a topology by id, treating "default" as the owner's default workspace.
 async function resolve(id: string, owner: string): Promise<NetworkTopology | null> {
@@ -155,7 +169,9 @@ export async function restoreVersion(req: Request, res: Response): Promise<void>
 
 // ── Nodes ─────────────────────────────────────────────────────────────────────
 export async function addNode(req: Request, res: Response): Promise<void> {
-  const node = await networkService.addNode(req.params.id, req.body, ownerOf(req))
+  assertValidNodeBody(req.body)
+  const body = { ...req.body, config: req.body.config ?? {} }
+  const node = await networkService.addNode(req.params.id, body, ownerOf(req))
   if (!node) throw new NotFoundError('Topology not found')
   res.status(201).location(`/api/networks/${req.params.id}/nodes/${node.id}`).json(node)
 }
@@ -173,7 +189,9 @@ export async function deleteNode(req: Request, res: Response): Promise<void> {
 
 // ── Edges ─────────────────────────────────────────────────────────────────────
 export async function addEdge(req: Request, res: Response): Promise<void> {
-  const edge = await networkService.addEdge(req.params.id, req.body, ownerOf(req))
+  assertValidEdgeBody(req.body)
+  const body = { ...req.body, config: req.body.config ?? {} }
+  const edge = await networkService.addEdge(req.params.id, body, ownerOf(req))
   if (!edge) throw new NotFoundError('Topology not found')
   res.status(201).location(`/api/networks/${req.params.id}/edges/${edge.id}`).json(edge)
 }
