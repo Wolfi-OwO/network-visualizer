@@ -16,6 +16,10 @@ export default function LoginPage() {
 
   useEffect(() => { auth.providers().then(r => setInfo(r.data)).catch(() => {}) }, [])
   useEffect(() => { if (user) navigate('/', { replace: true }) }, [user, navigate])
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get('error')
+    if (fromUrl) setError(fromUrl)
+  }, [])
 
   const devLogin = async () => {
     if (!email.trim()) { setError('Enter an email'); return }
@@ -43,6 +47,12 @@ export default function LoginPage() {
             <div className="text-[10px] text-[var(--text-muted)] mt-0.5">Sign in to your workspace</div>
           </div>
         </div>
+
+        {error && (
+          <div className="mb-3 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/30 text-[11px] text-red-400">
+            {error}
+          </div>
+        )}
 
         {/* OAuth providers */}
         <div className="space-y-2">

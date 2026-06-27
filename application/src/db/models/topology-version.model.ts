@@ -14,6 +14,7 @@ const versionSchema = new Schema(
     createdAt: { type: Number, required: true },
   },
   {
+    minimize: false,
     toJSON: {
       transform: (_doc, ret: Record<string, unknown>) => { delete ret._id; delete ret.__v; delete ret.ownerId; return ret },
     },

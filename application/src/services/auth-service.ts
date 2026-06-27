@@ -55,6 +55,12 @@ export function googleAuthUrl(redirectUri: string, state: string): string {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`
 }
 
+// Surface the provider's actual error (status + body) instead of a generic message.
+async function oauthFail(provider: string, stage: string, res: Response): Promise<never> {
+  const body = await res.text().catch(() => '')
+  throw new BadRequestError(`${provider} ${stage} failed (HTTP ${res.status}): ${body.slice(0, 400)}`)
+}
+
 export async function googleProfile(code: string, redirectUri: string): Promise<OAuthProfile> {
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -67,12 +73,12 @@ export async function googleProfile(code: string, redirectUri: string): Promise<
       grant_type: 'authorization_code',
     }),
   })
-  if (!tokenRes.ok) throw new BadRequestError('Google token exchange failed')
+  if (!tokenRes.ok) await oauthFail('Google', 'token exchange', tokenRes)
   const { access_token } = await tokenRes.json() as { access_token: string }
   const meRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
     headers: { Authorization: `Bearer ${access_token}` },
   })
-  if (!meRes.ok) throw new BadRequestError('Google profile fetch failed')
+  if (!meRes.ok) await oauthFail('Google', 'profile fetch', meRes)
   const me = await meRes.json() as { sub: string; email: string; name?: string; picture?: string }
   return { provider: 'google', providerId: me.sub, email: me.email, name: me.name ?? me.email, avatar: me.picture }
 }
@@ -102,12 +108,12 @@ export async function microsoftProfile(code: string, redirectUri: string): Promi
       scope: 'openid email profile User.Read',
     }),
   })
-  if (!tokenRes.ok) throw new BadRequestError('Microsoft token exchange failed')
+  if (!tokenRes.ok) await oauthFail('Microsoft', 'token exchange', tokenRes)
   const { access_token } = await tokenRes.json() as { access_token: string }
   const meRes = await fetch('https://graph.microsoft.com/v1.0/me', {
     headers: { Authorization: `Bearer ${access_token}` },
   })
-  if (!meRes.ok) throw new BadRequestError('Microsoft profile fetch failed')
+  if (!meRes.ok) await oauthFail('Microsoft', 'profile fetch', meRes)
   const me = await meRes.json() as { id: string; displayName?: string; mail?: string; userPrincipalName?: string }
   const email = me.mail ?? me.userPrincipalName ?? ''
   return { provider: 'microsoft', providerId: me.id, email, name: me.displayName ?? email }

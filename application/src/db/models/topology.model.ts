@@ -18,6 +18,8 @@ const topologySchema = new Schema(
     updatedAt: { type: Number, required: true },
   },
   {
+    // Keep empty objects (e.g. a node's `config: {}`) instead of dropping them.
+    minimize: false,
     // Return clean JSON (no _id / __v / isDefault) that matches NetworkTopology.
     toJSON: {
       virtuals: false,
