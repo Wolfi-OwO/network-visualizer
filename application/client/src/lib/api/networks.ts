@@ -18,6 +18,16 @@ export interface ValidationReport {
   findings: ValidationFinding[]
 }
 
+export interface VersionSummary {
+  id: string
+  version: number
+  label?: string
+  name: string
+  nodeCount: number
+  edgeCount: number
+  createdAt: number
+}
+
 export interface ControlPlaneReport {
   nodeId: string
   type: string
@@ -60,4 +70,8 @@ export const network = {
     api.get<string>(`/networks/${id}/nodes/${nodeId}/config`, { responseType: 'text' }),
   topologyConfig: (id: string) =>
     api.get<string>(`/networks/${id}/config`, { responseType: 'text' }),
+  versions: (id: string) => api.get<{ count: number; items: VersionSummary[] }>(`/networks/${id}/versions`),
+  createVersion: (id: string, label?: string) => api.post<VersionSummary>(`/networks/${id}/versions`, { label }),
+  restoreVersion: (id: string, versionId: string) =>
+    api.post<NetworkTopology>(`/networks/${id}/versions/${versionId}/restore`),
 }
