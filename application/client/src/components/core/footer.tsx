@@ -1,6 +1,8 @@
 import { Code2, Activity } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import { appConfig } from '../../config/index.ts'
+
+// The status page lives on its own `status.` subdomain (like status.discord.com).
+const statusUrl = `${location.protocol}//status.${location.host}`
 
 export default function Footer() {
   const year = new Date().getFullYear()
@@ -23,9 +25,9 @@ export default function Footer() {
 
       {/* Right — links */}
       <nav className="flex items-center gap-4 font-medium text-[var(--text-secondary)] whitespace-nowrap">
-        <Link to="/status" className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors">
+        <a href={statusUrl} className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors">
           <Activity size={11} className="text-[var(--green)]" /> Status
-        </Link>
+        </a>
         <a href={appConfig.repoUrl} target="_blank" rel="noreferrer" className="hover:text-[var(--text-primary)] transition-colors">About</a>
       </nav>
     </footer>

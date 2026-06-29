@@ -8,18 +8,14 @@ import NetworkBuilderPage from './pages/network/network-builder-page.tsx'
 import CIDRCalculatorPage from './pages/cidr/cidr-calculator-page.tsx'
 import AdminPage from './pages/admin/admin-page.tsx'
 import LoginPage from './pages/auth/login-page.tsx'
-import StatusPage from './pages/status/status-page.tsx'
 
 // URL ↔ layout/page mapping (React Browser Router).
+// NOTE: the status page is not a route here — it is served on its own `status.`
+// subdomain (see main.tsx), the way status.discord.com / status.anthropic.com do.
 export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
-    errorElement: <ErrorPage />,
-  },
-  {
-    path: '/status',
-    element: <StatusPage />,
     errorElement: <ErrorPage />,
   },
   {
