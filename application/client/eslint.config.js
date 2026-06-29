@@ -19,15 +19,20 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
-      // DX-only: components co-export their ReactFlow node/edge-type maps & shared types.
-      'react-refresh/only-export-components': 'warn',
-      // Opinionated React-Compiler-era rules. Our usages (mount-once init, syncing
-      // local form state to the selected element, DOM measuring, the recursive
-      // setTimeout animation loop) are intentional and correct at runtime.
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/immutability': 'warn',
-      // Mirroring current state into refs for the background-simulation interval
-      'react-hooks/refs': 'warn',
+      // DX-only fast-refresh hint. We intentionally co-export ReactFlow node/edge
+      // -type maps and shared types next to their components, so this is off.
+      'react-refresh/only-export-components': 'off',
+      // React-Compiler-oriented rules (eslint-plugin-react-hooks v7). They flag
+      // patterns that are deliberate and correct in standard (non-Compiler) React
+      // in this app — loading data in an on-mount effect, mirroring the latest
+      // state into refs for the requestAnimationFrame simulation loop, and the
+      // rAF engine's in-place particle mutation. We don't run the React Compiler,
+      // so these are turned off rather than worked around.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/immutability': 'off',
+      'react-hooks/refs': 'off',
+      // Kept ON (the classic, valuable rule) — real missing deps are fixed in code.
+      'react-hooks/exhaustive-deps': 'warn',
     },
   },
 ])

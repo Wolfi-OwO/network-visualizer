@@ -51,7 +51,6 @@ export default function StatusPage() {
   }, [])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
     const iv = setInterval(load, 15000)
     return () => clearInterval(iv)

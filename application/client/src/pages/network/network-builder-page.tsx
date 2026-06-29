@@ -528,14 +528,14 @@ export default function NetworkBuilderPage() {
         setEdges(data.edges.map(toFlowEdge))
       }
     }).catch(() => setStatus('Failed to load topology'))
-  }, [setNodes, setEdges])
+  }, [setNodes, setEdges, setStatus, setTopology])
 
   // Open the tutorial automatically on the very first visit
   useEffect(() => {
     try {
       if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) setShowTutorial(true)
     } catch { /* localStorage unavailable */ }
-  }, [])
+  }, [setShowTutorial])
 
   // ── Undo / Redo / Autosave (structural topology only — ignores live state) ──
   const historyRef = useRef<{ past: TopoSnapshot[]; future: TopoSnapshot[] }>({ past: [], future: [] })
@@ -553,7 +553,7 @@ export default function NetworkBuilderPage() {
     setSelectedNodeId(null); setSelectedEdgeId(null)
     setNodes(snap.nodes.map(toFlowNode))
     setEdges(snap.edges.map(toFlowEdge))
-  }, [setNodes, setEdges])
+  }, [setNodes, setEdges, setSelectedNodeId, setSelectedEdgeId])
 
   // Capture the CURRENT state before a user-initiated structural change
   const pushHistory = useCallback(() => {
@@ -562,7 +562,7 @@ export default function NetworkBuilderPage() {
     if (h.past.length > 60) h.past.shift()
     h.future = []
     setHistTick(t => t + 1)
-  }, [serializeTopology])
+  }, [serializeTopology, setHistTick])
 
   const undo = useCallback(() => {
     const h = historyRef.current
@@ -571,7 +571,7 @@ export default function NetworkBuilderPage() {
     applyTopology(h.past.pop()!)
     setHistTick(t => t + 1)
     setStatus('Undo')
-  }, [serializeTopology, applyTopology])
+  }, [serializeTopology, applyTopology, setHistTick, setStatus])
 
   const redo = useCallback(() => {
     const h = historyRef.current
@@ -580,7 +580,7 @@ export default function NetworkBuilderPage() {
     applyTopology(h.future.pop()!)
     setHistTick(t => t + 1)
     setStatus('Redo')
-  }, [serializeTopology, applyTopology])
+  }, [serializeTopology, applyTopology, setHistTick, setStatus])
 
   // Keyboard: Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z or Ctrl+Y = redo
   useEffect(() => {
@@ -644,7 +644,7 @@ export default function NetworkBuilderPage() {
       onAnimDoneRef.current = null
       done?.()
     }
-  }, [setEdges, setNodes])
+  }, [setEdges, setNodes, setIsAnimating, setTraceStep])
 
   const startAnimation = useCallback((result: TraceResult, currentEdges: Edge<PacketEdgeData>[]) => {
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -690,7 +690,7 @@ export default function NetworkBuilderPage() {
     stepStartRef.current = performance.now()
     remainingRef.current = animSpeedRef.current
     timerRef.current = setTimeout(runStep, animSpeedRef.current)
-  }, [setEdges, setNodes, runStep, getEdgesSvg])
+  }, [setEdges, setNodes, runStep, getEdgesSvg, setIsAnimating, setIsPaused, setTraceStep])
 
   const clearTrace = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -707,7 +707,7 @@ export default function NetworkBuilderPage() {
     // Clear animation state on the *current* edges (don't restore a stale snapshot)
     setEdges(prev => prev.map(e => ({ ...e, data: { ...e.data, packetState: 'idle' as PacketEdgeState, packetReversed: false } })))
     setNodes(prev => prev.map(n => ({ ...n, data: { ...n.data, highlight: 'none' as NodeHighlight } })))
-  }, [setEdges, setNodes, getEdgesSvg])
+  }, [setEdges, setNodes, getEdgesSvg, setIsAnimating, setIsPaused, setTraceResult, setTraceStep])
 
   // Re-apply the current step's edge data, optionally bumping the anim version
   const reapplyCurrentStep = useCallback((bumpVersion: boolean) => {
@@ -743,7 +743,7 @@ export default function NetworkBuilderPage() {
       remainingRef.current = ms
       timerRef.current = setTimeout(runStep, ms)
     }
-  }, [isAnimating, runStep, reapplyCurrentStep])
+  }, [isAnimating, runStep, reapplyCurrentStep, setAnimSpeed])
 
   const handlePauseToggle = useCallback(() => {
     if (isPausedRef.current) {
@@ -763,7 +763,7 @@ export default function NetworkBuilderPage() {
       remainingRef.current = Math.max(0, animSpeedRef.current - elapsed)
       getEdgesSvg()?.pauseAnimations()
     }
-  }, [runStep, getEdgesSvg])
+  }, [runStep, getEdgesSvg, setIsPaused])
 
   const handleTraceResult = useCallback((result: TraceResult) => {
     // A user-initiated trace interrupts any background flow and shows the panel
@@ -772,7 +772,7 @@ export default function NetworkBuilderPage() {
     setSelectedNodeId(null)
     setTraceResult(result)
     startAnimation(result, edgesRef.current)
-  }, [startAnimation])
+  }, [startAnimation, setSelectedNodeId, setTraceResult])
 
   // Launch one packet as an rAF flight along a path; the engine advances it,
   // retimes it live, drops it if a hop fails, and calls onDone / onAbort.
@@ -871,7 +871,7 @@ export default function NetworkBuilderPage() {
         }, onAbort)
       }, onAbort)
     }, onAbort)
-  }, [spawnAgent, setNodes])
+  }, [spawnAgent, setNodes, setStatus])
 
   // Power button (node or properties panel) toggles a device; powering a host
   // on makes it immediately broadcast its own DHCP Discover (in parallel).
@@ -900,7 +900,7 @@ export default function NetworkBuilderPage() {
     }
     window.addEventListener('netviz:togglePower', handler)
     return () => window.removeEventListener('netviz:togglePower', handler)
-  }, [startDhcpForHost, setNodes, setEdges])
+  }, [startDhcpForHost, setNodes, setEdges, setStatus])
 
   // Live simulation clock: keep every powered host addressed (concurrently) and
   // generate ambient traffic between hosts and services.
@@ -1056,7 +1056,7 @@ export default function NetworkBuilderPage() {
     // Select the fresh link so the user can name it right away
     setSelectedNodeId(null)
     setSelectedEdgeId(newEdge.id)
-  }, [setEdges, pushHistory])
+  }, [setEdges, pushHistory, setSelectedNodeId, setSelectedEdgeId])
 
   const onConnectStart = useCallback((_: unknown, params: OnConnectStartParams) => {
     connectingNodeId.current = params.nodeId
@@ -1109,7 +1109,7 @@ export default function NetworkBuilderPage() {
       data: { type, label, highlight: 'none', config },
     }])
     setStatus(`Added ${label} — power it on (⏻) to join the network`)
-  }, [setNodes])
+  }, [setNodes, pushHistory, setStatus])
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault()
@@ -1125,18 +1125,18 @@ export default function NetworkBuilderPage() {
     if (traceResult) clearTrace()
     setSelectedEdgeId(null)
     setSelectedNodeId(node.id)
-  }, [traceResult, clearTrace])
+  }, [traceResult, clearTrace, setSelectedEdgeId, setSelectedNodeId])
 
   const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
     if (traceResult) clearTrace()
     setSelectedNodeId(null)
     setSelectedEdgeId(edge.id)
-  }, [traceResult, clearTrace])
+  }, [traceResult, clearTrace, setSelectedNodeId, setSelectedEdgeId])
 
   const onPaneClick = useCallback(() => {
     setSelectedNodeId(null)
     setSelectedEdgeId(null)
-  }, [])
+  }, [setSelectedNodeId, setSelectedEdgeId])
 
   // ── Edge (link) editing ──────────────────────────────────────────────────
   // The rAF engine reads each link's latency/bandwidth/status every frame, so a
@@ -1150,7 +1150,7 @@ export default function NetworkBuilderPage() {
     pushHistory()
     setEdges(prev => prev.filter(e => e.id !== edgeId))
     setSelectedEdgeId(null)
-  }, [setEdges, pushHistory])
+  }, [setEdges, pushHistory, setSelectedEdgeId])
 
   // ── PropertiesPanel onChange ─────────────────────────────────────────────
   const handleNodeConfigChange = useCallback((nodeId: string, config: NetworkNodeConfig) => {
@@ -1242,7 +1242,7 @@ export default function NetworkBuilderPage() {
     handleEdgeDataChange(edgeId, { edgeLabel: 'WAN link', bandwidth: '100 Mbps', latencyMs: 10 })
     setStatus(`WAN link up: ${aLans.length}↔${bLans.length} subnet(s) routed (static routes added)`)
     setTimeout(() => setStatus(''), 3500)
-  }, [handleNodeConfigChange, handleEdgeDataChange, pushHistory])
+  }, [handleNodeConfigChange, handleEdgeDataChange, pushHistory, setStatus])
 
   // ── Save/Delete/Reset ────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -1259,7 +1259,7 @@ export default function NetworkBuilderPage() {
       setTimeout(() => setStatus(''), 2000)
     } catch { setStatus('Save failed') }
     finally { setSaving(false) }
-  }, [topology, nodes, edges])
+  }, [topology, nodes, edges, setSaving, setStatus])
 
   const handleDeleteSelected = useCallback(() => {
     if (!selectedNodeId) return
@@ -1267,7 +1267,7 @@ export default function NetworkBuilderPage() {
     setNodes(nds => nds.filter(n => n.id !== selectedNodeId))
     setEdges(prev => prev.filter(e => e.source !== selectedNodeId && e.target !== selectedNodeId))
     setSelectedNodeId(null)
-  }, [selectedNodeId, setNodes, setEdges, pushHistory])
+  }, [selectedNodeId, setNodes, setEdges, pushHistory, setSelectedNodeId])
 
   const handleReset = useCallback(() => {
     pushHistory()
@@ -1278,7 +1278,7 @@ export default function NetworkBuilderPage() {
       setEdges(data.edges.map(toFlowEdge))
       clearTrace()
     }).catch(() => {})
-  }, [setNodes, setEdges, clearTrace, pushHistory])
+  }, [setNodes, setEdges, clearTrace, pushHistory, setTopology])
 
   // Blank slate for the guided build exercise
   const handleClearCanvas = useCallback(() => {
@@ -1289,12 +1289,12 @@ export default function NetworkBuilderPage() {
     setNodes([])
     setEdges([])
     setStatus('Canvas cleared — build away!')
-  }, [setNodes, setEdges, clearTrace, pushHistory])
+  }, [setNodes, setEdges, clearTrace, pushHistory, setSelectedNodeId, setSelectedEdgeId, setStatus])
 
   const handleStartBuild = useCallback(() => {
     setShowTutorial(false)
     setGuidedActive(true)
-  }, [])
+  }, [setShowTutorial, setGuidedActive])
 
   // Compute net nodes for PacketSender and PropertiesPanel
   const allNetNodes = nodes.map(n => {
