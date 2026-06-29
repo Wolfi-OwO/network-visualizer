@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Radio, CheckCircle, AlertTriangle, XCircle, RefreshCw, ArrowLeft } from 'lucide-react'
 import { system } from '../../lib/api/index.ts'
 import type { StatusReport, StatusComponent } from '../../lib/api/index.ts'
@@ -101,9 +100,12 @@ export default function StatusPage() {
           {!report && <div className="py-6 text-xs text-[var(--text-muted)]">Loading status…</div>}
         </div>
 
-        <Link to="/" className="inline-flex items-center gap-1.5 mt-6 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+        <a
+          href={`${location.protocol}//${location.host.replace(/^status\./, '')}`}
+          className="inline-flex items-center gap-1.5 mt-6 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+        >
           <ArrowLeft size={12} /> Back to {appConfig.name}
-        </Link>
+        </a>
       </div>
     </div>
   )
