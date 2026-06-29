@@ -15,8 +15,10 @@ export interface ProvidersInfo {
 }
 
 export const auth = {
-  me: () => api.get<AuthUser>('/auth/me'),
-  providers: () => api.get<ProvidersInfo>('/auth/providers'),
+  // `silent`: a 401 here just means "not signed in" — handled by AuthProvider,
+  // so it must not pop the global error overlay.
+  me: () => api.get<AuthUser>('/auth/me', { silent: true }),
+  providers: () => api.get<ProvidersInfo>('/auth/providers', { silent: true }),
   devLogin: (email: string, name?: string) => api.post<AuthUser>('/auth/dev-login', { email, name }),
   logout: () => api.post('/auth/logout'),
   // OAuth is a full-page redirect (not XHR), so we expose the URL to navigate to.

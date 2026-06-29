@@ -1,41 +1,12 @@
-import { useRouteError, useNavigate, isRouteErrorResponse } from 'react-router-dom'
-import { AlertTriangle } from 'lucide-react'
+import { useRouteError, isRouteErrorResponse } from 'react-router-dom'
+import ErrorPage from '../pages/error/error-page.tsx'
 
-// Rendered by the router whenever a route throws (errorElement).
-export default function ErrorPage() {
+// Router error boundary (errorElement). Delegates to the shared, dynamic error
+// page so a route-level 401/403/404 looks exactly like one thrown by an API
+// call; anything else shows the same page's neutral fallback.
+export default function RouteErrorPage() {
   const error = useRouteError()
-  const navigate = useNavigate()
-
-  let title = 'Something went wrong'
-  let message = 'An unexpected error occurred.'
-  if (isRouteErrorResponse(error)) {
-    title = `${error.status} ${error.statusText}`
-    message = (error.data as { message?: string } | undefined)?.message ?? message
-  } else if (error instanceof Error) {
-    message = error.message
-  }
-
-  return (
-    <div className="flex flex-col items-center justify-center h-full w-full gap-4 bg-[var(--bg-950)] text-center px-6">
-      <AlertTriangle size={40} className="text-[var(--accent)]" />
-      <h1 className="text-xl font-bold text-[var(--text-primary)]">{title}</h1>
-      <p className="text-sm text-[var(--text-secondary)] max-w-md">{message}</p>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="px-4 py-2 rounded-md text-xs font-medium bg-[var(--bg-800)] text-[var(--text-primary)] hover:bg-[var(--bg-700)]"
-        >
-          Go back
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="px-4 py-2 rounded-md text-xs font-medium bg-[var(--accent)] text-white hover:opacity-90"
-        >
-          Home
-        </button>
-      </div>
-    </div>
-  )
+  // 401/403/404 → the matching page; any other route error → neutral fallback (0).
+  const code = isRouteErrorResponse(error) ? error.status : 0
+  return <ErrorPage code={code} />
 }

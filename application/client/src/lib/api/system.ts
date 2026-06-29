@@ -31,6 +31,7 @@ export interface StatusReport {
 
 // Admin observability — runtime + application metrics; plus the public status page.
 export const system = {
-  metrics: () => api.get<Metrics>('/metrics'),
+  // `silent`: the admin dashboard polls this and handles a non-admin 403 itself.
+  metrics: () => api.get<Metrics>('/metrics', { silent: true }),
   status: () => api.get<StatusReport>('/status'),
 }

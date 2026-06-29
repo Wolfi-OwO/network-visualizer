@@ -15,6 +15,7 @@ import authRouter from './routes/auth.routes.js';
 import auditRouter from './routes/audit.routes.js';
 import metricsRouter from './routes/metrics.routes.js';
 import statusRouter from './routes/status.routes.js';
+import usersRouter from './routes/users.routes.js';
 import networksRouter from './routes/networks.routes.js';
 import cidrRouter from './routes/cidr.routes.js';
 import packetsRouter from './routes/packets.routes.js';
@@ -69,6 +70,7 @@ app.use('/api', apiLimiter, countRequest);
 app.use('/api/status', statusRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/metrics', metricsRouter);
+app.use('/api/users', usersRouter);                           // admin-only account & role management
 app.use('/api/networks', ...networkGuards, networksRouter);   // per-user, viewers read-only
 app.use('/api/cidr', cidrRouter);
 app.use('/api/packets', packetsRouter);
