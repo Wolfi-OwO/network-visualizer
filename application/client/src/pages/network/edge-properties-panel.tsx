@@ -1,4 +1,4 @@
-import { X, Cable, Trash2 } from 'lucide-react'
+import { X, Cable, Trash2, Network } from 'lucide-react'
 import type { Edge } from '@xyflow/react'
 import type { PacketEdgeData } from './packet-edge.tsx'
 
@@ -6,6 +6,8 @@ interface EdgePropertiesPanelProps {
   edge: Edge<PacketEdgeData>
   sourceName: string
   targetName: string
+  canConfigureWan?: boolean
+  onConfigureWanLink?: (edgeId: string) => void
   onChange: (edgeId: string, data: Partial<PacketEdgeData>) => void
   onDelete: (edgeId: string) => void
   onClose: () => void
@@ -21,7 +23,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export default function EdgePropertiesPanel({
-  edge, sourceName, targetName, onChange, onDelete, onClose,
+  edge, sourceName, targetName, canConfigureWan, onConfigureWanLink, onChange, onDelete, onClose,
 }: EdgePropertiesPanelProps) {
   const d = edge.data ?? {}
   const status = d.linkStatus ?? 'up'
@@ -99,6 +101,23 @@ export default function EdgePropertiesPanel({
             </div>
           </Field>
         </div>
+
+        {/* Connect two private networks — site-to-site WAN link */}
+        {canConfigureWan && (
+          <div className="border-t border-[var(--border)] pt-3 space-y-2">
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Two-router WAN link</div>
+            <button
+              onClick={() => onConfigureWanLink?.(edge.id)}
+              className="btn-primary w-full justify-center text-[11px]"
+            >
+              <Network size={12} /> Configure as WAN link
+            </button>
+            <p className="text-[10px] text-[var(--text-muted)] leading-relaxed">
+              Both ends are routers. This assigns a <b>/30</b> point-to-point subnet to the link and installs the
+              <b> static routes</b> on each router so the two private LANs can reach each other.
+            </p>
+          </div>
+        )}
 
         <p className="text-[10px] text-[var(--text-muted)] leading-relaxed border-t border-[var(--border)] pt-3">
           The label is shown on the line in the diagram. Latency is added to each
