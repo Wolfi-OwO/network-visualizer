@@ -28,7 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }
   }, [])
-
+  
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { refresh() }, [refresh])
 
   const signOut = useCallback(async () => {

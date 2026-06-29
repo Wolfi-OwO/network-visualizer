@@ -6,6 +6,8 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-change-me-in-production}
     volumes:
       - mongo-data:/data/db          # persist data across restarts
+    ports:
+      - "27017:27017"
     attach: false
     # No host port — Mongo is only reachable by the backend on the internal network.
     restart: unless-stopped

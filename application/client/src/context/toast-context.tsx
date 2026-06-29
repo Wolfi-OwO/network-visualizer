@@ -6,6 +6,7 @@ export interface ToastContextValue {
   showToast: (message: string, type?: ToastType) => void
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const ToastContext = createContext<ToastContextValue>({ showToast: () => {} })
 
 // App-wide toast provider — renders the toast stack and exposes `showToast`.

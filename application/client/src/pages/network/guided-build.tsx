@@ -47,6 +47,12 @@ function dhcpConfigured(nodes: NetworkNode[]) {
     return !!d && d.enabled && !!d.poolStart && !!d.poolEnd && !!d.gateway
   })
 }
+function dnsHasEntry(nodes: NetworkNode[]) {
+  return nodes.some(n => n.type === 'dns' && (n.config.dns?.records?.length ?? 0) >= 1)
+}
+function serverWiredToDatabase(nodes: NetworkNode[], edges: SimpleEdge[]) {
+  return has(nodes, 'server') && has(nodes, 'database') && edgeBetweenTypes(nodes, edges, 'server', 'database')
+}
 
 interface Task {
   id: string
@@ -64,45 +70,63 @@ export default function GuidedBuild({ active, nodes, edges, onClearCanvas, onClo
     return [
       {
         id: 'router',
-        label: 'Add a Router',
-        hint: 'Drag the 🔀 Router from the palette onto the canvas — it will be the heart of your LAN.',
+        label: 'Add a Router (the gateway)',
+        hint: 'Drag the 🔀 Router from “Routing & Switching”. It routes between your LAN segments and the outside world.',
         done: has(nodes, 'router'),
       },
       {
-        id: 'pcs',
-        label: 'Add 2 desktop PCs',
-        hint: 'Drag two 💻 PCs onto the canvas — these are your wired workstations.',
-        done: count(nodes, 'pc') >= 2,
-      },
-      {
-        id: 'ap',
-        label: 'Add a Wi-Fi access point',
-        hint: 'Drag a 📡 Wi-Fi AP onto the canvas — it bridges wireless clients into the LAN.',
-        done: has(nodes, 'wifiap'),
-      },
-      {
-        id: 'laptop',
-        label: 'Add a laptop & connect it over Wi-Fi',
-        hint: 'Drag a 3rd 💻 PC (your laptop), then drag a link from it to the 📡 Wi-Fi AP.',
-        done: count(nodes, 'pc') >= 2 && count(nodes, 'laptop') >= 1 && edgeBetweenTypes(nodes, edges, 'laptop', 'wifiap'),
+        id: 'switch',
+        label: 'Add an access Switch',
+        hint: 'Drag a 🔁 Switch onto the canvas — wired devices plug into it, and it uplinks to the router.',
+        done: has(nodes, 'switch'),
       },
       {
         id: 'dhcp',
         label: 'Add a DHCP server',
-        hint: 'Drag the 📲 DHCP device onto the canvas — it will hand out IP addresses automatically.',
+        hint: 'Drag the 📲 DHCP device from “Servers & Services” — it hands out IP addresses automatically.',
         done: has(nodes, 'dhcp'),
       },
       {
-        id: 'wire',
-        label: 'Cable everything into one network',
-        hint: 'Drag links so the Router connects to both PCs, the Wi-Fi AP and the DHCP server (everything in one connected web).',
-        done: nodes.length >= 6 && connected,
+        id: 'dns',
+        label: 'Add a DNS server',
+        hint: 'Drag the 🧭 DNS device — it resolves names (e.g. web.lan) to IP addresses.',
+        done: has(nodes, 'dns'),
       },
       {
-        id: 'config',
+        id: 'webdb',
+        label: 'Add a Web server + Database and cable them together',
+        hint: 'Drag a 🖥️ Server and a 🗄️ Database, then draw a link between them — the classic web-tier ↔ data-tier.',
+        done: serverWiredToDatabase(nodes, edges),
+      },
+      {
+        id: 'pcs',
+        label: 'Add 2 wired PCs',
+        hint: 'Drag two 💻 PCs onto the canvas — your wired workstations.',
+        done: count(nodes, 'pc') >= 2,
+      },
+      {
+        id: 'wifi',
+        label: 'Add a Wi-Fi AP and a Laptop on Wi-Fi',
+        hint: 'Drag a 📡 Wi-Fi AP and a 💻 Laptop (from Endpoints), then draw a link from the Laptop to the AP.',
+        done: has(nodes, 'wifiap') && has(nodes, 'laptop') && edgeBetweenTypes(nodes, edges, 'laptop', 'wifiap'),
+      },
+      {
+        id: 'wire',
+        label: 'Cable everything into one connected network',
+        hint: 'Link the Switch to the Router, the servers and the DHCP/DNS boxes, and plug the PCs into the Switch — one connected web, no islands.',
+        done: nodes.length >= 9 && connected,
+      },
+      {
+        id: 'dhcpScope',
         label: 'Configure the DHCP scope',
-        hint: 'Click the DHCP server → open the DHCP tab → enable it and set the pool start/end and gateway. This is what makes the network actually work.',
+        hint: 'Click the DHCP server → DHCP tab → enable it and set the pool start/end and gateway. This is what makes addressing work.',
         done: dhcpConfigured(nodes),
+      },
+      {
+        id: 'dnsEntry',
+        label: 'Add a DNS record (an A entry)',
+        hint: 'Click the DNS server → DNS tab → add an A record (e.g. web.lan → your web server’s IP).',
+        done: dnsHasEntry(nodes),
       },
     ]
   }, [nodes, edges])
@@ -124,12 +148,13 @@ export default function GuidedBuild({ active, nodes, edges, onClearCanvas, onClo
           <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"><X size={14} /></button>
         </div>
         <div className="px-3 py-3 text-[12px] leading-relaxed text-[var(--text-secondary)] space-y-2">
-          <p>You'll build a small office LAN step by step:</p>
+          <p>You'll build a small <b>enterprise network</b> step by step:</p>
           <ul className="list-disc list-inside space-y-0.5 text-[var(--text-secondary)]">
-            <li>1 Router</li>
-            <li>2 wired PCs</li>
-            <li>1 laptop on Wi-Fi (PC + access point)</li>
-            <li>1 DHCP server to make it all work</li>
+            <li>Router + access Switch</li>
+            <li>DHCP &amp; DNS servers</li>
+            <li>A Web server wired to a Database</li>
+            <li>2 wired PCs + a Laptop on Wi-Fi</li>
+            <li>A configured DHCP scope &amp; a DNS record</li>
           </ul>
           <p className="text-[var(--text-muted)]">I'll check each step as you do it. Best to start from a blank canvas.</p>
         </div>
