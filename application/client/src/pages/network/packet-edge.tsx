@@ -4,22 +4,12 @@ import type { EdgeProps } from '@xyflow/react'
 
 export type PacketEdgeState = 'idle' | 'dimmed' | 'path' | 'active' | 'done' | 'blocked'
 
-// An independent traveling dot — many can ride the same edge at once
-export interface PulseDot {
-  id: string
-  color: string
-  reversed: boolean   // travels target→source when true
-  dur: number         // ms to cross this edge
-  label?: string      // protocol label shown next to the dot (e.g. "DNS")
-}
-
 export interface PacketEdgeData extends Record<string, unknown> {
   packetState?: PacketEdgeState
   edgeLabel?: string
   packetReversed?: boolean  // dot travels target→source when true
   animDuration?: number     // ms — must match the step interval
   animVersion?: number      // increment to force-restart the dot animation
-  pulses?: PulseDot[]       // concurrent background packets
   // Link metadata (editable via the edge properties panel)
   bandwidth?: string
   latencyMs?: number
@@ -65,7 +55,6 @@ export function PacketEdge({
   const fwdId = `${id}-mf`
   const revId = `${id}-mr`
   const motionPathId = isReversed ? revId : fwdId
-  const pulses = (d?.pulses ?? []) as PulseDot[]
 
   const pathId = `${id}-p`
 
@@ -78,7 +67,11 @@ export function PacketEdge({
   // document timeline (which would make a freshly-added dot appear already
   // finished — frozen at the destination — when the page has been open a while).
   const beginMotion = useCallback((el: SVGAnimateMotionElement | null) => {
-    if (el) { try { el.beginElement() } catch { /* not yet attached */ } }
+    // Don't (re)start a dot while the analyzer has frozen the world — it must
+    // stay exactly where it is, not jump back to the start of the edge.
+    if (el && !(window as unknown as { __netvizFrozen?: boolean }).__netvizFrozen) {
+      try { el.beginElement() } catch { /* not yet attached */ }
+    }
   }, [])
 
   return (
@@ -149,21 +142,7 @@ export function PacketEdge({
         </circle>
       )}
 
-      {/* ── Concurrent background pulses (DHCP, live traffic) ───── */}
-      {pulses.map(p => (
-        <g key={p.id}>
-          <circle r={4} fill={p.color} stroke="#0d1117" strokeWidth={1} style={{ filter: `drop-shadow(0 0 5px ${p.color})` }} />
-          {p.label && (
-            <text y={-7} fontSize={7.5} fontWeight={700} fill={p.color} textAnchor="middle"
-              style={{ fontFamily: 'monospace', paintOrder: 'stroke', stroke: '#0d1117', strokeWidth: 2 }}>
-              {p.label}
-            </text>
-          )}
-          <animateMotion ref={beginMotion} dur={`${p.dur / 1000}s`} begin="indefinite" repeatCount="1" fill="freeze">
-            <mpath href={`#${p.reversed ? revId : fwdId}`} />
-          </animateMotion>
-        </g>
-      ))}
+      {/* Concurrent live/DHCP packets are rendered by the rAF PacketFlightLayer */}
 
       {/* Label */}
       {d?.edgeLabel && (

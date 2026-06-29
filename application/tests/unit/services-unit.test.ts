@@ -97,6 +97,35 @@ describe('packet-sender-service.tracePacket', () => {
   it('errors on unknown nodes', () => {
     assert.equal(tracePacket(topo, { srcNodeId: 'pc-1', dstNodeId: 'ghost', protocol: 'tcp' }).success, false)
   })
+
+  it('routes between two private LANs over a two-router WAN link', () => {
+    const now = Date.now()
+    const ifc = (ip: string, cidr: string, name = 'eth0') => ({ name, ipAddress: ip, subnetMask: '255.255.255.0', cidr, status: 'up' as const })
+    const rt = (destination: string, mask: string, gateway: string, type: 'connected' | 'static') =>
+      ({ id: Math.random().toString(36), destination, mask, gateway, interface: 'x', metric: type === 'static' ? 1 : 0, type })
+    const wanTopo = {
+      id: 't', name: 'wan', createdAt: now, updatedAt: now,
+      nodes: [
+        { id: 'pcA', type: 'pc', label: 'A', position: { x: 0, y: 0 }, config: { interfaces: [ifc('10.1.0.10', '/24')] } },
+        { id: 'swA', type: 'switch', label: 'swA', position: { x: 1, y: 0 }, config: {} },
+        { id: 'rA', type: 'router', label: 'rA', position: { x: 2, y: 0 }, config: { interfaces: [ifc('10.1.0.1', '/24', 'LAN'), { name: 'WAN', ipAddress: '172.16.255.1', subnetMask: '255.255.255.252', cidr: '/30', status: 'up' as const }], routingTable: [rt('10.1.0.0', '255.255.255.0', '0.0.0.0', 'connected'), rt('172.16.255.0', '255.255.255.252', '0.0.0.0', 'connected'), rt('10.2.0.0', '255.255.255.0', '172.16.255.2', 'static')] } },
+        { id: 'rB', type: 'router', label: 'rB', position: { x: 3, y: 0 }, config: { interfaces: [ifc('10.2.0.1', '/24', 'LAN'), { name: 'WAN', ipAddress: '172.16.255.2', subnetMask: '255.255.255.252', cidr: '/30', status: 'up' as const }], routingTable: [rt('10.2.0.0', '255.255.255.0', '0.0.0.0', 'connected'), rt('172.16.255.0', '255.255.255.252', '0.0.0.0', 'connected'), rt('10.1.0.0', '255.255.255.0', '172.16.255.1', 'static')] } },
+        { id: 'swB', type: 'switch', label: 'swB', position: { x: 4, y: 0 }, config: {} },
+        { id: 'pcB', type: 'pc', label: 'B', position: { x: 5, y: 0 }, config: { interfaces: [ifc('10.2.0.10', '/24')] } },
+      ],
+      edges: [
+        { id: 'e1', source: 'pcA', target: 'swA', config: {} },
+        { id: 'e2', source: 'swA', target: 'rA', config: {} },
+        { id: 'e3', source: 'rA', target: 'rB', config: {} },
+        { id: 'e4', source: 'rB', target: 'swB', config: {} },
+        { id: 'e5', source: 'swB', target: 'pcB', config: {} },
+      ],
+    } as unknown as NetworkTopology
+
+    const r = tracePacket(wanTopo, { srcNodeId: 'pcA', dstNodeId: 'pcB', protocol: 'icmp' })
+    assert.equal(r.blocked, false)
+    assert.equal(r.success, true)
+  })
 })
 
 describe('packet-simulator', () => {

@@ -38,7 +38,7 @@ export const initialBuilderState: BuilderState = {
   traceStep: -1,
   isAnimating: false,
   isPaused: false,
-  animSpeed: 5000,
+  animSpeed: 2000,   // Normal (matches the 'Normal' preset in packet-sender)
   liveMode: true,
   histTick: 0,
 }

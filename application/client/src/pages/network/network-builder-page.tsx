@@ -1,4 +1,4 @@
-import { useReducer, useMemo, useCallback, useEffect, useRef, type SetStateAction } from 'react'
+import { useReducer, useMemo, useCallback, useEffect, useRef, useState, type SetStateAction } from 'react'
 import {
   ReactFlow, Background, Controls, MiniMap,
   addEdge, useNodesState, useEdgesState,
@@ -6,13 +6,14 @@ import {
   BackgroundVariant, ConnectionMode,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Save, RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle, X, GraduationCap, Hammer, Activity, Undo2, Redo2, ShieldCheck, TerminalSquare, Download, History } from 'lucide-react'
-import type { NetworkTopology, NetworkNode as NetNode, NetworkEdge as NetEdge, NodeType, NetworkNodeConfig, NetworkInterface } from '../../types/index.ts'
+import { Save, RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle, X, GraduationCap, Hammer, Activity, Undo2, Redo2, ShieldCheck, TerminalSquare, Download, History, Layers } from 'lucide-react'
+import type { NetworkTopology, NetworkNode as NetNode, NetworkEdge as NetEdge, NodeType, NetworkNodeConfig, NetworkInterface, RoutingTableEntry } from '../../types/index.ts'
 import type { TraceResult } from '../../lib/api/index.ts'
 import { network as networkApi } from '../../lib/api/index.ts'
 import { nodeTypes, type NetworkNodeData, type NodeHighlight } from './custom-nodes.tsx'
 import { isDhcpClient, meta } from './device-catalog.tsx'
-import { edgeTypes, type PacketEdgeData, type PacketEdgeState, type PulseDot } from './packet-edge.tsx'
+import { edgeTypes, type PacketEdgeData, type PacketEdgeState } from './packet-edge.tsx'
+import { PacketFlightLayer, type Flight } from './packet-flight-layer.tsx'
 import NodePalette from './node-palette.tsx'
 import PropertiesPanel from './properties-panel.tsx'
 import EdgePropertiesPanel from './edge-properties-panel.tsx'
@@ -24,6 +25,8 @@ import GuidedBuild from './guided-build.tsx'
 import ValidationPanel from './validation-panel.tsx'
 import DeviceStatePanel from './device-state-panel.tsx'
 import VersionsPanel from './versions-panel.tsx'
+import PacketInspector from './packet-inspector.tsx'
+import { buildPacket, buildArp, buildTcp, appFromLabel, type PacketInfo, type AppProto } from './packet-model.ts'
 import { builderReducer, initialBuilderState, type BuilderState } from './network-builder-page.reducer.ts'
 
 // ── Converters ───────────────────────────────────────────────────────────────
@@ -343,7 +346,7 @@ export default function NetworkBuilderPage() {
   const connectingNodeId = useRef<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stepRef = useRef(0)
-  const animSpeedRef = useRef(700)
+  const animSpeedRef = useRef(2000)   // mirrored from animSpeed each render
   const isPausedRef = useRef(false)
   const traceResultRef = useRef<TraceResult | null>(null)
   // Edges traversed target→source (dot must travel reversed)
@@ -369,6 +372,9 @@ export default function NetworkBuilderPage() {
   liveRef.current = liveMode
   editingRef.current = !!(selectedNodeId || selectedEdgeId)
   topologyRef.current = topology
+  // Keep the live animation base in sync with the selected Fast/Normal/Slow
+  // button, so the speed it actually runs at always matches what's highlighted.
+  animSpeedRef.current = animSpeed
 
   // The <svg> that React Flow renders edges into — used to pause/resume SMIL dots
   const getEdgesSvg = useCallback((): SVGSVGElement | null => {
@@ -376,6 +382,128 @@ export default function NetworkBuilderPage() {
     if (!el) return null
     return (el instanceof SVGSVGElement ? el : el.closest('svg')) as SVGSVGElement | null
   }, [])
+
+  // ── Packet analyzer (Wireshark-style): freeze + capture ────────────────────
+  const [inspectorOpen, setInspectorOpen] = useState(false)
+  const [frozen, setFrozen] = useState(false)
+  const [capturedPackets, setCapturedPackets] = useState<PacketInfo[]>([])
+  const [selectedCaptureId, setSelectedCaptureId] = useState<string | null>(null)
+  const frozenRef = useRef(false)
+  frozenRef.current = frozen
+
+  // ── rAF packet-flight engine ───────────────────────────────────────────────
+  // Live/DHCP packets are real particles advanced every animation frame, so they
+  // visibly speed up / slow down the instant the speed or a link's latency
+  // changes — and stick to the wire while panning/zooming.
+  const flightsRef = useRef<Flight[]>([])
+  const [flightVersion, bumpFlights] = useReducer((x: number) => (x + 1) & 0xffff, 0)
+  const rafRef = useRef<number | null>(null)
+  const lastFrameRef = useRef(0)
+
+  // Point (in flow coordinates) a fraction `t` along an edge's hidden motion path.
+  const samplePoint = (edgeId: string, reversed: boolean, t: number): { x: number; y: number } | null => {
+    const el = document.getElementById(`${edgeId}-${reversed ? 'mr' : 'mf'}`) as SVGPathElement | null
+    if (!el || typeof el.getTotalLength !== 'function') return null
+    const len = el.getTotalLength()
+    if (!len) return null
+    const pt = el.getPointAtLength(Math.min(1, Math.max(0, t)) * len)
+    return { x: pt.x, y: pt.y }
+  }
+
+  const runFrame = useCallback(() => {
+    const now = performance.now()
+    const dt = lastFrameRef.current ? Math.min(64, now - lastFrameRef.current) : 16
+    lastFrameRef.current = now
+    const flights = flightsRef.current
+    const frozen = frozenRef.current
+    const nodeOn = (nid: string) => { const n = nodesRef.current.find(x => x.id === nid); return !!n && (n.data as NetworkNodeData).config.powered !== false }
+    let structural = false
+
+    for (let i = flights.length - 1; i >= 0; i--) {
+      const f = flights[i]
+      let edge = edgesRef.current.find(e => e.id === f.edgePath[f.hop])
+      // Drop instantly if the link is gone/down or an endpoint powered off.
+      if (!edge || (edge.data?.linkStatus ?? 'up') === 'down' || !nodeOn(edge.source) || !nodeOn(edge.target)) {
+        flights.splice(i, 1); structural = true; f.onAbort?.(); continue
+      }
+      if (!frozen) {
+        // Duration is recomputed every frame, so speed/latency changes retime the
+        // packet in place — no remount, no jump.
+        const dur = hopDuration(animSpeedRef.current, edge.data?.latencyMs as number | undefined, edge.data?.bandwidth as string | undefined)
+        f.progress += dt / Math.max(16, dur)
+        if (f.progress >= 1) {
+          f.hop++; f.progress -= 1
+          if (f.hop >= f.edgePath.length) { flights.splice(i, 1); structural = true; f.onDone?.(); continue }
+          edge = edgesRef.current.find(e => e.id === f.edgePath[f.hop])
+          if (!edge || (edge.data?.linkStatus ?? 'up') === 'down' || !nodeOn(edge.source) || !nodeOn(edge.target)) {
+            flights.splice(i, 1); structural = true; f.onAbort?.(); continue
+          }
+        }
+      }
+      if (f.el && edge) {
+        const reversed = edge.source !== f.path[f.hop]
+        const p = samplePoint(edge.id, reversed, f.progress)
+        if (p) f.el.style.transform = `translate(${p.x}px, ${p.y}px)`
+      }
+    }
+
+    if (structural) bumpFlights()
+    if (flightsRef.current.length > 0) rafRef.current = requestAnimationFrame(runFrame)
+    else { rafRef.current = null; lastFrameRef.current = 0 }
+  }, [])
+  const ensureRaf = useCallback(() => {
+    if (rafRef.current == null) { lastFrameRef.current = 0; rafRef.current = requestAnimationFrame(runFrame) }
+  }, [runFrame])
+
+  const applyFreeze = useCallback((next: boolean) => {
+    setFrozen(next)
+    frozenRef.current = next
+    // A flag the trace dot's SMIL renderer reads so it doesn't restart on resume.
+    ;(window as unknown as { __netvizFrozen?: boolean }).__netvizFrozen = next
+    // Freeze the single SMIL trace dot too (live dots are held by the rAF engine).
+    reactFlowWrapper.current?.querySelectorAll('svg').forEach(svg => {
+      try { if (next) (svg as SVGSVGElement).pauseAnimations(); else (svg as SVGSVGElement).unpauseAnimations() } catch { /* ignore */ }
+    })
+    if (!next) ensureRaf()   // resume the flight loop
+  }, [ensureRaf])
+
+  // Clicking any moving packet captures + decodes it and stops the world.
+  useEffect(() => {
+    const onInspect = (e: Event) => {
+      const pkt = (e as CustomEvent<PacketInfo>).detail
+      if (!pkt) return
+      setCapturedPackets(prev => prev.some(p => p.id === pkt.id) ? prev : [...prev.slice(-79), pkt])
+      setSelectedCaptureId(pkt.id)
+      setInspectorOpen(true)
+      if (!frozenRef.current) applyFreeze(true)
+    }
+    window.addEventListener('netviz:inspectPacket', onInspect)
+    return () => window.removeEventListener('netviz:inspectPacket', onInspect)
+  }, [applyFreeze])
+
+  // ── Make the whole network react INSTANTLY to any change ───────────────────
+  // A signature of only the structural/config state (NOT the constantly-churning
+  // pulse animation) — so this fires the moment a device is powered, a link goes
+  // up/down, an IP/service/DHCP/DNS/firewall rule changes, or a node/edge is
+  // added or removed, but never on ambient-traffic churn.
+  const topoSignature = useMemo(() => JSON.stringify({
+    n: nodes.map(n => {
+      const d = n.data as NetworkNodeData
+      const c = d.config
+      return [n.id, d.type, c.powered, c.interfaces?.[0]?.ipAddress ?? '', c.interfaces?.[0]?.vlan ?? '',
+        c.dhcp?.enabled ?? false, c.dhcp?.poolStart ?? '', c.dhcp?.gateway ?? '',
+        c.dns?.enabled ?? false, c.dns?.records?.length ?? 0,
+        c.services?.length ?? 0, c.firewallRules?.length ?? 0, c.routingTable?.length ?? 0]
+    }),
+    e: edges.map(e => [e.id, e.source, e.target, e.data?.linkStatus ?? 'up']),
+  }), [nodes, edges])
+
+  useEffect(() => {
+    // Re-evaluate addressing + traffic right now instead of waiting for the next
+    // clock tick — the network responds the instant something changes. (Packets
+    // on links that just died are dropped by the rAF engine on the next frame.)
+    if (!frozenRef.current) runSimTickRef.current()
+  }, [topoSignature])
 
   // Load topology on mount — prefer an autosaved working copy, else the sample
   useEffect(() => {
@@ -605,7 +733,9 @@ export default function NetworkBuilderPage() {
   const handleSpeedChange = useCallback((ms: number) => {
     animSpeedRef.current = ms
     setAnimSpeed(ms)
-    // If actively playing, restart the current hop at the new speed (clean remount)
+    // Live traffic retimes itself in place — the rAF engine reads animSpeedRef
+    // every frame, so all in-flight dots smoothly change pace immediately.
+    // If actively playing, restart the current trace hop at the new speed.
     if (isAnimating && !isPausedRef.current) {
       if (timerRef.current) clearTimeout(timerRef.current)
       reapplyCurrentStep(true)
@@ -644,53 +774,21 @@ export default function NetworkBuilderPage() {
     startAnimation(result, edgesRef.current)
   }, [startAnimation])
 
-  // ── Concurrent pulse engine ────────────────────────────────────────────────
-  // Independent traveling dots that ride edges in parallel. Unlike the single
-  // trace engine, many can run at once — so several hosts animate together.
-  const addPulse = useCallback((edgeId: string, pulse: PulseDot) => {
-    setEdges(prev => prev.map(e => e.id === edgeId
-      ? { ...e, data: { ...e.data, pulses: [...((e.data?.pulses as PulseDot[]) ?? []), pulse] } }
-      : e))
-  }, [setEdges])
-
-  const removePulse = useCallback((edgeId: string, pulseId: string) => {
-    setEdges(prev => prev.map(e => e.id === edgeId
-      ? { ...e, data: { ...e.data, pulses: ((e.data?.pulses as PulseDot[]) ?? []).filter(p => p.id !== pulseId) } }
-      : e))
-  }, [setEdges])
-
-  // Animate one packet hop-by-hop along a path; calls onDone at the end, or
-  // onAbort if the packet is dropped (link/device went down mid-flight).
-  // Per-hop duration follows the current Fast/Normal/Slow speed setting.
+  // Launch one packet as an rAF flight along a path; the engine advances it,
+  // retimes it live, drops it if a hop fails, and calls onDone / onAbort.
+  // (Signature unchanged so every existing call site keeps working.)
   const spawnAgent = useCallback((
     path: string[], edgePath: string[], color: string, label?: string,
-    onDone?: () => void, onAbort?: () => void,
+    packet?: PacketInfo, onDone?: () => void, onAbort?: () => void,
   ) => {
-    const agentId = `ag-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-    const nodeOn = (nid: string) => {
-      const n = nodesRef.current.find(x => x.id === nid)
-      return !!n && (n.data as NetworkNodeData).config.powered !== false
-    }
-    const step = (i: number) => {
-      if (i >= edgePath.length) { onDone?.(); return }
-      const edgeId = edgePath[i]
-      const edge = edgesRef.current.find(e => e.id === edgeId)
-      // Drop the packet if the hop is no longer usable: link removed/down, or
-      // either endpoint device was powered off mid-flight.
-      if (!edge || (edge.data?.linkStatus ?? 'up') === 'down' || !nodeOn(edge.source) || !nodeOn(edge.target)) {
-        onAbort?.()
-        return
-      }
-      // Per-hop duration follows the speed setting *and* the link's own
-      // latency/bandwidth, so a slow WAN link visibly lags a fast LAN link.
-      const edgeDur = hopDuration(animSpeedRef.current, edge.data?.latencyMs as number | undefined, edge.data?.bandwidth as string | undefined)
-      const reversed = edge.source !== path[i]   // travelling target→source?
-      const pulseId = `${agentId}-${i}`
-      addPulse(edgeId, { id: pulseId, color, reversed, dur: edgeDur, label })
-      window.setTimeout(() => { removePulse(edgeId, pulseId); step(i + 1) }, edgeDur)
-    }
-    step(0)
-  }, [addPulse, removePulse])
+    if (edgePath.length === 0) { onDone?.(); return }
+    flightsRef.current.push({
+      id: `fl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      path, edgePath, hop: 0, progress: 0, color, label, packet, onDone, onAbort, el: null,
+    })
+    bumpFlights()
+    ensureRaf()
+  }, [ensureRaf])
 
   // ── Concurrent DHCP (DORA) for a single host ───────────────────────────────
   const dhcpInProgressRef = useRef<Set<string>>(new Set())
@@ -759,12 +857,17 @@ export default function NetworkBuilderPage() {
     if (!fwd) { applyLease(); return }
     const back = { path: [...fwd.path].reverse(), edgePath: [...fwd.edgePath].reverse() }
     setStatus(`${hostName}: DHCP Discover →`)
+    // Decoded DHCP packets for the analyzer (client uses 0.0.0.0 → broadcast).
+    const dhcpSrvIp = data(dhcpNode).config.interfaces?.[0]?.ipAddress || setLastOctet(gw, 2)
+    const dpkt = (mt: string, phase: 'request' | 'reply'): PacketInfo => phase === 'request'
+      ? buildPacket(hostName, '0.0.0.0', hostId, 'DHCP Server', '255.255.255.255', dhcpId, 'DHCP', { phase, dhcp: mt })
+      : buildPacket('DHCP Server', dhcpSrvIp, dhcpId, hostName, assignedIp, hostId, 'DHCP', { phase, dhcp: mt })
     // Realistic DORA: Discover/Request (client→server), then Offer/ACK (server→client).
     // Any leg can abort (link/device down) → release() so the host retries.
-    spawnAgent(fwd.path, fwd.edgePath, '#2dd4bf', 'DHCP Discover', () => {
-      spawnAgent(back.path, back.edgePath, '#2dd4bf', 'DHCP Offer', () => {
-        spawnAgent(fwd.path, fwd.edgePath, '#2dd4bf', 'DHCP Request', () => {
-          spawnAgent(back.path, back.edgePath, '#3fb950', 'DHCP ACK', applyLease, onAbort)
+    spawnAgent(fwd.path, fwd.edgePath, '#2dd4bf', 'DHCP Discover', dpkt('Discover', 'request'), () => {
+      spawnAgent(back.path, back.edgePath, '#2dd4bf', 'DHCP Offer', dpkt('Offer', 'reply'), () => {
+        spawnAgent(fwd.path, fwd.edgePath, '#2dd4bf', 'DHCP Request', dpkt('Request', 'request'), () => {
+          spawnAgent(back.path, back.edgePath, '#3fb950', 'DHCP ACK', dpkt('ACK', 'reply'), applyLease, onAbort)
         }, onAbort)
       }, onAbort)
     }, onAbort)
@@ -788,9 +891,10 @@ export default function NetworkBuilderPage() {
       if (newPowered) {
         window.setTimeout(() => startDhcpForHost(id), 400)
       } else {
-        // Powering off immediately drops any packets in flight on its links
+        // Powering off resets any trace highlight on its links; the rAF engine
+        // drops the in-flight packets touching this node on the next frame.
         setEdges(prev => prev.map(e => (e.source === id || e.target === id)
-          ? { ...e, data: { ...e.data, pulses: [], packetState: 'idle' as PacketEdgeState } }
+          ? { ...e, data: { ...e.data, packetState: 'idle' as PacketEdgeState } }
           : e))
       }
     }
@@ -802,9 +906,15 @@ export default function NetworkBuilderPage() {
   // generate ambient traffic between hosts and services.
   const runSimTickRef = useRef<() => void>(() => {})
   runSimTickRef.current = () => {
+    if (frozenRef.current) return   // analyzer froze the world — emit nothing new
     const flowNodes = nodesRef.current
     const data = (n: Node<NetworkNodeData>) => n.data as NetworkNodeData
     const isOn = (n: Node<NetworkNodeData>) => data(n).config.powered !== false
+    const ipOf = (n: Node<NetworkNodeData>) => data(n).config.interfaces?.[0]?.ipAddress ?? ''
+    const nameOf = (n: Node<NetworkNodeData>) => data(n).config.hostname ?? data(n).label
+    const fqdn = (n: Node<NetworkNodeData>) => `${nameOf(n).toLowerCase().replace(/\s+/g, '-')}.lan`
+    const pkt = (s: Node<NetworkNodeData>, d: Node<NetworkNodeData>, app: AppProto, opts?: Parameters<typeof buildPacket>[7]) =>
+      buildPacket(nameOf(s), ipOf(s), s.id, nameOf(d), ipOf(d), d.id, app, opts)
     if (flowNodes.length < 2) return
     // Graph of only powered-on, up links (off devices block traffic)
     const poweredIds = new Set(flowNodes.filter(isOn).map(n => n.id))
@@ -846,12 +956,12 @@ export default function NetworkBuilderPage() {
     }
 
     // Cap concurrent dots so large topologies don't drown in re-renders
-    const activePulses = edgesRef.current.reduce((s, e) => s + ((e.data?.pulses as PulseDot[] | undefined)?.length ?? 0), 0)
-    if (activePulses > 24) return
+    if (flightsRef.current.length > 30) return   // cap concurrent dots
 
     const back = (q: { path: string[]; edgePath: string[] }) => ({ path: [...q.path].reverse(), edgePath: [...q.edgePath].reverse() })
+    const SQL_STMTS = ['SELECT * FROM users WHERE id = ?', 'SELECT token FROM sessions WHERE sid = ?', 'UPDATE carts SET qty = ? WHERE id = ?', 'INSERT INTO events (type, ts) VALUES (?, ?)', 'SELECT name, price FROM products LIMIT 20']
 
-    const burst = 1 + Math.floor(Math.random() * 3)   // 1–3 concurrent sessions
+    const burst = 1 + Math.floor(Math.random() * 2)   // 1–2 concurrent sessions
     for (let k = 0; k < burst; k++) {
       const src = clients[Math.floor(Math.random() * clients.length)]
       const srcType = data(src).type
@@ -868,22 +978,49 @@ export default function NetworkBuilderPage() {
 
       const p = findPath(src.id, dst.id, simpleEdges)
       if (!p) continue
+      const appProto = appFromLabel(label)
 
       // Backend tier: an app/web server queries a database after the request.
       const maybeBackend = () => {
-        if (!svc.appTier || databases.length === 0 || Math.random() > 0.4) return
+        if (!svc.appTier || databases.length === 0 || Math.random() > 0.6) return
         const db = databases[Math.floor(Math.random() * databases.length)]
         if (db.id === dst.id) return
         const q = findPath(dst.id, db.id, simpleEdges)
         if (!q) return
-        spawnAgent(q.path, q.edgePath, '#f778ba', 'SQL', () => spawnAgent(back(q).path, back(q).edgePath, '#f778ba', 'SQL ◂'))
+        const stmt = SQL_STMTS[Math.floor(Math.random() * SQL_STMTS.length)]
+        spawnAgent(q.path, q.edgePath, '#f778ba', 'SQL', pkt(dst, db, 'SQL', { phase: 'request', sql: stmt }),
+          () => spawnAgent(back(q).path, back(q).edgePath, '#f778ba', 'SQL ◂', pkt(db, dst, 'SQL', { phase: 'reply', sql: `OK ${1 + Math.floor(Math.random() * 40)} rows` })))
       }
 
-      const doApp = () => {
-        spawnAgent(p.path, p.edgePath, color, label, () => {
+      // The application request/response itself.
+      const sendApp = () => {
+        spawnAgent(p.path, p.edgePath, color, label, pkt(src, dst, appProto, { phase: 'request' }), () => {
           const rb = back(p)
-          spawnAgent(rb.path, rb.edgePath, color, `${label} ◂`, maybeBackend)
+          spawnAgent(rb.path, rb.edgePath, color, `${label} ◂`, pkt(dst, src, appProto, { phase: 'reply' }), maybeBackend)
         })
+      }
+
+      // Realistic TCP setup: SYN → SYN/ACK → ACK before the app exchange.
+      const ctl = (s: Node<NetworkNodeData>, d: Node<NetworkNodeData>, flags: 'SYN' | 'SYN, ACK' | 'ACK') =>
+        buildTcp(nameOf(s), ipOf(s), s.id, nameOf(d), ipOf(d), d.id, flags, appProto)
+      const doApp = () => {
+        if (Math.random() < 0.65) {
+          const rb = back(p)
+          spawnAgent(p.path, p.edgePath, '#8b949e', 'SYN', ctl(src, dst, 'SYN'), () =>
+            spawnAgent(rb.path, rb.edgePath, '#8b949e', 'SYN, ACK', ctl(dst, src, 'SYN, ACK'), () =>
+              spawnAgent(p.path, p.edgePath, '#8b949e', 'ACK', ctl(src, dst, 'ACK'), sendApp)))
+        } else sendApp()
+      }
+
+      // ARP resolves the next hop's MAC on the local segment before first contact.
+      const startSession = () => {
+        const nbId = p.path[1]
+        const nb = nbId ? flowNodes.find(n => n.id === nbId) : undefined
+        if (nb && Math.random() < 0.25) {
+          const seg = [src.id, nb.id], segE = [p.edgePath[0]]
+          spawnAgent(seg, segE, '#f0883e', 'ARP', buildArp(nameOf(src), ipOf(src), src.id, nameOf(nb), ipOf(nb), nb.id, true), () =>
+            spawnAgent([nb.id, src.id], segE, '#f0883e', 'ARP ◂', buildArp(nameOf(nb), ipOf(nb), nb.id, nameOf(src), ipOf(src), src.id, false), doApp))
+        } else doApp()
       }
 
       // DNS name resolution precedes web/app connections only (file/print/mail
@@ -891,18 +1028,18 @@ export default function NetworkBuilderPage() {
       if (svc.usesDns && dnsServer && dnsServer.id !== dst.id && Math.random() < 0.6) {
         const dq = findPath(src.id, dnsServer.id, simpleEdges)
         if (dq) {
-          spawnAgent(dq.path, dq.edgePath, '#a371f7', 'DNS query', () => {
-            spawnAgent(back(dq).path, back(dq).edgePath, '#a371f7', 'DNS reply', doApp)
+          spawnAgent(dq.path, dq.edgePath, '#a371f7', 'DNS query', pkt(src, dnsServer, 'DNS', { phase: 'request', query: fqdn(dst), answer: ipOf(dst) }), () => {
+            spawnAgent(back(dq).path, back(dq).edgePath, '#a371f7', 'DNS reply', pkt(dnsServer!, src, 'DNS', { phase: 'reply', query: fqdn(dst), answer: ipOf(dst) }), startSession)
           })
           continue
         }
       }
-      doApp()
+      startSession()
     }
   }
 
   useEffect(() => {
-    const iv = setInterval(() => runSimTickRef.current(), 1600)
+    const iv = setInterval(() => runSimTickRef.current(), 1200)
     return () => clearInterval(iv)
   }, [])
 
@@ -1002,6 +1139,9 @@ export default function NetworkBuilderPage() {
   }, [])
 
   // ── Edge (link) editing ──────────────────────────────────────────────────
+  // The rAF engine reads each link's latency/bandwidth/status every frame, so a
+  // change here retimes packets crossing it instantly (or drops them if it goes
+  // down) with no extra bookkeeping.
   const handleEdgeDataChange = useCallback((edgeId: string, partial: Partial<PacketEdgeData>) => {
     setEdges(prev => prev.map(e => e.id === edgeId ? { ...e, data: { ...e.data, ...partial } } : e))
   }, [setEdges])
@@ -1023,6 +1163,86 @@ export default function NetworkBuilderPage() {
       networkApi.updateNode(topology.id, nodeId, { config }).catch(() => {})
     }
   }, [topology, setNodes])
+
+  // ── Connect two private networks: configure a router↔router edge as a WAN
+  //    site-link (assign a /30, install cross static routes between the LANs). ──
+  const configureWanLink = useCallback((edgeId: string) => {
+    const data = (n: Node<NetworkNodeData>) => n.data as NetworkNodeData
+    const wanEdge = edgesRef.current.find(e => e.id === edgeId)
+    if (!wanEdge) return
+    const aNode = nodesRef.current.find(n => n.id === wanEdge.source)
+    const bNode = nodesRef.current.find(n => n.id === wanEdge.target)
+    if (!aNode || !bNode) return
+    const isRouter = (n: Node<NetworkNodeData>) => ['router', 'l3switch'].includes(data(n).type)
+    if (!isRouter(aNode) || !isRouter(bNode)) {
+      setStatus('WAN link needs a router (or L3 switch) on both ends')
+      setTimeout(() => setStatus(''), 2500)
+      return
+    }
+
+    const priv = (ip?: string) => !!ip && (ip.startsWith('10.') || /^172\.(1[6-9]|2\d|3[01])\./.test(ip) || ip.startsWith('192.168.'))
+    const prefixOf = (i?: NetworkInterface) => {
+      if (i?.cidr) { const p = parseInt(i.cidr.replace('/', ''), 10); if (!isNaN(p)) return p }
+      if (i?.subnetMask) return maskToCidr(i.subnetMask)
+      return 24
+    }
+    const maskInt = (p: number) => (p === 0 ? 0 : (0xffffffff << (32 - p)) >>> 0)
+    const maskStr = (p: number) => intToIp(maskInt(p))
+    const netStr = (ip: string, p: number) => intToIp((ipToInt(ip) & maskInt(p)) >>> 0)
+
+    // Subnets a router serves = private subnets of IP-bearing devices reachable
+    // from it WITHOUT crossing the WAN edge.
+    const simpleEdges = edgesRef.current.filter(e => e.id !== edgeId).map(e => ({ source: e.source, target: e.target }))
+    type Sub = { net: string; mask: string }
+    const lanSubnets = (routerId: string): Sub[] => {
+      const out = new Map<string, Sub>()
+      for (const id of reachableFrom(routerId, simpleEdges)) {
+        const n = nodesRef.current.find(x => x.id === id)
+        const iface = n && data(n).config.interfaces?.[0]
+        const ip = iface?.ipAddress
+        if (!priv(ip)) continue
+        const prefix = prefixOf(iface || undefined)
+        out.set(`${netStr(ip!, prefix)}/${prefix}`, { net: netStr(ip!, prefix), mask: maskStr(prefix) })
+      }
+      return [...out.values()]
+    }
+    const aLans = lanSubnets(aNode.id)
+    const bLans = lanSubnets(bNode.id)
+    if (aLans.length === 0 || bLans.length === 0) {
+      setStatus('Power on / address the hosts on both sides first (no subnets found)')
+      setTimeout(() => setStatus(''), 3500)
+      return
+    }
+
+    // Pick a free /30 for the WAN point-to-point link.
+    const used = new Set<string>()
+    nodesRef.current.forEach(n => data(n).config.interfaces?.forEach(i => i.ipAddress && used.add(i.ipAddress)))
+    let base = ipToInt('172.16.255.0')
+    for (let k = 0; k < 64; k++) {
+      if (!used.has(intToIp(base + 1)) && !used.has(intToIp(base + 2))) break
+      base += 4
+    }
+    const aWan = intToIp(base + 1), bWan = intToIp(base + 2)
+
+    const buildConfig = (node: Node<NetworkNodeData>, selfLans: Sub[], peerLans: Sub[], selfWan: string, peerWan: string): NetworkNodeConfig => {
+      const cfg = data(node).config
+      const wanIface: NetworkInterface = { name: 'WAN', ipAddress: selfWan, subnetMask: '255.255.255.252', cidr: '/30', status: 'up', description: 'WAN site-link' }
+      const interfaces = [...(cfg.interfaces ?? []).filter(i => i.name !== 'WAN'), wanIface]
+      const routes: RoutingTableEntry[] = [...(cfg.routingTable ?? [])]
+      const add = (r: RoutingTableEntry) => { if (!routes.some(x => x.destination === r.destination && x.mask === r.mask)) routes.push(r) }
+      add({ id: crypto.randomUUID(), destination: netStr(selfWan, 30), mask: '255.255.255.252', gateway: '0.0.0.0', interface: 'WAN', metric: 0, type: 'connected' })
+      selfLans.forEach(s => add({ id: crypto.randomUUID(), destination: s.net, mask: s.mask, gateway: '0.0.0.0', interface: 'LAN', metric: 0, type: 'connected' }))
+      peerLans.forEach(s => add({ id: crypto.randomUUID(), destination: s.net, mask: s.mask, gateway: peerWan, interface: 'WAN', metric: 1, type: 'static' }))
+      return { ...cfg, interfaces, routingTable: routes }
+    }
+
+    pushHistory()
+    handleNodeConfigChange(aNode.id, buildConfig(aNode, aLans, bLans, aWan, bWan))
+    handleNodeConfigChange(bNode.id, buildConfig(bNode, bLans, aLans, bWan, aWan))
+    handleEdgeDataChange(edgeId, { edgeLabel: 'WAN link', bandwidth: '100 Mbps', latencyMs: 10 })
+    setStatus(`WAN link up: ${aLans.length}↔${bLans.length} subnet(s) routed (static routes added)`)
+    setTimeout(() => setStatus(''), 3500)
+  }, [handleNodeConfigChange, handleEdgeDataChange, pushHistory])
 
   // ── Save/Delete/Reset ────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -1136,6 +1356,13 @@ export default function NetworkBuilderPage() {
         >
           <Activity size={12} />{liveMode ? 'Live ●' : 'Live'}
         </button>
+        <button
+          onClick={() => setInspectorOpen(v => !v)}
+          className={inspectorOpen ? 'btn-primary' : 'btn-ghost'}
+          title="Packet analyzer — freeze traffic and click any packet to decode it (Wireshark-style)"
+        >
+          <Layers size={12} />Analyze
+        </button>
         <button onClick={undo} disabled={historyRef.current.past.length === 0} className="btn-ghost" title="Undo (Ctrl+Z)">
           <Undo2 size={12} />
         </button>
@@ -1211,6 +1438,7 @@ export default function NetworkBuilderPage() {
             <Background variant={BackgroundVariant.Dots} color="#21262d" gap={20} size={1} />
             <Controls />
             <MiniMap nodeColor={n => meta(n.type ?? '').color} />
+            <PacketFlightLayer flights={flightsRef.current} version={flightVersion} />
           </ReactFlow>
 
           {/* Result overlay — shown when animation finishes */}
@@ -1266,8 +1494,21 @@ export default function NetworkBuilderPage() {
           )}
         </div>
 
-        {/* Right inspector (resizable): trace > edge > node properties */}
-        {traceResult && (
+        {/* Right inspector (resizable): packet analyzer > trace > edge > node */}
+        {inspectorOpen && (
+          <ResizablePanel>
+            <PacketInspector
+              packets={capturedPackets}
+              selectedId={selectedCaptureId}
+              frozen={frozen}
+              onSelect={setSelectedCaptureId}
+              onClear={() => { setCapturedPackets([]); setSelectedCaptureId(null) }}
+              onToggleFreeze={() => applyFreeze(!frozen)}
+              onClose={() => { setInspectorOpen(false); if (frozenRef.current) applyFreeze(false) }}
+            />
+          </ResizablePanel>
+        )}
+        {!inspectorOpen && traceResult && (
           <ResizablePanel>
             <TracePanel result={traceResult} activeStep={traceStep} onClose={clearTrace} />
           </ResizablePanel>
@@ -1278,6 +1519,11 @@ export default function NetworkBuilderPage() {
               edge={selectedEdge}
               sourceName={nodeName(selectedEdge.source)}
               targetName={nodeName(selectedEdge.target)}
+              canConfigureWan={
+                ['router', 'l3switch'].includes(allNetNodes.find(n => n.id === selectedEdge.source)?.type ?? '') &&
+                ['router', 'l3switch'].includes(allNetNodes.find(n => n.id === selectedEdge.target)?.type ?? '')
+              }
+              onConfigureWanLink={() => configureWanLink(selectedEdge.id)}
               onChange={handleEdgeDataChange}
               onDelete={handleDeleteEdge}
               onClose={() => setSelectedEdgeId(null)}
