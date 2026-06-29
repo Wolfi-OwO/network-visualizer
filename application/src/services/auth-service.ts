@@ -1,7 +1,15 @@
 import { v4 as uuidv4 } from 'uuid'
 import { UserModel } from '../db/models/user.model.js'
 import { config } from '../config/index.js'
-import { BadRequestError } from '../lib/errors.js'
+import { BadRequestError, NotFoundError } from '../lib/errors.js'
+
+// The role hierarchy (highest → lowest privilege). Like a Google Workspace /
+// Microsoft 365 admin console, only an `admin` may assign roles to accounts.
+export const ROLES = ['admin', 'editor', 'viewer'] as const
+export type Role = (typeof ROLES)[number]
+export function isRole(r: string): r is Role {
+  return (ROLES as readonly string[]).includes(r)
+}
 
 export interface OAuthProfile {
   provider: 'google' | 'microsoft' | 'local'
@@ -40,6 +48,40 @@ export async function findOrCreateUser(p: OAuthProfile): Promise<PublicUser> {
 export async function getUserById(id: string): Promise<PublicUser | null> {
   const doc = await UserModel.findOne({ id })
   return doc ? toPublic(doc) : null
+}
+
+// ── Admin: user & role management ────────────────────────────────────────────
+
+/** All accounts, oldest first (admin only). */
+export async function listUsers(): Promise<PublicUser[]> {
+  const docs = await UserModel.find().sort({ createdAt: 1 })
+  return docs.map(toPublic)
+}
+
+async function countAdmins(): Promise<number> {
+  return UserModel.countDocuments({ role: 'admin' })
+}
+
+/** Change an account's role. Refuses to demote the last admin (no lock-out). */
+export async function setUserRole(id: string, role: Role): Promise<PublicUser> {
+  const doc = await UserModel.findOne({ id })
+  if (!doc) throw new NotFoundError('User not found')
+  if (doc.get('role') === 'admin' && role !== 'admin' && (await countAdmins()) <= 1) {
+    throw new BadRequestError('Cannot demote the last administrator — promote another admin first')
+  }
+  doc.set('role', role)
+  await doc.save()
+  return toPublic(doc)
+}
+
+/** Remove an account. Refuses to delete the last admin (no lock-out). */
+export async function deleteUser(id: string): Promise<void> {
+  const doc = await UserModel.findOne({ id })
+  if (!doc) throw new NotFoundError('User not found')
+  if (doc.get('role') === 'admin' && (await countAdmins()) <= 1) {
+    throw new BadRequestError('Cannot delete the last administrator — promote another admin first')
+  }
+  await UserModel.deleteOne({ id })
 }
 
 // ── OAuth authorization-code → profile ───────────────────────────────────────
