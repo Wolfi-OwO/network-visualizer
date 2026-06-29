@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter } from 'react-router-dom'
 import RegularLayout from './layouts/regular-layout.tsx'
 import AdminLayout from './layouts/admin-layout.tsx'
 import ErrorPage from './layouts/error-page.tsx'
@@ -27,7 +27,6 @@ export const router = createBrowserRouter([
       { path: 'packets', element: <PacketCapturePage /> },
       { path: 'network', element: <NetworkBuilderPage /> },
       { path: 'cidr', element: <CIDRCalculatorPage /> },
-      { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
   {
