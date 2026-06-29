@@ -74,9 +74,6 @@ function randFloat(min: number, max: number): number {
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
-function randomHex(bytes: number): string {
-  return Array.from({ length: bytes }, () => randInt(0, 255).toString(16).padStart(2, '0')).join('');
-}
 function hex16(n: number): string {
   return `0x${(n & 0xffff).toString(16).padStart(4, '0')}`;
 }

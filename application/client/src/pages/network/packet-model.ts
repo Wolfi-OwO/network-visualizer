@@ -175,7 +175,7 @@ export function buildPacket(
   // Application layer + the human-readable Info column.
   let appLayer: PacketLayer
   let info: string
-  let protoLabel: string = app
+  let protoLabel: string   // every switch branch (incl. default) sets this
   switch (app) {
     case 'DNS': {
       const name = opts.query ?? dstName
