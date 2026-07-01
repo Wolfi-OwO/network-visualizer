@@ -28,12 +28,6 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'dev-insecure-secret-change-me',
   /** How long a session token is valid */
   jwtTtl: process.env.JWT_TTL || '7d',
-  /** Base URL the API is reached at (for OAuth callbacks) */
-  apiUrl: process.env.API_URL || 'http://localhost:8080',
-  /** Public base URL of the app users land on after sign-in. When the SPA is
-   *  served by the backend (single origin) this is the same as the API URL.
-   *  `||` (not `??`) so an empty `APP_URL=` in .env still falls back. */
-  appUrl: process.env.APP_URL || process.env.API_URL || 'http://localhost:8080',
   /** Allow the username/password-less dev login (disabled in production by default) */
   allowDevLogin: process.env.ALLOW_DEV_LOGIN === 'true' || process.env.NODE_ENV !== 'production',
   /** Require authentication for topology data (block the anonymous local workspace) */

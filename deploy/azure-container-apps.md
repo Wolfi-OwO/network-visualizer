@@ -7,13 +7,15 @@ MongoDB vCore, or MongoDB Atlas).
 
 ## Architecture
 
-```
-  Internet ──HTTPS──►  ACA ingress (managed cert)  ──►  container : 8080
-                                                          │  MONGO_URI (TLS)
-                                                          ▼
-                              Azure Cosmos DB for MongoDB (vCore)  — or Atlas
-
-  GitHub Release ─► build client ─► az acr build ─► az containerapp update
+```mermaid
+flowchart LR
+    subgraph runtime["Runtime"]
+        internet["Internet"] -- HTTPS --> ingress["ACA ingress (managed cert)"] --> container["container :8080"]
+        container -- "MONGO_URI (TLS)" --> mongo[("Azure Cosmos DB for MongoDB vCore — or Atlas")]
+    end
+    subgraph delivery["Continuous delivery"]
+        release["GitHub Release"] --> build["build client"] --> acr["az acr build"] --> update["az containerapp update"]
+    end
 ```
 
 The app already serves its own SPA and reads `X-Forwarded-Proto` (it trusts one
@@ -93,7 +95,6 @@ az containerapp create \
       ms-secret="<microsoft client secret>" \
   --env-vars \
       NODE_ENV=production PORT=8080 \
-      API_URL=https://example.com APP_URL=https://example.com \
       REQUIRE_AUTH=false ALLOW_DEV_LOGIN=false MICROSOFT_TENANT=common \
       GOOGLE_CLIENT_ID="<google client id>" MICROSOFT_CLIENT_ID="<microsoft client id>" \
       JWT_SECRET=secretref:jwt-secret \
@@ -107,8 +108,9 @@ az containerapp show -g netviz-rg -n netviz \
 ```
 
 Open `https://<that-fqdn>` — the first account to sign in becomes **admin**.
-Until you add a custom domain, set `API_URL`/`APP_URL` to that FQDN so OAuth
-redirects resolve. (`--registry-identity system` grants the app's identity
+OAuth redirect URIs are derived from the URL you browse to, so no URL env var is
+needed — just register the callback (see below) with each provider.
+(`--registry-identity system` grants the app's identity
 `AcrPull`; if your CLI version doesn't, run
 `az role assignment create --assignee <app-identity> --role AcrPull --scope <acr-id>`.)
 
@@ -117,17 +119,16 @@ redirects resolve. (`--registry-identity system` grants the app's identity
 ## No custom domain? (use the free ACA URL)
 
 You don't need a domain. ACA already served the app at a free HTTPS address
-(`https://<app>.<region>.azurecontainerapps.io`). Just point the app's URLs at it:
+(`https://<app>.<region>.azurecontainerapps.io`):
 
 ```bash
 FQDN=$(az containerapp show -g netviz-rg -n netviz --query properties.configuration.ingress.fqdn -o tsv)
-az containerapp update -g netviz-rg -n netviz --set-env-vars API_URL=https://$FQDN APP_URL=https://$FQDN
 echo "Open: https://$FQDN"
 ```
 
 Skip Part 3 entirely. Two things to know without a domain:
 
-- **OAuth** still works — register `https://$FQDN/api/auth/{google|microsoft}/callback`
+- **OAuth** still works — register `https://$FQDN/auth/{google|microsoft}/callback`
   as the redirect URI. Or skip OAuth: with `REQUIRE_AUTH=false` the app is fully
   usable anonymously (shared "local" workspace).
 - **The status page** lives on a `status.` subdomain, which needs a custom domain.
@@ -150,14 +151,14 @@ az containerapp hostname add -g netviz-rg -n netviz --hostname example.com   # p
 
 In **GoDaddy → DNS**, create:
 
-| Host | Type | Value |
-| --- | --- | --- |
-| `@` | A | the environment static IP |
-| `asuid` | TXT | the validation token for the apex |
-| `www` | CNAME | the app FQDN |
-| `asuid.www` | TXT | validation token for www |
-| `status` | CNAME | the app FQDN |
-| `asuid.status` | TXT | validation token for status |
+| Host           | Type  | Value                             |
+| -------------- | ----- | --------------------------------- |
+| `@`            | A     | the environment static IP         |
+| `asuid`        | TXT   | the validation token for the apex |
+| `www`          | CNAME | the app FQDN                      |
+| `asuid.www`    | TXT   | validation token for www          |
+| `status`       | CNAME | the app FQDN                      |
+| `asuid.status` | TXT   | validation token for status       |
 
 Then bind each with a managed cert:
 
@@ -168,8 +169,8 @@ for H in example.com www.example.com status.example.com; do
 done
 ```
 
-Set `API_URL`/`APP_URL` to `https://example.com` (`az containerapp update ... --set-env-vars API_URL=… APP_URL=…`) and update your OAuth redirect URIs to
-`https://example.com/api/auth/{google|microsoft}/callback`. The `status.` name
+Update your OAuth redirect URIs to
+`https://example.com/auth/{google|microsoft}/callback`. The `status.` name
 works automatically — the SPA detects the hostname and renders the status page.
 
 ---
@@ -202,15 +203,15 @@ secret to store or rotate), builds the image in ACR, and runs
 2. Add repo **Variables** (Settings → Secrets and variables → Actions →
    *Variables* — none of these are secrets):
 
-   | Variable | Value |
-   | --- | --- |
-   | `AZURE_CLIENT_ID` | `$APP_ID` |
-   | `AZURE_TENANT_ID` | `az account show --query tenantId -o tsv` |
-   | `AZURE_SUBSCRIPTION_ID` | `$SUB_ID` |
-   | `RESOURCE_GROUP` | `gh-routing-visualizer` |
-   | `ACR_NAME` | `ghroutingvisualizer` |
-   | `CONTAINERAPP_NAME` | `gh-routing-visualizer` |
-   | `IMAGE_NAME` | `routing-visualizer` |
+| Variable                | Value                                     |
+| ----------------------- | ----------------------------------------- |
+| `AZURE_CLIENT_ID`       | `$APP_ID`                                 |
+| `AZURE_TENANT_ID`       | `az account show --query tenantId -o tsv` |
+| `AZURE_SUBSCRIPTION_ID` | `$SUB_ID`                                 |
+| `RESOURCE_GROUP`        | `gh-routing-visualizer`                   |
+| `ACR_NAME`              | `ghroutingvisualizer`                     |
+| `CONTAINERAPP_NAME`     | `gh-routing-visualizer`                   |
+| `IMAGE_NAME`            | `routing-visualizer`                      |
 
 3. Ship: cut a GitHub Release (`gh release create v1.0.0 --generate-notes`) →
    the image builds in ACR and the Container App rolls to it automatically.
@@ -219,18 +220,18 @@ secret to store or rotate), builds the image in ACR, and runs
 
 ## Operations
 
-| Task | Command |
-| --- | --- |
-| Logs (stream) | `az containerapp logs show -g netviz-rg -n netviz --follow` |
-| Revisions | `az containerapp revision list -g netviz-rg -n netviz -o table` |
-| Rollback | `az containerapp update -g netviz-rg -n netviz --image netvizacr.azurecr.io/netviz:<prev-tag>` |
+| Task            | Command                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| Logs (stream)   | `az containerapp logs show -g netviz-rg -n netviz --follow`                                        |
+| Revisions       | `az containerapp revision list -g netviz-rg -n netviz -o table`                                    |
+| Rollback        | `az containerapp update -g netviz-rg -n netviz --image netvizacr.azurecr.io/netviz:<prev-tag>`     |
 | Update a secret | `az containerapp secret set -g netviz-rg -n netviz --secrets mongo-uri=…` then update the revision |
-| Scale | `az containerapp update -g netviz-rg -n netviz --min-replicas 1 --max-replicas 5` |
+| Scale           | `az containerapp update -g netviz-rg -n netviz --min-replicas 1 --max-replicas 5`                  |
 
 ### Notes
 
 - **Scale-to-zero:** set `--min-replicas 0` to save cost, but the app's live
   simulation clock and status health-sampler only run while a replica is up;
   keep `--min-replicas 1` if you want continuous status history.
-- **Login loops:** ensure `API_URL`/`APP_URL` match the domain you actually browse
-  to, and that the OAuth redirect URI matches exactly.
+- **Login loops:** ensure the OAuth redirect URI registered with the provider
+  exactly matches `https://<the domain you browse to>/auth/<provider>/callback`.

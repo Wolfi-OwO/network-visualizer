@@ -36,7 +36,7 @@ From [`application/src/app.ts`](../application/src/app.ts):
 
 | Mount                                       | Guard                                              | Effect                               |
 | ------------------------------------------- | -------------------------------------------------- | ------------------------------------ |
-| `/api/auth`                                 | —                                                  | Login / logout / `me`                |
+| `/auth`                                     | —                                                  | Login / logout / `me`                |
 | `/api/status`                               | —                                                  | Public status & uptime               |
 | `/api/users`                                | `requireRole('admin')`                             | **Account & role management**        |
 | `/api/metrics`                              | `requireRole('admin')`                             | System metrics                       |

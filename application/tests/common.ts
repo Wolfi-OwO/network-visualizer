@@ -9,7 +9,7 @@ export { assert, request, app }
 /** Sign in via the local dev login; returns an agent carrying the session cookie. */
 export async function loginAgent(email: string, name?: string) {
   const agent = request.agent(app)
-  await agent.post('/api/auth/dev-login').send({ email, name })
+  await agent.post('/auth/dev-login').send({ email, name })
   return agent
 }
 

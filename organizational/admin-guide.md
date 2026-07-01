@@ -21,7 +21,7 @@ changes it.
 3. Scroll to **Users & roles**. You'll see every account with its provider and a
    role dropdown.
 4. Pick a new role (`admin`, `editor`, or `viewer`). It saves immediately.
-5. Use the 🗑 button to remove an account entirely.
+5. Use the **Delete** (trash) button to remove an account entirely.
 
 > **Safety net:** the system refuses to demote or delete the **last remaining
 > administrator**, so you can never lock everyone out. Promote a second admin
@@ -62,29 +62,29 @@ Set this in `application/.env` (or the container environment) and restart.
 
 ## 5. Identity providers
 
-| Provider | How to enable |
-|----------|---------------|
-| Google | Set `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` |
-| Microsoft | Set `MICROSOFT_CLIENT_ID` + `MICROSOFT_CLIENT_SECRET` (+ optional `MICROSOFT_TENANT`) |
-| Local login | On by default in dev; in production it only works if `ALLOW_DEV_LOGIN=true` |
+| Provider    | How to enable                                                                         |
+| ----------- | ------------------------------------------------------------------------------------- |
+| Google      | Set `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`                                       |
+| Microsoft   | Set `MICROSOFT_CLIENT_ID` + `MICROSOFT_CLIENT_SECRET` (+ optional `MICROSOFT_TENANT`) |
+| Local login | On by default in dev; in production it only works if `ALLOW_DEV_LOGIN=true`           |
 
 Only providers with both a client id and secret appear on the login page.
 
 ## 6. Useful admin views
 
-| View | Where | Who |
-|------|-------|-----|
-| Users & roles | Administration page | admin |
-| System metrics (uptime, memory, request count, DB counts) | Administration page / `GET /api/metrics` | admin |
-| Audit log (who changed what) | `GET /api/audit` | admin |
-| Public status / uptime | the `status.` subdomain | everyone |
+| View                                                      | Where                                    | Who      |
+| --------------------------------------------------------- | ---------------------------------------- | -------- |
+| Users & roles                                             | Administration page                      | admin    |
+| System metrics (uptime, memory, request count, DB counts) | Administration page / `GET /api/metrics` | admin    |
+| Audit log (who changed what)                              | `GET /api/audit`                         | admin    |
+| Public status / uptime                                    | the `status.` subdomain                  | everyone |
 
 ## 7. Common tasks — quick reference
 
-| I want to… | Do this |
-|------------|---------|
-| Make someone an admin | Administration → Users & roles → set role to `admin` |
-| Make someone read-only | Set their role to `viewer` |
-| Off-board someone | Set to `viewer`, or remove them with 🗑 |
-| Step down as admin | Promote another admin first, then lower your own role |
-| Lock the platform down | `REQUIRE_AUTH=true` |
+| I want to…             | Do this                                                    |
+| ---------------------- | ---------------------------------------------------------- |
+| Make someone an admin  | Administration → Users & roles → set role to `admin`       |
+| Make someone read-only | Set their role to `viewer`                                 |
+| Off-board someone      | Set to `viewer`, or remove them with the **Delete** button |
+| Step down as admin     | Promote another admin first, then lower your own role      |
+| Lock the platform down | `REQUIRE_AUTH=true`                                        |

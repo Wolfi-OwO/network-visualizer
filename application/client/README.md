@@ -1,73 +1,57 @@
-# React + TypeScript + Vite
+# NetViz — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + TypeScript + Vite single-page app: the network builder canvas
+(React Flow), Wireshark-style packet capture, CIDR calculator, dashboard,
+status page, and the admin console. Talks to the backend at `/api` (and
+`/auth` for sign-in) — same origin in production, proxied in development.
 
-Currently, two official plugins are available:
+## Layout
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+src/
+├─ pages/          # one folder per page incl. its components
+│  ├─ dashboard/   ├─ network/    ├─ packets/    ├─ cidr/
+│  ├─ admin/       ├─ auth/       ├─ status/     └─ error/
+├─ components/     # core/ (generic UI) · toasts/
+├─ layouts/        # regular-layout, admin-layout, top-nav, sidebar, error-page
+├─ lib/api/        # axios client (one module per backend resource; auth uses /auth)
+├─ context/        # auth provider, toast provider
+├─ hooks/          # use-toast and friends
+├─ config/         # frontend config (VITE_* env vars)
+├─ styles/         # global CSS
+└─ types/          # shared types (mirror of the backend's)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Conventions: lowercase kebab-case filenames, explicit import extensions
+(`./foo.ts`), so builds behave identically on case-sensitive filesystems.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Scripts
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+| Script              | Description                                         |
+| ------------------- | --------------------------------------------------- |
+| `npm run dev`       | Vite dev server on :5173 with HMR                   |
+| `npm run build`     | Type-check (`tsc -b`) + production bundle → `dist/` |
+| `npm run preview`   | Preview the production bundle locally               |
+| `npm run lint`      | Run ESLint                                          |
+| `npm run typecheck` | Type-check without emitting                         |
+
+## Development
+
+The dev server proxies `/api` and `/auth` to the backend on
+`http://localhost:8080` (see [`vite.config.ts`](vite.config.ts)) — start the
+backend first, then `npm run dev` here and open <http://localhost:5173>.
+
+## Configuration
+
+Only `VITE_*` variables are exposed to the app; they are read in
+[`src/config/index.ts`](src/config/index.ts) and documented in
+[`.env.example`](.env.example) (app metadata shown in the footer, mirroring the
+OCI image annotations). Copy to `.env.local` to override locally —
+`VITE_APP_REVISION` is filled from git automatically in dev builds.
+
+## Production build
+
+`npm run build` emits static assets to `dist/`. There is no separate frontend
+image: CI uploads `dist/` as the `client-dist` artifact and the backend Docker
+image serves it with an SPA fallback. Any static host works too — point it at
+the backend origin.

@@ -13,36 +13,27 @@ their corporate identity, and an **administrator** assigns each account a
 
 ## Documents in this folder
 
-| Document | What it covers |
-|----------|----------------|
-| [roles-and-permissions.md](./roles-and-permissions.md) | The three roles and a full capability matrix |
-| [admin-guide.md](./admin-guide.md) | Day-to-day administration: assign roles, remove users, bootstrap the first admin |
-| [access-control.md](./access-control.md) | The technical enforcement model (auth, middleware, endpoints, data isolation) |
-| [account-lifecycle.md](./account-lifecycle.md) | How accounts are created, onboarded, role-changed, and removed |
+| Document                                               | What it covers                                                                   |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| [roles-and-permissions.md](./roles-and-permissions.md) | The three roles and a full capability matrix                                     |
+| [admin-guide.md](./admin-guide.md)                     | Day-to-day administration: assign roles, remove users, bootstrap the first admin |
+| [access-control.md](./access-control.md)               | The technical enforcement model (auth, middleware, endpoints, data isolation)    |
+| [account-lifecycle.md](./account-lifecycle.md)         | How accounts are created, onboarded, role-changed, and removed                   |
 
 ---
 
 ## The model at a glance
 
-```
-                  Sign in (identity provider)
-   ┌──────────────┬──────────────────┬─────────────────┐
-   │  Google      │   Microsoft      │  Local login    │
-   │  OAuth 2.0   │   OAuth 2.0      │  (dev/testing)  │
-   └──────┬───────┴────────┬─────────┴────────┬────────┘
-          └────────────────┴──────────────────┘
-                           │  session = signed JWT in an httpOnly cookie
-                           ▼
-                  ┌──────────────────┐
-                  │   Account        │  role ∈ { admin, editor, viewer }
-                  └──────────────────┘
-                           │
-        ┌──────────────────┼───────────────────────┐
-        ▼                  ▼                        ▼
-     admin              editor                   viewer
-  manage users,     build & edit             read-only
-  roles, metrics,   own networks
-  audit log
+```mermaid
+flowchart TD
+    google["Google (OAuth 2.0)"] --> session
+    microsoft["Microsoft (OAuth 2.0)"] --> session
+    local["Local login (dev/testing)"] --> session
+    session["Session: signed JWT in an httpOnly cookie"] --> account
+    account["Account — role: admin | editor | viewer"]
+    account --> admin["admin: manage users, roles, metrics, audit log"]
+    account --> editor["editor: build & edit own networks"]
+    account --> viewer["viewer: read-only"]
 ```
 
 - **Identity** comes from Google, Microsoft, or a local login (Google/Microsoft

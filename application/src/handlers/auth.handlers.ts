@@ -25,16 +25,19 @@ function setSession(req: Request, res: Response, user: PublicUser): void {
   })
 }
 
-function callbackUri(provider: string): string {
-  return `${config.apiUrl}/api/auth/${provider}/callback`
+// OAuth requires an absolute redirect_uri, so build it from the incoming
+// request (protocol/host) instead of a statically configured base URL — the
+// same build then works on localhost and behind any public domain.
+function callbackUri(req: Request, provider: string): string {
+  return `${req.protocol}://${req.get('host')}/auth/${provider}/callback`
 }
 
-// GET /api/auth/providers — which sign-in options are available.
+// GET /auth/providers — which sign-in options are available.
 export function providers(_req: Request, res: Response): void {
   res.json({ providers: enabledProviders(), devLogin: config.allowDevLogin })
 }
 
-// GET /api/auth/me — current user (or 401).
+// GET /auth/me — current user (or 401).
 export async function me(req: Request, res: Response): Promise<void> {
   if (!req.user) throw new UnauthorizedError('Not signed in')
   const user = await getUserById(req.user.id)
@@ -42,13 +45,13 @@ export async function me(req: Request, res: Response): Promise<void> {
   res.json(user)
 }
 
-// POST /api/auth/logout
+// POST /auth/logout
 export function logout(_req: Request, res: Response): void {
   res.clearCookie(SESSION_COOKIE, { path: '/' })
   res.json({ ok: true })
 }
 
-// POST /api/auth/dev-login { email, name } — local login for dev/testing only.
+// POST /auth/dev-login { email, name } — local login for dev/testing only.
 export async function devLogin(req: Request, res: Response): Promise<void> {
   if (!config.allowDevLogin) throw new BadRequestError('Dev login is disabled')
   const { email, name } = req.body as { email?: string; name?: string }
@@ -70,9 +73,9 @@ function startOAuth(
   if (!enabledProviders().includes(provider)) throw new BadRequestError(`${provider} login is not configured`)
   const state = randomBytes(16).toString('hex')
   res.cookie(OAUTH_STATE_COOKIE, state, {
-    httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: 10 * 60 * 1000, path: '/api/auth',
+    httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: 10 * 60 * 1000, path: '/auth',
   })
-  res.redirect(urlBuilder(callbackUri(provider), state))
+  res.redirect(urlBuilder(callbackUri(req, provider), state))
 }
 
 export function googleStart(req: Request, res: Response): void {
@@ -103,19 +106,19 @@ async function handleCallback(
     if (!code) throw new BadRequestError('Missing authorization code')
     // CSRF: the returned state must match the nonce we set when starting the flow.
     const expectedState = req.cookies?.[OAUTH_STATE_COOKIE] as string | undefined
-    res.clearCookie(OAUTH_STATE_COOKIE, { path: '/api/auth' })
+    res.clearCookie(OAUTH_STATE_COOKIE, { path: '/auth' })
     if (!expectedState || req.query.state !== expectedState) {
       throw new BadRequestError('Invalid OAuth state (possible CSRF)')
     }
-    const profile = await exchange(code, callbackUri(provider))
+    const profile = await exchange(code, callbackUri(req, provider))
     const user = await findOrCreateUser(profile)
     setSession(req, res, user)
-    res.redirect(config.appUrl)
+    res.redirect('/')
   } catch (err) {
     const reason = err instanceof Error ? err.message : 'sign-in failed'
     const detail = describeCause(err)
     logger.error(`${provider} OAuth callback failed: ${reason}${detail}`, err)
-    res.redirect(`${config.appUrl}/login?error=${encodeURIComponent(`${provider}: ${reason}${detail}`)}`)
+    res.redirect(`/login?error=${encodeURIComponent(`${provider}: ${reason}${detail}`)}`)
   }
 }
 

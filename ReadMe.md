@@ -1,16 +1,22 @@
 <div align="center">
 
-# 🌐 NetViz — Network Visualizer & Simulator
+# NetViz — Network Visualizer & Simulator
 
 **Design, visualize and *simulate* real enterprise networks in your browser.**
 Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect traffic like Wireshark, and calculate subnets — all in one tool.
 
 [![CI](https://github.com/Wolfi-OwO/routing-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Wolfi-OwO/routing-visualizer/actions/workflows/ci.yml)
+[![Release](https://github.com/Wolfi-OwO/routing-visualizer/actions/workflows/release-aca.yml/badge.svg)](https://github.com/Wolfi-OwO/routing-visualizer/actions/workflows/release-aca.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FWolfi-OwO%2Frouting-visualizer%2Fbadges%2Fcoverage.json)](https://github.com/Wolfi-OwO/routing-visualizer/actions/workflows/ci.yml)
+
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black)
 ![Vite](https://img.shields.io/badge/Vite-646cff?logo=vite&logoColor=white)
 ![Node](https://img.shields.io/badge/Node-%E2%89%A520-339933?logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-4-000000?logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?logo=mongodb&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-single_image-2496ED?logo=docker&logoColor=white)
 
 </div>
 
@@ -38,15 +44,23 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 
 - Subnet / network / broadcast / host math, binary view, subnet splitter, and supernet (route summarization) with strict input validation.
 
+### Accounts, roles & administration
+
+- **Sign in with Google or Microsoft** (OAuth 2.0 with CSRF-protected state), or a password-less **dev login** for local use. Sessions are signed JWTs in an `httpOnly` cookie.
+- **Role-based access control** — `admin` / `editor` / `viewer`; the first account to sign in becomes admin. Per-user, isolated network workspaces.
+- **Admin console** for user & role management, an **audit log** of mutating actions (TTL-expired), **system metrics**, and a public **status page** with uptime history.
+- Details in [organizational/](organizational/README.md).
+
 ## Tech stack
 
 | Layer    | Tech                                                                                                  |
 | -------- | ----------------------------------------------------------------------------------------------------- |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS, React Flow (`@xyflow/react`), Recharts, lucide-react, axios |
 | Backend  | Node.js, Express, TypeScript, MongoDB + Mongoose, Server-Sent Events, terminus (health checks)        |
-| Tooling  | ESLint, `tsc`, `node:test` + supertest, GitHub Actions                                                |
+| Auth     | OAuth 2.0 (Google / Microsoft), JWT session cookies, role-based access control, rate limiting         |
+| Tooling  | ESLint, `tsc`, Mocha + Supertest + c8, GitHub Actions, Docker                                         |
 
-The HTTP API is **RESTful (Richardson Maturity Model level 3)**: plural resource URLs (`/api/networks`, `/api/packets`, `/api/capture`, `/api/cidr`), correct verbs/status codes (`201 Created` + `Location`, `204 No Content`), and **HATEOAS** `_links` on every representation. `GET /api` is the hypermedia entry point. Liveness/readiness probes are exposed at `/api/live` and `/api/ready`.
+The HTTP API is **RESTful (Richardson Maturity Model level 3)**: plural resource URLs (`/api/networks`, `/api/packets`, `/api/capture`, `/api/cidr`), correct verbs/status codes (`201 Created` + `Location`, `204 No Content`), and **HATEOAS** `_links` on every representation. `GET /api` is the hypermedia entry point. Authentication endpoints live under **`/auth`** (sign-in is a browser redirect flow, not an API resource). Liveness/readiness probes are exposed at `/api/live` and `/api/ready`. See the full [API reference](docs/api.md).
 
 ## Project structure
 
@@ -54,34 +68,33 @@ The HTTP API is **RESTful (Richardson Maturity Model level 3)**: plural resource
 routing-visualizer/
 ├─ application/                 # Express + TypeScript backend (REST + SSE)
 │  ├─ src/
-│  │  ├─ routes/                # express.Router definitions: networks, cidr, packets, capture
+│  │  ├─ routes/                # express.Router per resource: auth, users, networks, packets, capture, cidr, audit, metrics, status
 │  │  ├─ handlers/              # request handlers (controllers) per route
-│  │  ├─ services/              # business logic: packet-simulator, cidr-service, packet-sender-service
+│  │  ├─ services/              # business logic: packet-simulator, packet-sender, cidr, auth, metrics, status, versions, validation
 │  │  ├─ db/                    # MongoDB: connection, models/, network-service (repository), seed
-│  │  ├─ middlewares/           # request-logger, error-handler
-│  │  ├─ lib/                   # logger, HTTP error classes, hateoas links, health-checks
+│  │  ├─ middlewares/           # auth (sessions + roles), audit, rate-limit, request-logger, error-handler
+│  │  ├─ lib/                   # logger, HTTP error classes, hateoas links, health-checks, jwt
 │  │  ├─ config/                # environment-driven configuration
 │  │  ├─ types/                 # shared domain types (packet, network, cidr)
-│  │  └─ app.ts                 # express app assembly (CORS, body parsing, routes)
-│  ├─ server.ts                 # entrypoint (DB connect + seed, binds HOST:PORT, health checks)
-│  ├─ tests/                    # endpoint tests (node:test + supertest + mongodb-memory-server)
-│  ├─ Dockerfile · .dockerignore · .prettierrc · .env.example · README.md
+│  │  └─ app.ts                 # express app assembly (CORS, body parsing, routes, SPA serving)
+│  ├─ server.ts                 # entrypoint (config validation, DB connect + seed, health checks)
+│  ├─ tests/                    # Mocha + Supertest suite (in-memory MongoDB)
+│  ├─ Dockerfile · .env.example · README.md
 │  │
 │  └─ client/                   # React + Vite frontend (kebab-case, explicit import extensions)
 │     ├─ src/
-│     │  ├─ pages/              # one folder per page incl. its components (dashboard/, packets/, network/, cidr/, admin/)
-│     │  ├─ components/         # core/ (generic) · toasts/ (toast UI)
-│     │  ├─ layouts/            # regular-layout, admin-layout, top-nav, sidebar, error-page
+│     │  ├─ pages/              # one folder per page (dashboard/, network/, packets/, cidr/, admin/, auth/, status/)
+│     │  ├─ components/ · layouts/ · hooks/ · context/
 │     │  ├─ lib/api/            # axios API client (one module per backend resource)
-│     │  ├─ hooks/ · context/   # use-toast hook · toast provider
-│     │  ├─ config/             # frontend config (VITE_* env vars)
-│     │  ├─ styles/             # global CSS
-│     │  └─ types/              # shared types (mirror of backend)
-│     ├─ .prettierrc            # no Docker image — built in CI as the `client-dist` artifact
-│     └─ vite.config.ts         # dev proxy  /api → http://localhost:8080
-├─ .github/workflows/ci.yml     # CI: typecheck + lint + build
-├─ docker-compose.yml           # full stack: mongo + backend (+ frontend)
-├─ LICENSE
+│     │  ├─ config/ · styles/ · types/
+│     ├─ vite.config.ts         # dev proxy  /api and /auth → http://localhost:8080
+│     └─ README.md
+├─ docs/                        # API reference, screenshots
+├─ deploy/                      # production deployment runbook (Azure Container Apps)
+├─ organizational/              # roles, admin guide, access control, account lifecycle
+├─ .github/workflows/           # ci.yml (lint + build + test), release-aca.yml (CD)
+├─ docker-compose.yml           # full stack: mongo + backend (serving the built SPA)
+├─ CONTRIBUTING.md · SECURITY.md · CHANGELOG.md · LICENSE
 └─ ReadMe.md
 ```
 
@@ -106,7 +119,7 @@ npm install
 npm run dev
 ```
 
-**2) Frontend** (Vite dev server on **:5173**, proxies `/api` → `:8080`)
+**2) Frontend** (Vite dev server on **:5173**, proxies `/api` and `/auth` → `:8080`)
 
 ```bash
 cd application/client
@@ -114,19 +127,30 @@ npm install
 npm run dev
 ```
 
-Then open **<http://localhost:5173>** 🎉
+Then open **<http://localhost:5173>**.
+
+### Run the full stack with Docker Compose
+
+```bash
+cp application/.env.example application/.env   # adjust secrets first
+docker compose up --build
+```
+
+This starts MongoDB and the backend container (which also serves the built SPA) on **<http://localhost:8080>**.
 
 ## Scripts
 
 **Backend** (`application/`)
 
-| Script              | Description                                     |
-| ------------------- | ----------------------------------------------- |
-| `npm run dev`       | Start with hot-reload (nodemon + ts-node)       |
-| `npm run build`     | Compile TypeScript → `dist/`                    |
-| `npm start`         | Run the compiled server (`node dist/server.js`) |
-| `npm run typecheck` | Type-check without emitting                     |
-| `npm test`          | Run endpoint tests (in-memory MongoDB)          |
+| Script              | Description                                        |
+| ------------------- | -------------------------------------------------- |
+| `npm run dev`       | Start with hot-reload (nodemon + ts-node)          |
+| `npm run build`     | Compile TypeScript → `dist/`                       |
+| `npm start`         | Run the compiled server (`node dist/server.js`)    |
+| `npm run lint`      | Run ESLint                                         |
+| `npm run typecheck` | Type-check without emitting                        |
+| `npm test`          | Mocha + c8 (in-memory MongoDB, ≥90% line coverage) |
+| `npm run test-ci`   | Same, with cobertura + JUnit reports for CI        |
 
 **Frontend** (`application/client/`)
 
@@ -167,7 +191,9 @@ cd ..                && docker build -t netviz .
 
 Alternatively serve `application/client/dist/` from any static host (Caddy, a CDN, …) and point it at the backend.
 
-> **Production note:** the SPA talks to the backend at `/api`, and the backend serves the SPA from `<cwd>/client/dist`, so a single origin works out of the box. The backend's CORS allowlist accepts `localhost` / `127.0.0.1` — set `CORS_ORIGINS` (comma-separated) for your production domain(s). All configuration is environment-driven (see `application/.env.example`).
+> **Production note:** the SPA talks to the backend at `/api` (and `/auth` for sign-in), and the backend serves the SPA from `<cwd>/client/dist`, so a single origin works out of the box. The backend's CORS allowlist accepts `localhost` / `127.0.0.1` — set `CORS_ORIGINS` (comma-separated) for your production domain(s). All configuration is environment-driven (see `application/.env.example`).
+
+For a full production deployment (Azure Container Apps, managed MongoDB, custom domains, CD on release) follow the [deployment runbook](deploy/README.md).
 
 ## Testing & quality
 
@@ -182,6 +208,7 @@ npm run build         # type-check + bundle
 
 # Backend
 cd application
+npm run lint          # ESLint
 npm run typecheck     # tsc (no emit)
 npm run build         # compile
 npm test              # Mocha + c8 — unit + integration, fails under 90% line coverage
@@ -189,39 +216,71 @@ npm run test-ci       # same, with cobertura + JUnit reports (for CI)
 ```
 
 > The backend test suite (Mocha + Supertest + c8) covers every API route plus the
-> services and libs directly — **62 tests, ≥90% line coverage** (enforced by `.c8rc.json`).
+> services and libs directly — **77 tests, ≥90% line coverage** (enforced by `.c8rc.json`).
 > It uses an in-memory MongoDB by default, or `MONGODB_CONNECTION_STRING` if reachable.
 > HTML coverage is written to `application/coverage/`.
 
 ## CI/CD — GitHub Actions
 
-`.github/workflows/ci.yml` runs on every push / PR to `main` or `master`:
+[`ci.yml`](.github/workflows/ci.yml) runs on every push / PR to `main` or `master`:
 
-- **Server job** → `npm ci` + `npm run build` (type-check + compile) in `application/`
-- **Client job** → `npm ci` + `npm run lint` + `npm run build` in `application/client/`
+- **Server job** → `npm ci` + `npm run lint` + `npm run build` + `npm test` (in-memory MongoDB) in `application/`
+- **Client job** → `npm ci` + `npm run lint` + `npm run build` in `application/client/`, then uploads the bundle as the `client-dist` artifact consumed by the Docker image build
 
 Both jobs run on Node 22 with npm caching, a least-privilege token, and concurrency cancellation of superseded runs.
 
+On pushes to `main` a follow-up job publishes the measured line coverage as a
+shields.io endpoint JSON to the `badges` branch — that is what the live
+coverage badge at the top of this README reads.
+
+[`release-aca.yml`](.github/workflows/release-aca.yml) deploys to Azure Container Apps when a GitHub Release is published — see [deploy/](deploy/README.md).
+
 ## Configuration
 
-All backend configuration is read from the environment in `application/src/config/index.ts` (see `application/.env.example`); the frontend reads `VITE_*` vars in `application/client/src/config.ts` (see `application/client/.env.example`).
+All backend configuration is read from the environment in `application/src/config/index.ts` (documented in [`application/.env.example`](application/.env.example)); the frontend reads `VITE_*` vars in `application/client/src/config/index.ts` (see [`application/client/.env.example`](application/client/.env.example)).
 
-| Variable           | Where            | Default                        |
-| ------------------ | ---------------- | ------------------------------ |
-| `HOST`             | backend          | `0.0.0.0`                      |
-| `PORT`             | backend          | `8080`                         |
-| `NODE_ENV`         | backend          | `development`                  |
-| `CORS_ORIGINS`     | backend          | `localhost` / `127.0.0.1`      |
-| `JSON_BODY_LIMIT`  | backend          | `8mb`                          |
-| `VITE_APP_VERSION` | frontend         | `1.0.0`                        |
-| `VITE_REPO_URL`    | frontend         | project repo                   |
-| Dev API proxy      | `vite.config.ts` | `/api → http://localhost:8080` |
+| Variable                                            | Where    | Default                            | Purpose                                             |
+| --------------------------------------------------- | -------- | ---------------------------------- | --------------------------------------------------- |
+| `HOST` / `PORT`                                     | backend  | `0.0.0.0` / `8080`                 | Bind address and port                               |
+| `NODE_ENV`                                          | backend  | `development`                      | Enables production config validation                |
+| `MONGO_URI`                                         | backend  | `mongodb://localhost:27017/netviz` | MongoDB connection string                           |
+| `DB_RECREATE`                                       | backend  | `false`                            | Drop & re-seed the database on startup              |
+| `CORS_ORIGINS`                                      | backend  | `localhost` / `127.0.0.1`          | Comma-separated CORS allow-list                     |
+| `JSON_BODY_LIMIT`                                   | backend  | `8mb`                              | Max JSON request body                               |
+| `JWT_SECRET` / `JWT_TTL`                            | backend  | — / `7d`                           | Session signing secret (required in prod) and TTL   |
+| `ALLOW_DEV_LOGIN`                                   | backend  | `true` outside prod                | Password-less local login                           |
+| `REQUIRE_AUTH`                                      | backend  | `false`                            | Disable the anonymous shared workspace              |
+| `AUDIT_RETENTION_DAYS`                              | backend  | `90`                               | Audit-log TTL                                       |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`         | backend  | —                                  | Enable Google sign-in                               |
+| `MICROSOFT_CLIENT_ID` / `..._SECRET` / `..._TENANT` | backend  | — / — / `common`                   | Enable Microsoft sign-in                            |
+| `VITE_APP_*`                                        | frontend | see `.env.example`                 | App metadata shown in the footer (OCI-style fields) |
+
+> **OAuth redirect URIs** are derived from the URL the app is served at — no base-URL
+> env var is needed. Register `<your public URL>/auth/<provider>/callback` with each provider.
+
+## Documentation
+
+| Document                                                     | What it covers                                                       |
+| ------------------------------------------------------------ | -------------------------------------------------------------------- |
+| [docs/api.md](docs/api.md)                                   | Full HTTP API reference (`/api/*` resources and `/auth/*` endpoints) |
+| [application/README.md](application/README.md)               | Backend package: layout, scripts, configuration                      |
+| [application/client/README.md](application/client/README.md) | Frontend package: layout, scripts, dev proxy                         |
+| [deploy/README.md](deploy/README.md)                         | Production deployment (Azure Container Apps runbook, CD)             |
+| [organizational/README.md](organizational/README.md)         | Identity, roles & permissions, admin guide, account lifecycle        |
+| [SECURITY.md](SECURITY.md)                                   | Security model and how to report a vulnerability                     |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                           | Development workflow, quality gates, PR conventions                  |
+| [CHANGELOG.md](CHANGELOG.md)                                 | Notable changes per release                                          |
 
 ## Contributing
 
-1. Fork & create a feature branch.
-2. Keep it green: `npm run lint`, `npm run typecheck`, `npm run build` in the affected package(s).
-3. Open a pull request.
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the development
+workflow, quality gates, and pull-request conventions. Bug reports and feature requests
+use the [issue templates](.github/ISSUE_TEMPLATE).
+
+## Security
+
+Found a vulnerability? Please follow the [security policy](SECURITY.md) — do not open
+a public issue.
 
 ## License
 
