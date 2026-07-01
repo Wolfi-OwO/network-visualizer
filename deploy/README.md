@@ -5,9 +5,14 @@ built SPA). It deploys to **Azure Container Apps** — managed HTTPS ingress, a
 free `*.azurecontainerapps.io` URL, and no server to patch. The database is a
 managed MongoDB (Cosmos DB for MongoDB vCore, or MongoDB Atlas).
 
-```
-  GitHub Release ─► build client ─► az acr build ─► az containerapp update
-        Internet ──HTTPS──► ACA ingress ──► container:8080 ──► managed MongoDB
+```mermaid
+flowchart LR
+    subgraph delivery["Continuous delivery"]
+        release["GitHub Release"] --> build["build client"] --> acr["az acr build"] --> update["az containerapp update"]
+    end
+    subgraph runtime["Runtime"]
+        internet["Internet"] -- HTTPS --> ingress["ACA ingress"] --> container["container :8080"] --> mongo[("managed MongoDB")]
+    end
 ```
 
 ## Guides

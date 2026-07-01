@@ -65,7 +65,7 @@ app.get('/api', (_req, res) => {
 // topology request must be authenticated.
 const networkGuards = config.requireAuth ? [requireAuth, requireWrite] : [requireWrite];
 
-app.use('/api/auth', authLimiter, authRouter);
+app.use('/auth', authLimiter, authRouter);
 app.use('/api', apiLimiter, countRequest);
 app.use('/api/status', statusRouter);
 app.use('/api/audit', auditRouter);
@@ -76,7 +76,7 @@ app.use('/api/cidr', cidrRouter);
 app.use('/api/packets', packetsRouter);
 app.use('/api/capture', captureRouter);
 
-app.get(/^(?!\/api).*/, (_req, res) => {
+app.get(/^(?!\/api|\/auth).*/, (_req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'));
 });
 

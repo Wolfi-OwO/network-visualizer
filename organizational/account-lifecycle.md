@@ -39,10 +39,10 @@ session to pick up a change). Every change is audited.
 
 Two options, both admin-only:
 
-| Goal | Action |
-|------|--------|
-| Revoke their ability to change anything, keep the account | Set role to **viewer** |
-| Remove the account entirely | 🗑 in the UI, or `DELETE /api/users/:id` |
+| Goal                                                      | Action                                           |
+| --------------------------------------------------------- | ------------------------------------------------ |
+| Revoke their ability to change anything, keep the account | Set role to **viewer**                           |
+| Remove the account entirely                               | **Delete** in the UI, or `DELETE /api/users/:id` |
 
 Guard rail: the **last administrator** can be neither demoted nor deleted.
 
@@ -50,7 +50,7 @@ Guard rail: the **last administrator** can be neither demoted nor deleted.
 
 - A session is a signed JWT in an httpOnly cookie, valid for `JWT_TTL`
   (default 7 days).
-- **Logout** clears the cookie (`POST /api/auth/logout`).
+- **Logout** clears the cookie (`POST /auth/logout`).
 - Because roles live in the token, a role change is fully reflected once the
   user gets a fresh token (re-login or token refresh). Sensitive actions are
   re-checked server-side on every request, so a demoted user loses admin access
@@ -58,10 +58,10 @@ Guard rail: the **last administrator** can be neither demoted nor deleted.
 
 ## 6. Quick reference
 
-| Stage | Trigger | Result |
-|-------|---------|--------|
-| Create | First sign-in | Account created (`admin` if first, else `editor`) |
-| Onboard | — | Can manage own networks |
-| Promote/Demote | Admin sets role | Capabilities change |
-| Off-board | Admin sets `viewer` or deletes | Read-only or removed |
-| End session | Logout / TTL expiry | Cookie cleared / token expires |
+| Stage          | Trigger                        | Result                                            |
+| -------------- | ------------------------------ | ------------------------------------------------- |
+| Create         | First sign-in                  | Account created (`admin` if first, else `editor`) |
+| Onboard        | —                              | Can manage own networks                           |
+| Promote/Demote | Admin sets role                | Capabilities change                               |
+| Off-board      | Admin sets `viewer` or deletes | Read-only or removed                              |
+| End session    | Logout / TTL expiry            | Cookie cleared / token expires                    |
