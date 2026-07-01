@@ -14,7 +14,7 @@ export const appConfig = {
   authors: import.meta.env.VITE_APP_AUTHORS ?? 'Woofi-Developments',                          // image.authors
   url: import.meta.env.VITE_APP_URL ?? 'https://github.com/Wolfi-OwO/routing-visualizer',     // image.url
   licenses: import.meta.env.VITE_APP_LICENSES ?? 'MIT',                                       // image.licenses
-  node_env: import.meta.env.NODE_ENV ?? 'DEVELOPMENT',
+  mode: import.meta.env.MODE,   // 'development' under `vite dev`, 'production' for builds
   revision: import.meta.env.VITE_APP_REVISION ?? '',                                          // image.revision (git sha)
   created: import.meta.env.VITE_APP_CREATED ?? '',                                            // image.created (build timestamp)
   repoLabel: import.meta.env.VITE_REPO_LABEL ?? 'Wolfi-OwO/routing-visualizer',
