@@ -6,22 +6,21 @@ on:
   pull_request:
     branches: [main, master]
 
-# Least-privilege token (build/lint only need to read the repo)
 permissions:
   contents: read
 
-# Cancel superseded runs on the same ref
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   server:
-    name: Server (build)
+    name: Server (build + test)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: application
+
     steps:
       - uses: actions/checkout@v4
 
@@ -41,7 +40,9 @@ jobs:
       - name: Type-check & build
         run: npm run build
 
-      - name: Test (uses an in-memory MongoDB)
+      - name: Test (in-memory DB)
+        env:
+          NODE_ENV: test
         run: npm test
 
   client:
@@ -50,6 +51,7 @@ jobs:
     defaults:
       run:
         working-directory: application/client
+
     steps:
       - uses: actions/checkout@v4
 
@@ -69,10 +71,7 @@ jobs:
       - name: Type-check & build
         run: npm run build
 
-      # The frontend has no Docker image of its own — it is built here and
-      # published as an artifact. The backend image bakes this dist in
-      # (Dockerfile: COPY client/dist ./client/dist) and serves it.
-      - name: Upload client/dist artifact
+      - name: Upload client build artifact
         uses: actions/upload-artifact@v4
         with:
           name: client-dist
