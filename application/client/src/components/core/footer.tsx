@@ -30,7 +30,7 @@ export default function Footer() {
       >
         <Code2 size={11} className="text-[var(--accent)]" />
         <span className="font-medium text-[var(--text-secondary)]">{appConfig.repoLabel}</span>
-        <span>· v{appConfig.version}{shortRev && ` (${shortRev})`}</span>
+        <span>· { appConfig.node_env == 'DEVELOPMENT' ? shortRev :  `v${appConfig.version}`}</span>
       </a>
 
       {/* Right — links */}
