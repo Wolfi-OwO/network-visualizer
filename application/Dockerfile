@@ -56,9 +56,9 @@ ARG APP_VENDOR="Woofi-Developments"
 # Author(s) of the application
 ARG APP_AUTHORS="Woofi-Developments"
 # Project/documentation URL
-ARG APP_URL="https://github.com/Wolfi-OwO/routing-visualizer"
+ARG APP_URL="https://github.com/Wolfi-OwO/network-visualizer"
 # Source code repository URL
-ARG APP_SOURCE="https://github.com/Wolfi-OwO/routing-visualizer"
+ARG APP_SOURCE="https://github.com/Wolfi-OwO/network-visualizer"
 # License of the application (SPDX identifier)
 ARG APP_LICENSES="MIT"
 
