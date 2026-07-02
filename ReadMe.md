@@ -5,10 +5,11 @@
 **Design, visualize and *simulate* real enterprise networks in your browser.**
 Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect traffic like Wireshark, and calculate subnets — all in one tool.
 
-[![CI](https://github.com/Wolfi-OwO/routing-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Wolfi-OwO/routing-visualizer/actions/workflows/ci.yml)
-[![Release](https://github.com/Wolfi-OwO/routing-visualizer/actions/workflows/release-aca.yml/badge.svg)](https://github.com/Wolfi-OwO/routing-visualizer/actions/workflows/release-aca.yml)
+[![Lint](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/lint.yml/badge.svg)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/lint.yml)
+[![CI](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml)
+[![Release](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/release.yml/badge.svg)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FWolfi-OwO%2Frouting-visualizer%2Fbadges%2Fcoverage.json)](https://github.com/Wolfi-OwO/routing-visualizer/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FWolfi-OwO%2Fnetwork-visualizer%2Fbadges%2Fcoverage.json)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml)
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black)
@@ -92,7 +93,7 @@ routing-visualizer/
 ├─ docs/                        # API reference, screenshots
 ├─ deploy/                      # production deployment runbook (Azure Container Apps)
 ├─ organizational/              # roles, admin guide, access control, account lifecycle
-├─ .github/workflows/           # ci.yml (lint + build + test), release-aca.yml (CD)
+├─ .github/workflows/           # lint.yml · ci.yml (build + test) · package.yml · deploy.yml · release.yml
 ├─ docker-compose.yml           # full stack: mongo + backend (serving the built SPA)
 ├─ CONTRIBUTING.md · SECURITY.md · CHANGELOG.md · LICENSE
 └─ ReadMe.md
@@ -222,18 +223,17 @@ npm run test-ci       # same, with cobertura + JUnit reports (for CI)
 
 ## CI/CD — GitHub Actions
 
-[`ci.yml`](.github/workflows/ci.yml) runs on every push / PR to `main` or `master`:
+The pipeline is split into atomic workflows, each runnable on its own:
 
-- **Server job** → `npm ci` + `npm run lint` + `npm run build` + `npm test` (in-memory MongoDB) in `application/`
-- **Client job** → `npm ci` + `npm run lint` + `npm run build` in `application/client/`, then uploads the bundle as the `client-dist` artifact consumed by the Docker image build
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| [`lint.yml`](.github/workflows/lint.yml) | push / PR | ESLint for server and client |
+| [`ci.yml`](.github/workflows/ci.yml) | push / PR | Type-check + build + backend tests (in-memory MongoDB); uploads the `client-dist` artifact and publishes the live coverage badge on `main` |
+| [`package.yml`](.github/workflows/package.yml) | release (via `release.yml`) or manual | Builds the client + Docker image, pushes it to ACR |
+| [`deploy.yml`](.github/workflows/deploy.yml) | release (via `release.yml`) or manual | Rolls the Azure Container App to a given image tag (also your rollback tool) |
+| [`release.yml`](.github/workflows/release.yml) | GitHub Release published | Orchestrates `package` → `deploy` — see [deploy/](deploy/README.md) |
 
-Both jobs run on Node 22 with npm caching, a least-privilege token, and concurrency cancellation of superseded runs.
-
-On pushes to `main` a follow-up job publishes the measured line coverage as a
-shields.io endpoint JSON to the `badges` branch — that is what the live
-coverage badge at the top of this README reads.
-
-[`release-aca.yml`](.github/workflows/release-aca.yml) deploys to Azure Container Apps when a GitHub Release is published — see [deploy/](deploy/README.md).
+All jobs run on Node 22 with npm caching, least-privilege tokens, and concurrency cancellation of superseded runs. The coverage badge at the top of this README reads a shields.io endpoint JSON that CI pushes to the `badges` branch on every `main` build.
 
 ## Configuration
 
