@@ -7,3 +7,7 @@ npm-debug.log*
 .dockerignore
 Dockerfile
 tests
+# Never bake local secrets into an image (no COPY pulls them today,
+# but keep it that way if the Dockerfile changes)
+.env
+.env.*

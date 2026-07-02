@@ -8,7 +8,7 @@ managed MongoDB (Cosmos DB for MongoDB vCore, or MongoDB Atlas).
 ```mermaid
 flowchart LR
     subgraph delivery["Continuous delivery"]
-        release["GitHub Release"] --> build["build client"] --> acr["az acr build"] --> update["az containerapp update"]
+        release["GitHub Release"] --> build["build client"] --> push["docker build & push to ACR"] --> update["az containerapp update"]
     end
     subgraph runtime["Runtime"]
         internet["Internet"] -- HTTPS --> ingress["ACA ingress"] --> container["container :8080"] --> mongo[("managed MongoDB")]
