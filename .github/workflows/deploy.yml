@@ -1,0 +1,61 @@
+name: Deploy
+
+# Rolls the Azure Container App to an already-pushed image tag. Called by
+# release.yml after packaging, or run manually to deploy/roll back any tag.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Image tag to deploy (must exist in ACR)"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to deploy (must exist in ACR)"
+        required: true
+        type: string
+
+permissions:
+  id-token: write   # OIDC token for secretless Azure login
+  contents: read
+
+jobs:
+  aca:
+    name: Roll out to Container Apps
+    runs-on: ubuntu-latest
+    # The OIDC federated credential is bound to this environment
+    # (subject: repo:<owner>/<repo>:environment:production)
+    environment: production
+
+    steps:
+      # Fail fast with a clear message when config is missing
+      - name: Check config
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+        run: |
+          miss=0
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP ACR_NAME CONTAINERAPP_NAME IMAGE_NAME; do
+            if [ -z "${!v}" ]; then echo "::error::missing: $v"; miss=1; else echo "ok: $v"; fi
+          done
+          [ "$miss" = 0 ] || { echo "Azure IDs must be SECRETS; RESOURCE_GROUP/ACR_NAME/CONTAINERAPP_NAME/IMAGE_NAME must be VARIABLES."; exit 1; }
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Container App
+        run: |
+          az containerapp update \
+            --name ${{ vars.CONTAINERAPP_NAME }} \
+            --resource-group ${{ vars.RESOURCE_GROUP }} \
+            --image ${{ vars.ACR_NAME }}.azurecr.io/${{ vars.IMAGE_NAME }}:${{ inputs.tag }}
