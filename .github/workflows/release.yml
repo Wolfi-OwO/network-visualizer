@@ -1,0 +1,34 @@
+name: Release
+
+# Orchestrates the release pipeline: package the image, then deploy it.
+# The heavy lifting lives in the reusable package.yml / deploy.yml workflows,
+# which can also be dispatched individually (e.g. deploy.yml for a rollback).
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package
+    uses: ./.github/workflows/package.yml
+    with:
+      tag: ${{ github.event.release.tag_name }}
+    secrets: inherit
+
+  deploy:
+    name: Deploy
+    needs: package
+    uses: ./.github/workflows/deploy.yml
+    with:
+      tag: ${{ github.event.release.tag_name }}
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
