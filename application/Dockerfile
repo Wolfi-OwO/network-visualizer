@@ -79,14 +79,14 @@ LABEL org.opencontainers.image.title="${APP_TITLE}" \
 # RUNTIME CONFIG
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Set production mode
-ENV NODE_ENV=production
 ENV PORT=8080
-ENV BINDADDRESS=0.0.0.0
+ENV HOST=0.0.0.0
 
-# Healthcheck — periodically verifies the app is responsive
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
-  CMD node lib/health-checks.js || exit 1
+# Healthcheck — probes the terminus liveness endpoint over HTTP (Node 22 has
+# global fetch, so no extra tooling is needed). start-period covers the DB
+# connect + seed the server performs before it starts listening.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
+  CMD node -e 'fetch(`http://127.0.0.1:${process.env.PORT||8080}/api/live`).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'
 
 # Set user to node -> no admin user needed
 USER node
