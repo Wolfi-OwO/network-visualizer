@@ -31,20 +31,22 @@ jobs:
       # ----------------------------
       - name: Check config
         env:
-          # Azure IDs come from SECRETS; resource names from VARIABLES.
+          # Azure IDs + ACR credentials come from SECRETS; resource names from VARIABLES.
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           ACR_NAME: ${{ vars.ACR_NAME }}
           CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
           IMAGE_NAME: ${{ vars.IMAGE_NAME }}
         run: |
           miss=0
-          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP ACR_NAME CONTAINERAPP_NAME IMAGE_NAME; do
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID ACR_USERNAME ACR_PASSWORD RESOURCE_GROUP ACR_NAME CONTAINERAPP_NAME IMAGE_NAME; do
             if [ -z "${!v}" ]; then echo "::error::missing: $v"; miss=1; else echo "ok: $v"; fi
           done
-          [ "$miss" = 0 ] || { echo "Azure IDs must be SECRETS; RESOURCE_GROUP/ACR_NAME/CONTAINERAPP_NAME/IMAGE_NAME must be VARIABLES."; exit 1; }
+          [ "$miss" = 0 ] || { echo "Azure IDs and ACR_USERNAME/ACR_PASSWORD must be SECRETS; RESOURCE_GROUP/ACR_NAME/CONTAINERAPP_NAME/IMAGE_NAME must be VARIABLES."; exit 1; }
 
       # ----------------------------
       # 1. Metadata
@@ -78,7 +80,31 @@ jobs:
           npm run build
 
       # ----------------------------
-      # 3. Azure Login (OIDC — no stored secret)
+      # 3. Build the image on the runner and push it to ACR
+      #    (registry credentials from the ACR_USERNAME / ACR_PASSWORD secrets —
+      #    enable them with `az acr update -n <acr> --admin-enabled true`)
+      # ----------------------------
+      - name: Log in to ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.ACR_NAME }}.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build & push image
+        run: |
+          IMAGE="${{ vars.ACR_NAME }}.azurecr.io/${{ vars.IMAGE_NAME }}"
+          docker build ./application \
+            --build-arg APP_VERSION=${{ steps.meta.outputs.version }} \
+            --build-arg VCS_REF=${{ github.sha }} \
+            --build-arg BUILD_DATE=${{ steps.meta.outputs.date }} \
+            -t "$IMAGE:${{ steps.meta.outputs.tag }}" \
+            -t "$IMAGE:latest"
+          docker push "$IMAGE:${{ steps.meta.outputs.tag }}"
+          docker push "$IMAGE:latest"
+
+      # ----------------------------
+      # 4. Azure Login (OIDC — only needed to roll out the Container App)
       # ----------------------------
       - name: Azure Login
         uses: azure/login@v2
@@ -86,20 +112,6 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      # ----------------------------
-      # 4. Build image in ACR
-      # ----------------------------
-      - name: Build image in ACR
-        run: |
-          az acr build \
-            --registry ${{ vars.ACR_NAME }} \
-            --image ${{ vars.IMAGE_NAME }}:${{ steps.meta.outputs.tag }} \
-            --image ${{ vars.IMAGE_NAME }}:latest \
-            --build-arg APP_VERSION=${{ steps.meta.outputs.version }} \
-            --build-arg VCS_REF=${{ github.sha }} \
-            --build-arg BUILD_DATE=${{ steps.meta.outputs.date }} \
-            ./application
 
       # ----------------------------
       # 5. Deploy to Container Apps

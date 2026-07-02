@@ -14,7 +14,7 @@ flowchart LR
         container -- "MONGO_URI (TLS)" --> mongo[("Azure Cosmos DB for MongoDB vCore — or Atlas")]
     end
     subgraph delivery["Continuous delivery"]
-        release["GitHub Release"] --> build["build client"] --> acr["az acr build"] --> update["az containerapp update"]
+        release["GitHub Release"] --> build["build client"] --> push["docker build & push to ACR"] --> update["az containerapp update"]
     end
 ```
 
@@ -175,15 +175,24 @@ works automatically — the SPA detects the hostname and renders the status page
 
 ---
 
-## Part 4 — Continuous delivery (OIDC, no stored secret)
+## Part 4 — Continuous delivery
 
 The workflow [`.github/workflows/release-aca.yml`](../.github/workflows/release-aca.yml)
-logs in to Azure with **OpenID Connect** (federated credentials — no client
-secret to store or rotate), builds the image in ACR, and runs
-`az containerapp update` on every published release.
+builds the image on the runner and **pushes it to ACR with the registry's
+admin username/password** (repo secrets), then logs in to Azure with
+**OpenID Connect** (federated credentials — no client secret to store or
+rotate) and runs `az containerapp update` on every published release.
 
-1. Register an app + service principal and federate it to this repo's
-   `production` environment:
+1. Enable the ACR admin account and read its credentials (they become the
+   `ACR_USERNAME` / `ACR_PASSWORD` repo secrets):
+
+   ```bash
+   az acr update -n netvizacr --admin-enabled true
+   az acr credential show -n netvizacr --query "{user:username, pass:passwords[0].value}" -o tsv
+   ```
+
+2. Register an app + service principal and federate it to this repo's
+   `production` environment (used only for the Container App rollout):
 
    ```bash
    GH_REPO="OWNER/REPO"                       # your GitHub repo
@@ -200,21 +209,28 @@ secret to store or rotate), builds the image in ACR, and runs
      --scope "/subscriptions/${SUB_ID}/resourceGroups/${RG}"
    ```
 
-2. Add repo **Variables** (Settings → Secrets and variables → Actions →
-   *Variables* — none of these are secrets):
+3. Add repo **Secrets** (Settings → Secrets and variables → Actions → *Secrets*):
 
-| Variable                | Value                                     |
-| ----------------------- | ----------------------------------------- |
-| `AZURE_CLIENT_ID`       | `$APP_ID`                                 |
-| `AZURE_TENANT_ID`       | `az account show --query tenantId -o tsv` |
-| `AZURE_SUBSCRIPTION_ID` | `$SUB_ID`                                 |
-| `RESOURCE_GROUP`        | `gh-routing-visualizer`                   |
-| `ACR_NAME`              | `ghroutingvisualizer`                     |
-| `CONTAINERAPP_NAME`     | `gh-routing-visualizer`                   |
-| `IMAGE_NAME`            | `routing-visualizer`                      |
+   | Secret                  | Value                                     |
+   | ----------------------- | ----------------------------------------- |
+   | `AZURE_CLIENT_ID`       | `$APP_ID`                                 |
+   | `AZURE_TENANT_ID`       | `az account show --query tenantId -o tsv` |
+   | `AZURE_SUBSCRIPTION_ID` | `$SUB_ID`                                 |
+   | `ACR_USERNAME`          | admin username from step 1                |
+   | `ACR_PASSWORD`          | admin password from step 1                |
 
-3. Ship: cut a GitHub Release (`gh release create v1.0.0 --generate-notes`) →
-   the image builds in ACR and the Container App rolls to it automatically.
+   …and repo **Variables** (same page → *Variables* — these are not secrets):
+
+   | Variable            | Value       |
+   | ------------------- | ----------- |
+   | `RESOURCE_GROUP`    | `netviz-rg` |
+   | `ACR_NAME`          | `netvizacr` |
+   | `CONTAINERAPP_NAME` | `netviz`    |
+   | `IMAGE_NAME`        | `netviz`    |
+
+4. Ship: cut a GitHub Release (`gh release create v1.0.0 --generate-notes`) →
+   the image is built and pushed to ACR and the Container App rolls to it
+   automatically.
 
 ---
 
