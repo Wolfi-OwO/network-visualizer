@@ -177,11 +177,14 @@ works automatically — the SPA detects the hostname and renders the status page
 
 ## Part 4 — Continuous delivery
 
-The workflow [`.github/workflows/release-aca.yml`](../.github/workflows/release-aca.yml)
+On every published release, [`release.yml`](../.github/workflows/release.yml)
+chains two reusable workflows: [`package.yml`](../.github/workflows/package.yml)
 builds the image on the runner and **pushes it to ACR with the registry's
-admin username/password** (repo secrets), then logs in to Azure with
+admin username/password** (repo secrets), then
+[`deploy.yml`](../.github/workflows/deploy.yml) logs in to Azure with
 **OpenID Connect** (federated credentials — no client secret to store or
-rotate) and runs `az containerapp update` on every published release.
+rotate) and runs `az containerapp update`. Dispatch `deploy.yml` manually
+with any existing tag to roll back.
 
 1. Enable the ACR admin account and read its credentials (they become the
    `ACR_USERNAME` / `ACR_PASSWORD` repo secrets):
