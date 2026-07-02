@@ -1,7 +1,9 @@
 import { useState, useLayoutEffect, useCallback, useEffect } from 'react'
 import { X, ChevronLeft, ChevronRight, GraduationCap } from 'lucide-react'
 
-export const TUTORIAL_SEEN_KEY = 'netviz.tutorial.seen.v2'
+// Bumped whenever the tutorial content changes substantially, so existing
+// users see the updated tour once.
+export const TUTORIAL_SEEN_KEY = 'netviz.tutorial.seen.v3'
 
 interface Step {
   title: string
@@ -12,17 +14,36 @@ interface Step {
 
 const STEPS: Step[] = [
   {
-    title: '👋 Welcome to the Network Builder',
+    title: 'Welcome to the Network Builder',
     body: (
       <>
-        <p>This is an interactive lab where you design a network, then watch real packets travel through it hop by hop.</p>
-        <p className="mt-2">This quick tour shows you how to <b>add devices</b>, <b>connect &amp; name links</b>, <b>configure services</b> (routing, firewall, DHCP, DNS) and <b>send packets</b>.</p>
+        <p>This is an interactive lab where you design a network the way real ones are built, then watch real packets travel through it hop by hop.</p>
+        <p className="mt-2">This quick tour shows you how a real network is <b>layered</b>, and how to <b>add devices</b>, <b>connect &amp; name links</b>, <b>configure services</b> (routing, firewall, DHCP, DNS) and <b>send packets</b>.</p>
         <p className="mt-2 text-[var(--text-muted)]">Use <b>Next</b> / <b>Back</b> to move, or <b>Skip</b> to jump straight in — you can reopen this any time from the <GraduationCap size={11} className="inline -mt-0.5" /> button.</p>
       </>
     ),
   },
   {
-    title: '1 · The Device Palette',
+    title: '1 · How a real network is layered',
+    target: '[data-tour="canvas"]',
+    body: (
+      <>
+        <p>Almost every real enterprise site follows the same chain, from the outside in:</p>
+        <p className="mt-2 font-mono text-[11px] text-[var(--text-secondary)] leading-relaxed">
+          Internet ↔ Edge router ↔ Firewall ↔ Core switch ↔ Access switch ↔ Devices
+        </p>
+        <ul className="mt-2 space-y-1 list-disc list-inside text-[var(--text-secondary)]">
+          <li>The <b>edge router</b> terminates the ISP uplink and does the routing (NAT, BGP, multi-WAN)</li>
+          <li>The <b>perimeter firewall</b> sits right behind it — every packet in or out of the LAN is inspected before it reaches anything internal</li>
+          <li><b>DHCP / DNS servers</b> live in a server segment on the core switch</li>
+          <li>Anything the public may reach (a web server) goes in a <b>DMZ</b> — its own firewall leg, isolated from the LAN</li>
+        </ul>
+        <p className="mt-2 text-[var(--text-muted)]">The guided <b>Build</b> exercise walks you through exactly this layout.</p>
+      </>
+    ),
+  },
+  {
+    title: '2 · The Device Palette',
     target: '[data-tour="palette"]',
     body: (
       <>
@@ -39,7 +60,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '2 · Add a device',
+    title: '3 · Add a device',
     target: '[data-tour="palette"]',
     body: (
       <>
@@ -50,22 +71,22 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '3 · Connect two devices',
+    title: '4 · Connect two devices',
     target: '[data-tour="canvas"]',
     body: (
       <>
         <p>Hover a device — four <b>connection dots</b> appear (top, bottom, left, right).</p>
-        <p className="mt-2"><b>Click &amp; drag from any dot</b> to another device to draw a link (a cable). You can start from any side and drop on any side.</p>
+        <p className="mt-2"><b>Click &amp; drag from any dot</b> to another device to draw a link (a cable). Start from any side, drop on any side — the finished link automatically attaches to the sides that face each other.</p>
         <p className="mt-2 text-[var(--text-muted)]">Links are how packets flow. A device with no link — or behind a powered-off switch — can't be reached.</p>
       </>
     ),
   },
   {
-    title: '4 · Power on → automatic DHCP',
+    title: '5 · Power on → automatic DHCP',
     target: '[data-tour="canvas"]',
     body: (
       <>
-        <p>Every device has a <b>⏻ power button</b> (top-left corner, and in its panel).</p>
+        <p>Every device has a <b>power button</b> (top-left corner, and in its panel).</p>
         <p className="mt-2">Power a client on and — if it's wired to a network with a <b>DHCP server</b> — it automatically broadcasts a real <b>DORA</b> exchange:</p>
         <p className="mt-1 font-mono text-[11px] text-[var(--text-secondary)]">Discover → Offer → Request → ACK</p>
         <p className="mt-2">…and receives its IP, gateway and DNS. Power on several at once — they all request <b>in parallel</b>. A device without an IP never sends application traffic.</p>
@@ -73,7 +94,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '4 · Name & configure a link',
+    title: '6 · Name & configure a link',
     target: '[data-tour="canvas"]',
     body: (
       <>
@@ -87,7 +108,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '5 · Configure a device',
+    title: '7 · Configure a device',
     target: '[data-tour="canvas"]',
     body: (
       <>
@@ -103,7 +124,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '6 · Open ports & host services',
+    title: '8 · Open ports & host services',
     target: '[data-tour="canvas"]',
     body: (
       <>
@@ -118,32 +139,33 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '6 · DHCP, DNS & the WWW',
+    title: '9 · Infrastructure services',
     target: '[data-tour="palette"]',
     body: (
       <>
-        <p>For more realistic builds, add dedicated service devices:</p>
+        <p>Real networks run on dedicated service devices — place them where they belong:</p>
         <ul className="mt-2 space-y-1 list-disc list-inside text-[var(--text-secondary)]">
-          <li><b>📲 DHCP</b> — define an address pool, gateway, DNS &amp; lease time</li>
-          <li><b>🧭 DNS</b> — add A / CNAME / MX records and upstream forwarders</li>
-          <li><b>🌐 WWW</b> — represents the public Internet / hosted web</li>
+          <li><b>DHCP</b> — pool, gateway, DNS &amp; lease time; lives in the server segment and hands every endpoint its address</li>
+          <li><b>DNS</b> — A / CNAME / MX records and upstream forwarders</li>
+          <li><b>Firewall</b> — allow/deny rules at the perimeter (and in front of the DMZ)</li>
+          <li><b>WWW / Cloud</b> — represents the public Internet</li>
         </ul>
-        <p className="mt-2 text-[var(--text-muted)]">Their config lives in the <b>DHCP</b> and <b>DNS</b> tabs of the Properties panel.</p>
+        <p className="mt-2 text-[var(--text-muted)]">Their config lives in the <b>DHCP</b>, <b>DNS</b> and <b>Firewall</b> tabs of the Properties panel.</p>
       </>
     ),
   },
   {
-    title: '7 · Send a packet',
+    title: '10 · Send a packet',
     target: '[data-tour="sender"]',
     body: (
       <>
         <p>Pick a <b>From</b> and <b>To</b> device, choose a <b>protocol</b> (ICMP / TCP / UDP) and an optional <b>port</b>, then hit <b>Send</b>.</p>
-        <p className="mt-2">The packet is routed through your topology using BFS, evaluating routing tables and firewall rules at each hop.</p>
+        <p className="mt-2">The packet is routed hop by hop through your topology, evaluating routing tables and firewall rules at each device — try tracing a PC out to the Internet and watch it cross the firewall and the edge router.</p>
       </>
     ),
   },
   {
-    title: '8 · Slow it down or pause',
+    title: '11 · Slow it down or pause',
     target: '[data-tour="speed"]',
     body: (
       <>
@@ -153,7 +175,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '9 · Read the result',
+    title: '12 · Read the result',
     target: '[data-tour="canvas"]',
     body: (
       <>
@@ -163,22 +185,22 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '10 · Live network traffic',
+    title: '13 · Live network traffic',
     target: '[data-tour="speed"]',
     body: (
       <>
-        <p>The <b>Live ●</b> button keeps the network alive: addressed hosts continuously exchange realistic, labelled traffic — <b>DNS</b> lookups, <b>HTTPS</b>, <b>SMTP</b>, <b>SQL</b>, pings — many packets flowing <b>at once</b>.</p>
-        <p className="mt-2 text-[var(--text-muted)]">A request to a server is often preceded by a <b>DNS query</b>, just like real life. Only powered hosts that already hold an IP generate traffic.</p>
+        <p>The <b>Live</b> button keeps the network alive: addressed hosts continuously exchange realistic, labelled traffic — <b>DNS</b> lookups, <b>HTTPS</b>, <b>SMTP</b>, <b>SQL</b>, pings — many packets flowing <b>at once</b>.</p>
+        <p className="mt-2 text-[var(--text-muted)]">A request to a server is preceded by a <b>DNS query</b>, just like real life. Only powered hosts that already hold an IP generate traffic.</p>
       </>
     ),
   },
   {
-    title: '11 · Save your work',
+    title: '14 · Save your work',
     target: '[data-tour="toolbar"]',
     body: (
       <>
         <p><b>Save</b> persists your topology to the backend. <b>Reset</b> reloads the sample enterprise network.</p>
-        <p className="mt-3 font-semibold text-[var(--text-primary)]">That's it — you're ready to build! 🚀</p>
+        <p className="mt-3 font-semibold text-[var(--text-primary)]">That's it — you're ready to build!</p>
       </>
     ),
   },
@@ -345,7 +367,7 @@ export default function Tutorial({ open, onClose, onStartBuild }: { open: boolea
             </button>
           )}
           {isLast ? (
-            <button onClick={finish} className="btn-primary text-[11px] h-7 px-3">Got it 🚀</button>
+            <button onClick={finish} className="btn-primary text-[11px] h-7 px-3">Got it</button>
           ) : (
             <button onClick={() => setI(v => v + 1)} className="btn-primary text-[11px] h-7 px-3">
               Next <ChevronRight size={12} />

@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
-import { getBezierPath, EdgeLabelRenderer } from '@xyflow/react'
-import type { EdgeProps } from '@xyflow/react'
+import { getBezierPath, EdgeLabelRenderer, useInternalNode, Position } from '@xyflow/react'
+import type { EdgeProps, InternalNode } from '@xyflow/react'
 
 export type PacketEdgeState = 'idle' | 'dimmed' | 'path' | 'active' | 'done' | 'blocked'
 
@@ -29,8 +29,31 @@ const STATE_WIDTH: Record<PacketEdgeState, number> = {
   idle: 2, dimmed: 1.5, path: 1.5, active: 3, done: 2.5, blocked: 3,
 }
 
+// "Floating" anchor: the point on `node`'s border facing `other`, so a link
+// always leaves from the geometrically correct side (left/right/top/bottom)
+// no matter which handle it was drawn from.
+function floatingAnchor(node: InternalNode, other: InternalNode): { x: number; y: number; pos: Position } {
+  const w = node.measured.width ?? 0
+  const h = node.measured.height ?? 0
+  const x = node.internals.positionAbsolute.x
+  const y = node.internals.positionAbsolute.y
+  const cx = x + w / 2
+  const cy = y + h / 2
+  const ocx = other.internals.positionAbsolute.x + (other.measured.width ?? 0) / 2
+  const ocy = other.internals.positionAbsolute.y + (other.measured.height ?? 0) / 2
+  const dx = ocx - cx
+  const dy = ocy - cy
+  // Pick the side whose direction dominates, normalized by the node's aspect
+  // ratio so wide nodes don't over-prefer their left/right sides.
+  if (Math.abs(dx) * h >= Math.abs(dy) * w) {
+    return dx >= 0 ? { x: x + w, y: cy, pos: Position.Right } : { x, y: cy, pos: Position.Left }
+  }
+  return dy >= 0 ? { x: cx, y: y + h, pos: Position.Bottom } : { x: cx, y, pos: Position.Top }
+}
+
 export function PacketEdge({
-  id, sourceX, sourceY, targetX, targetY,
+  id, source, target,
+  sourceX, sourceY, targetX, targetY,
   sourcePosition, targetPosition,
   data, markerEnd,
 }: EdgeProps) {
@@ -40,17 +63,30 @@ export function PacketEdge({
   const dur = `${(d?.animDuration ?? 700) / 1000}s`
   const animVersion = d?.animVersion ?? 0
 
+  // Anchor both ends to the sides that actually face each other (fall back to
+  // the handle coordinates until the nodes have been measured).
+  const sourceNode = useInternalNode(source)
+  const targetNode = useInternalNode(target)
+  let sx = sourceX, sy = sourceY, sp = sourcePosition
+  let tx = targetX, ty = targetY, tp = targetPosition
+  if (sourceNode?.measured.width && targetNode?.measured.width) {
+    const s = floatingAnchor(sourceNode, targetNode)
+    const t = floatingAnchor(targetNode, sourceNode)
+    sx = s.x; sy = s.y; sp = s.pos
+    tx = t.x; ty = t.y; tp = t.pos
+  }
+
   // Visual path always source→target
   const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX, sourceY, sourcePosition,
-    targetX, targetY, targetPosition,
+    sourceX: sx, sourceY: sy, sourcePosition: sp,
+    targetX: tx, targetY: ty, targetPosition: tp,
   })
 
   // Forward (source→target) and reversed motion paths — dots pick one by direction
-  const [fwdPath] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition })
+  const [fwdPath] = getBezierPath({ sourceX: sx, sourceY: sy, sourcePosition: sp, targetX: tx, targetY: ty, targetPosition: tp })
   const [revPath] = getBezierPath({
-    sourceX: targetX, sourceY: targetY, sourcePosition: targetPosition,
-    targetX: sourceX, targetY: sourceY, targetPosition: sourcePosition,
+    sourceX: tx, sourceY: ty, sourcePosition: tp,
+    targetX: sx, targetY: sy, targetPosition: sp,
   })
   const fwdId = `${id}-mf`
   const revId = `${id}-mr`

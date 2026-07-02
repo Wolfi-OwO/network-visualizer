@@ -505,6 +505,16 @@ export default function NetworkBuilderPage() {
     if (!frozenRef.current) runSimTickRef.current()
   }, [topoSignature])
 
+  // New node ids are `${type}-${++nodeCounter}` — start the counter above every
+  // id already on the canvas so a restored autosave can never collide with a
+  // freshly added device (duplicate ids break React Flow silently).
+  const bumpNodeCounter = (ns: { id: string }[]) => {
+    for (const n of ns) {
+      const m = /-(\d+)$/.exec(n.id)
+      if (m) nodeCounter = Math.max(nodeCounter, parseInt(m[1], 10))
+    }
+  }
+
   // Load topology on mount — prefer an autosaved working copy, else the sample
   useEffect(() => {
     networkApi.getDefault().then(({ data }) => {
@@ -517,6 +527,7 @@ export default function NetworkBuilderPage() {
           if (t.nodes?.length) {
             setNodes(t.nodes.map(toFlowNode))
             setEdges((t.edges ?? []).map(toFlowEdge))
+            bumpNodeCounter(t.nodes)
             restored = true
             setStatus('Restored your autosaved network')
             setTimeout(() => setStatus(''), 2500)
@@ -526,6 +537,7 @@ export default function NetworkBuilderPage() {
       if (!restored) {
         setNodes(data.nodes.map(toFlowNode))
         setEdges(data.edges.map(toFlowEdge))
+        bumpNodeCounter(data.nodes)
       }
     }).catch(() => setStatus('Failed to load topology'))
   }, [setNodes, setEdges, setStatus, setTopology])
@@ -548,6 +560,22 @@ export default function NetworkBuilderPage() {
     }),
     edges: edgesRef.current.map(toNetEdge),
   }), [])
+
+  // Push one node's config to the server in the background. A locally-added
+  // node doesn't exist server-side until the next full save, so a 404 here is
+  // normal — recover by pushing the whole canvas once (upserts every local
+  // node). All of it is silent: background sync must never raise the global
+  // error overlay.
+  const syncNodeConfig = useCallback((nodeId: string, config: NetworkNodeConfig) => {
+    const tp = topologyRef.current
+    if (!tp) return
+    networkApi.updateNode(tp.id, nodeId, { config }).catch((err: unknown) => {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 404) {
+        networkApi.update(tp.id, serializeTopology(), { silent: true }).catch(() => {})
+      }
+    })
+  }, [serializeTopology])
 
   const applyTopology = useCallback((snap: TopoSnapshot) => {
     setSelectedNodeId(null); setSelectedEdgeId(null)
@@ -885,8 +913,7 @@ export default function NetworkBuilderPage() {
       const newPowered = !(d.config.powered !== false)
       const nextConfig = { ...d.config, powered: newPowered }
       setNodes(prev => prev.map(n => n.id === id ? { ...n, data: { ...(n.data as NetworkNodeData), config: nextConfig } } : n))
-      const tp = topologyRef.current
-      if (tp) networkApi.updateNode(tp.id, id, { config: nextConfig }).catch(() => {})
+      syncNodeConfig(id, nextConfig)
       setStatus(`${d.config.hostname ?? d.label} powered ${newPowered ? 'on' : 'off'}`)
       if (newPowered) {
         window.setTimeout(() => startDhcpForHost(id), 400)
@@ -900,7 +927,7 @@ export default function NetworkBuilderPage() {
     }
     window.addEventListener('netviz:togglePower', handler)
     return () => window.removeEventListener('netviz:togglePower', handler)
-  }, [startDhcpForHost, setNodes, setEdges, setStatus])
+  }, [startDhcpForHost, syncNodeConfig, setNodes, setEdges, setStatus])
 
   // Live simulation clock: keep every powered host addressed (concurrently) and
   // generate ambient traffic between hosts and services.
@@ -1158,11 +1185,9 @@ export default function NetworkBuilderPage() {
       ...n,
       data: { ...n.data as NetworkNodeData, config },
     }))
-    // Persist to backend if we have a topology
-    if (topology) {
-      networkApi.updateNode(topology.id, nodeId, { config }).catch(() => {})
-    }
-  }, [topology, setNodes])
+    // Persist to backend in the background (404-safe for unsaved local nodes)
+    syncNodeConfig(nodeId, config)
+  }, [syncNodeConfig, setNodes])
 
   // ── Connect two private networks: configure a router↔router edge as a WAN
   //    site-link (assign a /30, install cross static routes between the LANs). ──

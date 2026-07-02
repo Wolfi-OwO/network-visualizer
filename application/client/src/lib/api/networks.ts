@@ -48,13 +48,15 @@ export const network = {
   get: (id: string) => api.get<NetworkTopology>(`/networks/${id}`),
   create: (name: string, description?: string) =>
     api.post<NetworkTopology>('/networks', { name, description }),
-  update: (id: string, data: Partial<NetworkTopology>) =>
-    api.put<NetworkTopology>(`/networks/${id}`, data),
+  update: (id: string, data: Partial<NetworkTopology>, opts?: { silent?: boolean }) =>
+    api.put<NetworkTopology>(`/networks/${id}`, data, { silent: opts?.silent }),
   delete: (id: string) => api.delete<void>(`/networks/${id}`),
   addNode: (topologyId: string, node: Omit<NetworkNode, 'id'>) =>
     api.post<NetworkNode>(`/networks/${topologyId}/nodes`, node),
+  // Background sync — a 404 just means the node only exists locally (not saved
+  // yet), so it must never trigger the global error overlay.
   updateNode: (topologyId: string, nodeId: string, data: Partial<NetworkNode>) =>
-    api.put<NetworkNode>(`/networks/${topologyId}/nodes/${nodeId}`, data),
+    api.put<NetworkNode>(`/networks/${topologyId}/nodes/${nodeId}`, data, { silent: true }),
   deleteNode: (topologyId: string, nodeId: string) =>
     api.delete<void>(`/networks/${topologyId}/nodes/${nodeId}`),
   addEdge: (topologyId: string, edge: Omit<NetworkEdge, 'id'>) =>
