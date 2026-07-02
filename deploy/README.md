@@ -24,10 +24,16 @@ flowchart LR
 ## Continuous delivery
 
 Publishing a GitHub Release (`v1.2.3`) triggers
-[`.github/workflows/release-aca.yml`](../.github/workflows/release-aca.yml),
-which builds the image in ACR and rolls it out with `az containerapp update`.
-Requires the repo secret `AZURE_CREDENTIALS` and variables `AZURE_RG`,
-`ACR_NAME`, `ACA_APP`. See the runbook for the one-time provisioning.
+[`release.yml`](../.github/workflows/release.yml), which chains two reusable
+workflows: [`package.yml`](../.github/workflows/package.yml) (build client +
+Docker image, push to ACR with the admin credentials) and
+[`deploy.yml`](../.github/workflows/deploy.yml) (`az containerapp update` via
+OIDC). Both can also be dispatched manually — `deploy.yml` doubles as the
+rollback tool for any existing tag. Requires the repo secrets
+`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`,
+`ACR_USERNAME`, `ACR_PASSWORD` and variables `RESOURCE_GROUP`, `ACR_NAME`,
+`CONTAINERAPP_NAME`, `IMAGE_NAME`. See the runbook for the one-time
+provisioning.
 
 ## Related
 

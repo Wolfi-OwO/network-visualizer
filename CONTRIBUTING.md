@@ -32,7 +32,8 @@ Run both dev servers (backend on :8080, frontend on :5173) as described in the
 
 ## Quality gates
 
-Everything below is enforced in CI ([`ci.yml`](.github/workflows/ci.yml)) and
+Everything below is enforced in CI ([`lint.yml`](.github/workflows/lint.yml) +
+[`ci.yml`](.github/workflows/ci.yml)) and
 must pass locally before you open a PR:
 
 ```bash
