@@ -74,11 +74,15 @@ function NetworkNodeComponent({ data, id }: NodeProps) {
       )}
 
       {/* Loose connection mode lets every one of these dots both start and
-          receive a link, so you can wire devices from any side. */}
-      <Handle type="target" position={Position.Top}    style={{ background: borderColor, border: '2px solid var(--bg-950)', width: 11, height: 11, cursor: 'crosshair' }} />
-      <Handle type="source" position={Position.Bottom} style={{ background: borderColor, border: '2px solid var(--bg-950)', width: 11, height: 11, cursor: 'crosshair' }} />
-      <Handle type="target" position={Position.Left}   style={{ background: borderColor, border: '2px solid var(--bg-950)', width: 11, height: 11, cursor: 'crosshair' }} />
-      <Handle type="source" position={Position.Right}  style={{ background: borderColor, border: '2px solid var(--bg-950)', width: 11, height: 11, cursor: 'crosshair' }} />
+          receive a link, so you can wire devices from any side. Each handle
+          has a unique id — without one, React Flow can't tell the four apart
+          and snaps every link to the first handle (the old "edges only attach
+          top/bottom" bug). The rendered edge ignores the handle anyway and
+          floats to the side facing the peer (see packet-edge.tsx). */}
+      {([['top', Position.Top], ['bottom', Position.Bottom], ['left', Position.Left], ['right', Position.Right]] as const).map(([hid, pos]) => (
+        <Handle key={hid} id={hid} type="source" position={pos}
+          style={{ background: borderColor, border: '2px solid var(--bg-950)', width: 11, height: 11, cursor: 'crosshair' }} />
+      ))}
 
       {/* Power button */}
       <button

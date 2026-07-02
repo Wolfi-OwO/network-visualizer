@@ -13,18 +13,35 @@ interface GuidedBuildProps {
 }
 
 // ── Topology helpers ─────────────────────────────────────────────────────────
+const INTERNET_TYPES = ['cloud', 'isp', 'www']
+const ENDPOINT_TYPES = ['pc', 'laptop', 'phone', 'printer', 'iot']
+
 function count(nodes: NetworkNode[], type: string) {
   return nodes.filter(n => n.type === type).length
 }
 function has(nodes: NetworkNode[], type: string) {
   return nodes.some(n => n.type === type)
 }
-function edgeBetweenTypes(nodes: NetworkNode[], edges: SimpleEdge[], a: string, b: string) {
-  const typeOf = (id: string) => nodes.find(n => n.id === id)?.type
+function edgeBetweenTypes(nodes: NetworkNode[], edges: SimpleEdge[], a: string | string[], b: string | string[]) {
+  const A = Array.isArray(a) ? a : [a]
+  const B = Array.isArray(b) ? b : [b]
+  const typeOf = (id: string) => nodes.find(n => n.id === id)?.type ?? ''
   return edges.some(e => {
     const s = typeOf(e.source), t = typeOf(e.target)
-    return (s === a && t === b) || (s === b && t === a)
+    return (A.includes(s) && B.includes(t)) || (B.includes(s) && A.includes(t))
   })
+}
+// Number of links with one end in `a` types and the other in `b` types
+function edgesBetweenCount(nodes: NetworkNode[], edges: SimpleEdge[], a: string[], b: string[]) {
+  const typeOf = (id: string) => nodes.find(n => n.id === id)?.type ?? ''
+  return edges.filter(e => {
+    const s = typeOf(e.source), t = typeOf(e.target)
+    return (a.includes(s) && b.includes(t)) || (b.includes(s) && a.includes(t))
+  }).length
+}
+// Endpoints that hold an address (i.e. successfully leased one via DHCP)
+function clientsOnline(nodes: NetworkNode[]) {
+  return nodes.filter(n => ENDPOINT_TYPES.includes(n.type) && n.config.interfaces?.[0]?.ipAddress).length
 }
 function isConnected(nodes: NetworkNode[], edges: SimpleEdge[]) {
   if (nodes.length < 2) return false
@@ -64,74 +81,84 @@ export default function GuidedBuild({ active, nodes, edges, onClearCanvas, onClo
   const [phase, setPhase] = useState<'intro' | 'tasks'>('intro')
   const [collapsed, setCollapsed] = useState(false)
 
+  // Build TechCorp HQ the way real enterprise networks are layered, from the
+  // outside in:
+  //   Internet ↔ edge router ↔ perimeter firewall ↔ core switch ↔ access
+  //   switch ↔ endpoints — the router terminates the ISP uplink and routes,
+  //   the firewall behind it inspects everything entering the LAN, DHCP/DNS
+  //   sit in the server segment, and the public web server gets its own
+  //   firewall leg (the DMZ).
   const tasks: Task[] = useMemo(() => {
     const connected = isConnected(nodes, edges)
     return [
       {
-        id: 'cloud',
-        label: 'Place the Internet ☁️',
-        hint: 'Drag the ☁️ Cloud (from “Internet & Cloud”) onto the canvas. This is the public Internet that TechCorp connects out to — just like your real ISP/WAN.',
-        done: has(nodes, 'cloud') || has(nodes, 'www') || has(nodes, 'isp'),
+        id: 'internet',
+        label: 'Place the Internet',
+        hint: 'Drag the Cloud (from "Internet & Cloud") onto the canvas — the public Internet your company connects out to, like your real ISP/WAN. Tip: put it at the top; you will build inward from the edge.',
+        done: INTERNET_TYPES.some(t => has(nodes, t)),
       },
       {
-        id: 'globalDns',
-        label: 'Add a global DNS resolver',
-        hint: 'Drag a 🧭 DNS Server next to the cloud — a public resolver (think 8.8.8.8) that every site uses to turn names like www.techcorp.com into IP addresses.',
-        done: has(nodes, 'dns'),
+        id: 'edge',
+        label: 'Connect an edge router to the Internet',
+        hint: 'Drag a Router and wire it to the Cloud. The edge router terminates the ISP uplink and handles the routing work (NAT, and in bigger networks BGP or multi-WAN) — so the firewall behind it can focus purely on inspection.',
+        done: has(nodes, 'router') && edgeBetweenTypes(nodes, edges, 'router', INTERNET_TYPES),
       },
       {
-        id: 'routers',
-        label: 'Add 3 routers (the backbone)',
-        hint: 'Drag three 🔀 Routers. Each is the gateway for part of the company; together they route traffic between all four networks.',
-        done: count(nodes, 'router') >= 3,
+        id: 'perimeter',
+        label: 'Add the perimeter firewall behind the router',
+        hint: 'Drag a Firewall and link it to the Router (its LAN side, not the Cloud). Everything entering or leaving your network flows router → firewall, so every packet is inspected before it can reach any internal device.',
+        done: has(nodes, 'firewall') && edgeBetweenTypes(nodes, edges, 'firewall', 'router'),
       },
       {
-        id: 'backbone',
-        label: 'Interconnect the routers',
-        hint: 'Draw links *between* the routers (at least 2 router↔router links) so they form a backbone and can route between the networks.',
-        done: edgesAmongType(nodes, edges, 'router') >= 2,
+        id: 'core',
+        label: 'Uplink a core switch to the firewall',
+        hint: 'Drag an L2 Switch and connect it to the Firewall — the firewall’s inside interface. The entire LAN lives behind the firewall: the core switch is its center, with servers and access switches hanging off it.',
+        done: has(nodes, 'switch') && edgeBetweenTypes(nodes, edges, 'switch', 'firewall'),
       },
       {
-        id: 'uplink',
-        label: 'Connect the edge router to the Internet',
-        hint: 'Draw a link from one router (your edge/border router) to the ☁️ Cloud — that is TechCorp’s Internet uplink.',
-        done: edgeBetweenTypes(nodes, edges, 'router', 'cloud') || edgeBetweenTypes(nodes, edges, 'router', 'www') || edgeBetweenTypes(nodes, edges, 'router', 'isp'),
+        id: 'services',
+        label: 'Add DHCP + DNS to the server segment',
+        hint: 'Drag a DHCP Server and a DNS Server and cable both to the core switch. Real sites keep infrastructure services in a server VLAN at the core — DHCP hands out addresses, DNS resolves names.',
+        done: has(nodes, 'dhcp') && has(nodes, 'dns')
+          && edgeBetweenTypes(nodes, edges, 'switch', 'dhcp')
+          && edgeBetweenTypes(nodes, edges, 'switch', 'dns'),
       },
       {
-        id: 'switches',
-        label: 'Give each of the 4 networks a switch',
-        hint: 'Drag four 🔁 L2 Switches — one per network (HQ, two branches, and the DMZ side) — and uplink each switch to a router.',
-        done: count(nodes, 'switch') >= 4,
+        id: 'access',
+        label: 'Add an access switch for the office',
+        hint: 'Drag a second L2 Switch and uplink it to the core switch. Endpoints never plug into the core directly — the access layer fans out to desks, the core interconnects.',
+        done: count(nodes, 'switch') >= 2 && edgesAmongType(nodes, edges, 'switch') >= 1,
       },
       {
-        id: 'pcs',
-        label: 'Put 2 PCs in every network (8 total)',
-        hint: 'Drag two 💻 Workstations into each network and cable them to that network’s switch — 8 PCs in all.',
-        done: count(nodes, 'pc') >= 8,
+        id: 'endpoints',
+        label: 'Cable 3 office devices to the access switch',
+        hint: 'Drag three endpoints (PCs, a laptop, a printer — your choice) and wire each one to a switch. They arrive powered off and without an address, just like unboxed hardware.',
+        done: ENDPOINT_TYPES.reduce((a, t) => a + count(nodes, t), 0) >= 3
+          && edgesBetweenCount(nodes, edges, ENDPOINT_TYPES, ['switch']) >= 3,
       },
       {
-        id: 'firewall',
-        label: 'Add the DMZ firewall',
-        hint: 'In your Internet-facing network, drag a 🛡️ Firewall and wire it to the edge router. It will guard the DMZ — the zone exposed to the outside world.',
-        done: has(nodes, 'firewall') && (edgeBetweenTypes(nodes, edges, 'router', 'firewall') || edgeBetweenTypes(nodes, edges, 'firewall', 'cloud')),
-      },
-      {
-        id: 'dmzServer',
-        label: 'Put a public web server in the DMZ',
-        hint: 'Drag a 🖥️ Server and link it to the 🛡️ Firewall — this is TechCorp’s public website, isolated from the internal LANs behind the firewall.',
+        id: 'dmz',
+        label: 'Publish a web server in the DMZ',
+        hint: 'Drag a Server and link it directly to the Firewall — a separate firewall leg. That is a DMZ: reachable from the Internet through firewall rules, but isolated from the internal LAN.',
         done: has(nodes, 'server') && edgeBetweenTypes(nodes, edges, 'firewall', 'server'),
       },
       {
         id: 'wire',
-        label: 'Cable it all into one internetwork',
-        hint: 'Make sure every device is reachable — switches to routers, routers to each other, PCs to switches, firewall+server in the DMZ. No islands!',
-        done: nodes.length >= 18 && connected,
+        label: 'One connected network — no islands',
+        hint: 'Check every device is reachable: endpoints → access switch → core switch → firewall → edge router → Internet, servers on the core, web server on the firewall.',
+        done: nodes.length >= 11 && connected,
       },
       {
         id: 'config',
-        label: 'Add a DNS record & a firewall rule',
-        hint: 'Click the DNS server → DNS tab → add an A record (e.g. www.techcorp.com → the web server’s IP). Then click the Firewall → Firewall tab → add an allow rule for web traffic (TCP 443) into the DMZ.',
+        label: 'Add a firewall rule & a DNS record',
+        hint: 'Click the Firewall → Firewall tab → add an allow rule for web traffic (TCP 443) to the DMZ server. Then click the DNS server → DNS tab → add an A record (e.g. www.techcorp.com → the web server’s IP).',
         done: dnsHasEntry(nodes) && firewallHasRule(nodes),
+      },
+      {
+        id: 'online',
+        label: 'Power on and watch DHCP bring hosts online',
+        hint: 'Power on the infrastructure first — switches, router, firewall, DHCP server (the power button on each device) — then the endpoints. Each one broadcasts a real DORA exchange (Discover, Offer, Request, ACK) and receives its address. Get at least 2 endpoints online.',
+        done: clientsOnline(nodes) >= 2,
       },
     ]
   }, [nodes, edges])
@@ -153,14 +180,19 @@ export default function GuidedBuild({ active, nodes, edges, onClearCanvas, onClo
           <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"><X size={14} /></button>
         </div>
         <div className="px-3 py-3 text-[12px] leading-relaxed text-[var(--text-secondary)] space-y-2">
-          <p>A real-world example: <b>TechCorp</b> has 4 office networks that all reach the Internet. You'll build it the way it actually works:</p>
+          <p>Build <b>TechCorp HQ</b> exactly the way real enterprise sites are layered, from the Internet edge inward:</p>
+          <p className="font-mono text-[10px] text-[var(--text-secondary)] leading-relaxed">
+            Internet ↔ Edge router ↔ Firewall ↔ Core switch ↔ Access switch ↔ Desks
+          </p>
           <ul className="list-disc list-inside space-y-0.5 text-[var(--text-secondary)]">
-            <li><b>4 networks</b>, each with its own switch &amp; 2 PCs</li>
-            <li><b>3 routers</b> forming a backbone that routes between them</li>
-            <li>A <b>DMZ</b>: a firewall guarding a public web server</li>
-            <li>An <b>Internet ☁️ uplink</b> + a <b>global DNS</b> (like 8.8.8.8)</li>
+            <li>An <b>edge router</b> on the ISP uplink handling the routing</li>
+            <li>A <b>perimeter firewall</b> behind it inspecting all LAN traffic</li>
+            <li><b>DHCP + DNS</b> in the server segment on the core switch</li>
+            <li>An <b>access switch</b> fanning out to PCs, laptop, printer</li>
+            <li>A <b>DMZ</b>: the public web server on its own firewall leg</li>
+            <li>Finally: rules, records, and <b>powering it all on</b> (DHCP DORA)</li>
           </ul>
-          <p className="text-[var(--text-muted)]">I'll check each step as you do it. Best to start from a blank canvas.</p>
+          <p className="text-[var(--text-muted)]">Each step is checked as you complete it. Best to start from a blank canvas.</p>
         </div>
         <div className="flex gap-2 px-3 py-2.5 border-t border-[var(--border)]">
           <button
@@ -232,11 +264,12 @@ export default function GuidedBuild({ active, nodes, edges, onClearCanvas, onClo
                 <PartyPopper size={13} /> TechCorp is online!
               </div>
               <p className="text-[10px] text-[var(--text-secondary)] mt-1 leading-relaxed">
-                You've built a real enterprise internetwork: <b>4 networks</b> linked by a <b>3-router
-                backbone</b>, a <b>DMZ</b> firewalling a public web server, an <b>Internet uplink</b> and
-                a <b>global DNS</b>. Use <b>Send Packet</b> to route a host across the backbone, or turn on
-                <b> Live</b> to watch DNS, web and inter-network traffic flow. Tip: add a DHCP server per
-                network (or set static IPs) to bring every PC online. ✅
+                You've built a site the way it's really wired: desks on an <b>access switch</b>, servers
+                on the <b>core</b>, a <b>perimeter firewall</b> guarding the LAN behind the <b>edge
+                router</b>, and a <b>DMZ</b> web server on its own firewall leg. Use <b>Send Packet</b> to
+                trace a PC out to the Internet (watch it cross the firewall, then the edge router), or
+                send TCP 443 from the Cloud to the DMZ server to see your allow rule fire. Turn on
+                <b> Live</b> to watch DNS lookups and web traffic flow across the layers.
               </p>
               <button onClick={onClose} className="btn-success w-full justify-center text-[11px] mt-2">Finish</button>
             </div>
