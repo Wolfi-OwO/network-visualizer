@@ -259,8 +259,8 @@ export default function Tutorial({ open, onClose, onStartBuild }: { open: boolea
   const isLast = i === STEPS.length - 1
   const isFirst = i === 0
 
-  // Tooltip card position
-  const cardW = 340
+  // Tooltip card position (clamped so it never overflows a narrow viewport)
+  const cardW = Math.min(340, window.innerWidth - 24)
   const cardH = 260
   let cardStyle: React.CSSProperties
   if (rect) {
@@ -306,7 +306,7 @@ export default function Tutorial({ open, onClose, onStartBuild }: { open: boolea
         style={{
           position: 'absolute',
           ...cardStyle,
-          background: 'var(--bg-900)',
+          background: 'var(--bg-800)',
           border: '1px solid var(--border)',
           borderRadius: 12,
           boxShadow: '0 12px 40px rgba(0,0,0,0.55)',

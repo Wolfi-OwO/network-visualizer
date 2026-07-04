@@ -14,14 +14,14 @@ function StatCard({ label, value, sub, icon, color }: {
   icon: React.ReactNode; color: string
 }) {
   return (
-    <div className="card p-4 flex items-start gap-3">
+    <div className="card card-hover p-4 flex items-start gap-3">
       <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: color + '22' }}>
         <div style={{ color }}>{icon}</div>
       </div>
-      <div>
+      <div className="min-w-0">
         <div className="text-xl font-bold text-[var(--text-primary)] leading-none">{value}</div>
         <div className="text-xs text-[var(--text-secondary)] mt-0.5">{label}</div>
-        {sub && <div className="text-[10px] text-[var(--text-muted)] mt-0.5">{sub}</div>}
+        {sub && <div className="text-[10px] text-[var(--text-muted)] mt-0.5 truncate">{sub}</div>}
       </div>
     </div>
   )
@@ -33,16 +33,16 @@ function QuickAction({ label, desc, icon, color, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="card p-4 flex items-center gap-3 hover:border-[var(--accent)] transition-all text-left w-full group"
+      className="card card-hover p-4 flex items-center gap-3 text-left w-full group"
     >
       <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: color + '22' }}>
         <div style={{ color }}>{icon}</div>
       </div>
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <div className="text-xs font-semibold text-[var(--text-primary)]">{label}</div>
         <div className="text-[10px] text-[var(--text-muted)] mt-0.5">{desc}</div>
       </div>
-      <ArrowRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors shrink-0" />
+      <ArrowRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition-all shrink-0" />
     </button>
   )
 }
@@ -69,23 +69,29 @@ export default function DashboardPage() {
     : []
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-5 space-y-5">
+    <div className="relative flex flex-col h-full overflow-y-auto p-4 sm:p-5 space-y-5">
+      {/* Ambient glow behind the header */}
+      <div
+        className="pointer-events-none absolute -top-24 left-0 w-[36rem] h-72 opacity-40"
+        style={{ background: 'radial-gradient(closest-side, var(--glow-accent), transparent)' }}
+      />
+
       {/* Welcome */}
-      <div className="flex items-center justify-between">
+      <div className="relative flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-xl font-bold text-[var(--text-primary)]">NetViz Dashboard</h1>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
             Network visualization, packet analysis & subnet tools
           </p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-800)] border border-[var(--border)]">
+        <div className="glass flex items-center gap-2 px-3 py-1.5 rounded-full">
           <div className="w-1.5 h-1.5 rounded-full bg-[var(--green)] animate-pulse" />
           <span className="text-[11px] text-[var(--text-secondary)]">Backend connected</span>
         </div>
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="relative grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           label="Packets Captured"
           value={stats?.total.toLocaleString() ?? '—'}
@@ -116,9 +122,9 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Quick actions */}
-        <div className="col-span-1 space-y-2">
+        <div className="lg:col-span-1 space-y-2">
           <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">Quick Access</div>
           <QuickAction
             label="Packet Capture"
@@ -163,7 +169,10 @@ export default function DashboardPage() {
                     <div className="h-1.5 bg-[var(--bg-700)] rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all"
-                        style={{ width: `${pct}%`, background: PROTO_COLORS[proto] ?? '#484f58' }}
+                        style={{
+                          width: `${pct}%`,
+                          background: `linear-gradient(90deg, ${PROTO_COLORS[proto] ?? '#484f58'}, ${PROTO_COLORS[proto] ?? '#484f58'}99)`,
+                        }}
                       />
                     </div>
                   </div>
@@ -205,7 +214,7 @@ export default function DashboardPage() {
       {/* Feature overview */}
       <div className="card p-5">
         <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-4">Features</div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             {
               icon: '🦈',

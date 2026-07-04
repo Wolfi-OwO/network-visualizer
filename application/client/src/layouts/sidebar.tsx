@@ -9,14 +9,26 @@ const navItems = [
   { to: '/cidr', label: 'CIDR Calculator', icon: Calculator },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  open?: boolean
+  onClose?: () => void
+}
+
+export default function Sidebar({ open = false, onClose }: SidebarProps) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   return (
-    <aside className="flex flex-col w-52 shrink-0 bg-[var(--bg-900)] border-r border-[var(--border)]">
+    <aside
+      className={[
+        'flex flex-col w-64 max-w-[80vw] shrink-0 backdrop-blur-md bg-[var(--glass-bg)] border-r border-[var(--border)]',
+        'fixed inset-y-0 left-0 z-50 transform transition-transform duration-200',
+        open ? 'translate-x-0' : '-translate-x-full',
+        'md:static md:z-auto md:w-52 md:max-w-none md:translate-x-0',
+      ].join(' ')}
+    >
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 py-4 border-b border-[var(--border)]">
-        <div className="flex items-center justify-center w-7 h-7 rounded-md bg-[var(--accent)]">
+        <div className="flex items-center justify-center w-7 h-7 rounded-md bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)]">
           <Radio size={14} className="text-white" />
         </div>
         <div>
@@ -35,10 +47,11 @@ export default function Sidebar() {
             key={to}
             to={to}
             end={end}
+            onClick={onClose}
             className={({ isActive }) => [
               'flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-xs font-medium transition-all text-left',
               isActive
-                ? 'bg-[var(--accent)] text-white shadow-sm'
+                ? 'bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white shadow-sm'
                 : 'text-[var(--text-secondary)] hover:bg-[var(--bg-800)] hover:text-[var(--text-primary)]',
             ].join(' ')}
           >
@@ -52,7 +65,7 @@ export default function Sidebar() {
       <div className="p-3 border-t border-[var(--border)]">
         {user ? (
           <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-[var(--bg-800)]">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--accent)] shrink-0">
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] shrink-0">
               <User size={12} className="text-white" />
             </div>
             <div className="min-w-0 flex-1">
@@ -65,7 +78,7 @@ export default function Sidebar() {
           </div>
         ) : (
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => { navigate('/login'); onClose?.() }}
             className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md bg-[var(--bg-800)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
             <LogIn size={13} className="text-[var(--accent)]" />

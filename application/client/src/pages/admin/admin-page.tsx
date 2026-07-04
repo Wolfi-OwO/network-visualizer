@@ -69,7 +69,7 @@ function UsersPanel({ currentUserId }: { currentUserId?: string }) {
         <span className="text-[10px] text-[var(--text-muted)]">{list.length} account(s)</span>
       </div>
       {error && <div className="text-[11px] text-amber-400 mb-2">{error}</div>}
-      <div className="rounded-lg border border-[var(--border)] overflow-hidden">
+      <div className="rounded-lg border border-[var(--border)] overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-[var(--bg-950)] text-[var(--text-muted)] text-[10px] uppercase tracking-wider">
             <tr>
@@ -151,8 +151,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl">
-      <div className="flex items-center gap-3 mb-4">
+    <div className="p-4 sm:p-6 max-w-4xl">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <h1 className="text-lg font-bold text-[var(--text-primary)]">Administration</h1>
         <div className="flex-1" />
         <button onClick={load} className="btn-ghost text-xs"><RefreshCw size={12} className={loading ? 'animate-spin' : ''} />Refresh</button>

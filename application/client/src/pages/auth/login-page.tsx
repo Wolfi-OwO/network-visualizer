@@ -36,10 +36,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex items-center justify-center h-full w-full bg-[var(--bg-950)] p-6">
-      <div className="w-full max-w-sm rounded-xl bg-[var(--bg-900)] border border-[var(--border)] p-6 shadow-xl">
+    <div className="relative flex items-center justify-center h-full w-full bg-[var(--bg-950)] p-4 sm:p-6 overflow-hidden">
+      <div
+        className="pointer-events-none absolute top-1/4 left-1/2 -translate-x-1/2 w-[40rem] h-[40rem] opacity-30"
+        style={{ background: 'radial-gradient(closest-side, var(--glow-accent), transparent)' }}
+      />
+      <div className="relative w-full max-w-sm rounded-xl glass p-6 shadow-2xl">
         <div className="flex items-center gap-2.5 mb-5">
-          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-[var(--accent)]">
+          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)]">
             <Radio size={16} className="text-white" />
           </div>
           <div>

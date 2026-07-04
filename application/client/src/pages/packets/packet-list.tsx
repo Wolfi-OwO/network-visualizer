@@ -17,64 +17,72 @@ interface PacketListProps {
   autoScroll: boolean
 }
 
+// Sum of the fixed columns plus a comfortable floor for the flexible Info
+// column — on narrow screens the table can't shrink below this, so the
+// shared scroll container below scrolls it horizontally instead of clipping it.
+const TABLE_MIN_WIDTH = 755
+
 export default function PacketList({ packets, selectedId, onSelect, autoScroll }: PacketListProps) {
-  const tbodyRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (autoScroll && tbodyRef.current) {
-      tbodyRef.current.scrollTop = tbodyRef.current.scrollHeight
+    if (autoScroll && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [packets.length, autoScroll])
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center bg-[var(--bg-950)] border-b border-[var(--border)] shrink-0">
-        {HEADERS.map((h, i) => (
-          <div
-            key={h}
-            className="px-2 py-1.5 text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider shrink-0 border-r border-[var(--border)] last:border-r-0"
-            style={{ width: COL_WIDTHS[i], minWidth: COL_WIDTHS[i], flex: i === 6 ? '1' : undefined }}
-          >
-            {h}
+      {/* Shared scroll container for header + rows, so they never desync horizontally */}
+      <div ref={scrollRef} className="flex-1 overflow-auto">
+        <div style={{ minWidth: TABLE_MIN_WIDTH }}>
+          {/* Header (sticky within the scroll container) */}
+          <div className="flex items-center bg-[var(--bg-950)] border-b border-[var(--border)] sticky top-0 z-10">
+            {HEADERS.map((h, i) => (
+              <div
+                key={h}
+                className="px-2 py-1.5 text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider shrink-0 border-r border-[var(--border)] last:border-r-0"
+                style={{ width: COL_WIDTHS[i], minWidth: COL_WIDTHS[i], flex: i === 6 ? '1' : undefined }}
+              >
+                {h}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Rows */}
-      <div ref={tbodyRef} className="flex-1 overflow-y-auto overflow-x-hidden">
-        {packets.length === 0 ? (
-          <div className="flex items-center justify-center h-32 text-xs text-[var(--text-muted)]">
-            No packets captured yet
-          </div>
-        ) : (
-          packets.map(p => (
-            <div
-              key={p.id}
-              onClick={() => onSelect(p)}
-              className={[
-                'flex items-center cursor-pointer transition-colors border-b border-[var(--border)]/30',
-                protoClass(p.protocol),
-                selectedId === p.id ? 'row-selected' : '',
-              ].join(' ')}
-            >
-              <Cell width={COL_WIDTHS[0]} mono>{p.id}</Cell>
-              <Cell width={COL_WIDTHS[1]} mono>{p.relativeTime.toFixed(6)}</Cell>
-              <Cell width={COL_WIDTHS[2]} mono>{p.ip?.srcIp ?? p.ethernet?.srcMac ?? '—'}</Cell>
-              <Cell width={COL_WIDTHS[3]} mono>{p.ip?.dstIp ?? p.ethernet?.dstMac ?? '—'}</Cell>
-              <Cell width={COL_WIDTHS[4]}>
-                <span className={[
-                  'badge text-[10px]',
-                  protoBadgeColor(p.protocol),
-                ].join(' ')}>
-                  {p.protocol}
-                </span>
-              </Cell>
-              <Cell width={COL_WIDTHS[5]} mono>{p.length}</Cell>
-              <Cell flex mono truncate>{p.info}</Cell>
+          {/* Rows */}
+          {packets.length === 0 ? (
+            <div className="flex items-center justify-center h-32 text-xs text-[var(--text-muted)]">
+              No packets captured yet
             </div>
-          ))
-        )}
+          ) : (
+            packets.map(p => (
+              <div
+                key={p.id}
+                onClick={() => onSelect(p)}
+                className={[
+                  'flex items-center cursor-pointer transition-colors border-b border-[var(--border)]/30',
+                  protoClass(p.protocol),
+                  selectedId === p.id ? 'row-selected' : '',
+                ].join(' ')}
+              >
+                <Cell width={COL_WIDTHS[0]} mono>{p.id}</Cell>
+                <Cell width={COL_WIDTHS[1]} mono>{p.relativeTime.toFixed(6)}</Cell>
+                <Cell width={COL_WIDTHS[2]} mono>{p.ip?.srcIp ?? p.ethernet?.srcMac ?? '—'}</Cell>
+                <Cell width={COL_WIDTHS[3]} mono>{p.ip?.dstIp ?? p.ethernet?.dstMac ?? '—'}</Cell>
+                <Cell width={COL_WIDTHS[4]}>
+                  <span className={[
+                    'badge text-[10px]',
+                    protoBadgeColor(p.protocol),
+                  ].join(' ')}>
+                    {p.protocol}
+                  </span>
+                </Cell>
+                <Cell width={COL_WIDTHS[5]} mono>{p.length}</Cell>
+                <Cell flex mono truncate>{p.info}</Cell>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   )
