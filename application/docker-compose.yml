@@ -13,14 +13,13 @@ services:
     restart: unless-stopped
 
   backend:
-    build: ./application
+    build: ./
     environment:
       NODE_ENV: production
       PORT: "8080"
-      # Authenticated connection string (overrides any MONGO_URI in the env_file).
-      MONGO_URI: "mongodb://${MONGO_ROOT_USER:-netviz}:${MONGO_ROOT_PASSWORD:-change-me-in-production}@mongo:27017/netviz?authSource=admin"
+      # Authenticated connection string (overrides any MONGODB_CONNECTION_STRING in the env_file).
     env_file:
-      - path: ./application/.env
+      - path: ./.env
         required: true
 
     depends_on:
