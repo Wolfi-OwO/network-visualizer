@@ -34,7 +34,8 @@ export default function ProtocolFilter({ counts, hidden, onToggle, onAll, onNone
   const all = [...PROTOCOLS, ...extra.map(id => ({ id, color: '#8b949e' }))]
 
   return (
-    <div className="flex items-center gap-1.5 px-4 py-1.5 bg-[var(--bg-900)] border-b border-[var(--border)] overflow-x-auto shrink-0">
+    <div className="relative shrink-0">
+      <div className="flex items-center gap-1.5 px-4 py-1.5 bg-[var(--bg-900)] border-b border-[var(--border)] overflow-x-auto">
       <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] shrink-0 mr-1">
         Protocols
       </span>
@@ -75,6 +76,10 @@ export default function ProtocolFilter({ counts, hidden, onToggle, onAll, onNone
           </button>
         )
       })}
+      </div>
+      {/* Edge fades hint that the strip scrolls horizontally */}
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-[var(--bg-900)] to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-[var(--bg-900)] to-transparent" />
     </div>
   )
 }
