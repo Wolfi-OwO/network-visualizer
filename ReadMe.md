@@ -106,7 +106,7 @@ routing-visualizer/
 ### Prerequisites
 
 - **Node.js ≥ 20** (CI uses Node 22) and **npm**
-- **MongoDB** — run one locally with `docker run -p 27017:27017 mongo:7` (or use the bundled `docker compose up mongo`). Override the connection with `MONGO_URI` (default `mongodb://localhost:27017/netviz`). The backend seeds a demo "Enterprise Network" topology on first start.
+- **MongoDB** — run one locally with `docker run -p 27017:27017 mongo:7` (or use the bundled `docker compose up mongo`). Override the connection with `MONGODB_CONNECTION_STRING` (default `mongodb://localhost:27017/netviz`). The backend seeds a demo "Enterprise Network" topology on first start.
 
 ### Run in development
 
@@ -243,7 +243,7 @@ All backend configuration is read from the environment in `application/src/confi
 | --------------------------------------------------- | -------- | ---------------------------------- | --------------------------------------------------- |
 | `HOST` / `PORT`                                     | backend  | `0.0.0.0` / `8080`                 | Bind address and port                               |
 | `NODE_ENV`                                          | backend  | `development`                      | Enables production config validation                |
-| `MONGO_URI`                                         | backend  | `mongodb://localhost:27017/netviz` | MongoDB connection string                           |
+| `MONGODB_CONNECTION_STRING`                                         | backend  | `mongodb://localhost:27017/netviz` | MongoDB connection string                           |
 | `DB_RECREATE`                                       | backend  | `false`                            | Drop & re-seed the database on startup              |
 | `CORS_ORIGINS`                                      | backend  | `localhost` / `127.0.0.1`          | Comma-separated CORS allow-list                     |
 | `JSON_BODY_LIMIT`                                   | backend  | `8mb`                              | Max JSON request body                               |

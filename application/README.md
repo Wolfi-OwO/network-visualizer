@@ -54,7 +54,7 @@ Highlights:
 | Variable                   | Default                            | Purpose                                            |
 | -------------------------- | ---------------------------------- | -------------------------------------------------- |
 | `HOST` / `PORT`            | `0.0.0.0` / `8080`                 | Bind address and port                              |
-| `MONGO_URI`                | `mongodb://localhost:27017/netviz` | MongoDB connection string                          |
+| `MONGODB_CONNECTION_STRING`                | `mongodb://localhost:27017/netviz` | MongoDB connection string                          |
 | `JWT_SECRET` / `JWT_TTL`   | — / `7d`                           | Session signing secret (validated in prod) and TTL |
 | `ALLOW_DEV_LOGIN`          | `true` outside production          | Password-less local login                          |
 | `REQUIRE_AUTH`             | `false`                            | Disable the anonymous shared workspace             |
