@@ -58,7 +58,7 @@ export default function DeviceStatePanel({ topologyId, nodeId, onClose }: {
     && !report.ospfNeighbors && !report.stp && !report.acl && !report.nat
 
   return (
-    <div className="absolute bottom-3 right-3 w-96 max-h-[70%] flex flex-col rounded-lg bg-[var(--bg-900)] border border-[var(--border)] shadow-xl z-20 overflow-hidden">
+    <div className="absolute bottom-3 right-3 w-[min(24rem,calc(100%-1.5rem))] max-h-[70%] flex flex-col rounded-lg popover shadow-xl z-20 overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border)]">
         <TerminalSquare size={14} className="text-[var(--accent)]" />
         <span className="text-xs font-semibold text-[var(--text-primary)]">

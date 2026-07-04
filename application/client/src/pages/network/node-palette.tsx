@@ -7,7 +7,7 @@ interface NodePaletteProps {
 
 export default function NodePalette({ onDragStart }: NodePaletteProps) {
   return (
-    <div data-tour="palette" className="flex flex-col h-full overflow-hidden bg-[var(--bg-900)] border-r border-[var(--border)]">
+    <div data-tour="palette" className="flex flex-col h-full overflow-hidden bg-[var(--bg-900)] border-r border-[var(--border)] shadow-xl md:shadow-none">
       <div className="panel-header">Devices</div>
       <div className="flex-1 overflow-y-auto p-2 space-y-3">
         {PALETTE_CATEGORIES.map(({ category, types }) => (

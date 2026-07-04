@@ -259,6 +259,15 @@ export function buildPacket(
       }
       break
     }
+    case 'ICMP': {
+      // ICMP has no separate application layer — the transport layer above
+      // already fully describes the echo request/reply, so this is filtered
+      // out of the final `layers` array below.
+      protoLabel = 'ICMP'
+      info = reply ? 'Echo (ping) reply' : 'Echo (ping) request'
+      appLayer = transport
+      break
+    }
     default: {
       // MQTT / SMB / IMAP / IPP
       const verbs: Record<string, [string, string]> = {
@@ -303,7 +312,7 @@ export function buildPacket(
     l4: wk.l4, srcPort, dstPort,
     length,
     info,
-    layers: [frame, ethernet, ipv4, transport, appLayer],
+    layers: app === 'ICMP' ? [frame, ethernet, ipv4, transport] : [frame, ethernet, ipv4, transport, appLayer],
     payloadHex: hexDump(`${srcMac}${dstMac}${srcIp}${dstIp}${info}`),
   }
 }

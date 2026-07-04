@@ -13,7 +13,7 @@ function CopyBtn({ value }: { value: string }) {
   return (
     <button
       onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
-      className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg-700)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors ml-1 font-mono"
+      className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg-700)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:scale-105 transition-all ml-1 font-mono"
     >
       {copied ? '✓' : 'copy'}
     </button>
@@ -115,7 +115,7 @@ export default function CIDRCalculatorPage() {
       <div className="flex items-center gap-3 px-4 py-3 bg-[var(--bg-900)] border-b border-[var(--border)] shrink-0">
         <Calculator size={16} className="text-[var(--accent)]" />
         <span className="text-sm font-semibold text-[var(--text-primary)]">CIDR Calculator</span>
-        <span className="text-xs text-[var(--text-muted)]">IPv4 Subnet Calculator & Network Analyzer</span>
+        <span className="hidden sm:inline text-xs text-[var(--text-muted)]">IPv4 Subnet Calculator & Network Analyzer</span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -160,7 +160,7 @@ export default function CIDRCalculatorPage() {
         {result && (
           <>
             {/* Main results */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Left column */}
               <div className="card p-4 space-y-0.5">
                 <div className="panel-header -mx-4 -mt-4 mb-3">Network Details</div>
@@ -220,7 +220,7 @@ export default function CIDRCalculatorPage() {
               <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Address Space Visualization</div>
               <div className="relative h-8 rounded overflow-hidden bg-[var(--bg-700)]">
                 <div
-                  className="absolute left-0 top-0 h-full bg-[var(--accent)] opacity-30"
+                  className="absolute left-0 top-0 h-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] opacity-30"
                   style={{ width: `${(result.cidrPrefix / 32) * 100}%` }}
                 />
                 <div className="absolute inset-0 flex items-center justify-between px-3">

@@ -5,6 +5,7 @@ import type { Edge } from '@xyflow/react'
 import type { TraceResult } from '../../lib/api/index.ts'
 import type { PacketEdgeData } from './packet-edge.tsx'
 import { send as sendApi, network as networkApi } from '../../lib/api/index.ts'
+import SelectMenu from '../../components/core/select-menu.tsx'
 
 const PROTOCOLS = [
   { value: 'icmp', label: 'ICMP (Ping)' },
@@ -103,93 +104,104 @@ export default function PacketSender({
     setShowPresets(false)
   }
 
-  const selectClass = 'select text-xs h-7 px-2 flex-1 min-w-0'
-
   return (
-    <div data-tour="sender" className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-800)] border-b border-[var(--border)] flex-wrap">
-      {/* Label */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        <Zap size={12} className="text-[var(--yellow)]" />
-        <span className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Send Packet</span>
-      </div>
-
-      {/* Source */}
-      <div className="flex items-center gap-1 min-w-0">
-        <span className="text-[10px] text-[var(--text-muted)] shrink-0">From</span>
-        <select className={selectClass} value={srcId} onChange={e => setSrcId(e.target.value)}>
-          <option value="">— Source —</option>
-          {nodes.map(n => (
-            <option key={n.id} value={n.id}>{n.config.hostname ?? n.label} ({n.type})</option>
-          ))}
-        </select>
-      </div>
-
-      <span className="text-[var(--text-muted)] shrink-0">→</span>
-
-      {/* Destination */}
-      <div className="flex items-center gap-1 min-w-0">
-        <span className="text-[10px] text-[var(--text-muted)] shrink-0">To</span>
-        <select className={selectClass} value={dstId} onChange={e => setDstId(e.target.value)}>
-          <option value="">— Destination —</option>
-          {nodes.filter(n => n.id !== srcId).map(n => (
-            <option key={n.id} value={n.id}>{n.config.hostname ?? n.label} ({n.type})</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Protocol */}
-      <select className={selectClass + ' w-28'} value={protocol}
-        onChange={e => setProtocol(e.target.value as 'icmp' | 'tcp' | 'udp')}>
-        {PROTOCOLS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-      </select>
-
-      {/* Port (only TCP/UDP) */}
-      {protocol !== 'icmp' && (
-        <div className="flex items-center gap-1 relative">
-          <input
-            className="input h-7 w-20 font-mono text-xs"
-            placeholder="Port"
-            value={dstPort}
-            onChange={e => setDstPort(e.target.value)}
-            type="number"
-            min={1}
-            max={65535}
-          />
-          <button onClick={() => setShowPresets(v => !v)} className="btn-ghost h-7 px-1.5" title="Preset ports">
-            <ChevronDown size={10} />
-          </button>
-          {showPresets && (
-            <div className="absolute top-full left-0 mt-1 z-50 card p-1.5 shadow-xl min-w-[140px]">
-              {PRESET_PORTS.map(p => (
-                <button key={p.label} onClick={() => applyPreset(p.port, p.proto)}
-                  className="block w-full text-left px-2 py-1 rounded text-[11px] font-mono text-[var(--text-secondary)] hover:bg-[var(--bg-700)] hover:text-[var(--text-primary)] transition-colors">
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          )}
+    <div data-tour="sender" className="relative z-20 flex flex-wrap items-center gap-2 px-3 py-2 backdrop-blur-md bg-[var(--glass-bg)] border-b border-[var(--border)]">
+      {/* Field controls: label → source → destination → protocol → port → TTL → send, wrap as one unit */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Label */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Zap size={12} className="text-[var(--yellow)]" />
+          <span className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Send Packet</span>
         </div>
-      )}
 
-      {/* TTL */}
-      <div className="flex items-center gap-1">
-        <span className="text-[10px] text-[var(--text-muted)] shrink-0">TTL</span>
-        <input className="input h-7 w-12 font-mono text-xs" value={ttl}
-          onChange={e => setTtl(e.target.value)} type="number" min={1} max={255} />
+        {/* Source */}
+        <div className="flex items-center gap-1 min-w-0">
+          <span className="text-[10px] text-[var(--text-muted)] shrink-0">From</span>
+          <SelectMenu
+            className="text-xs w-40"
+            value={srcId}
+            onChange={setSrcId}
+            placeholder="— Source —"
+            options={nodes.map(n => ({ value: n.id, label: `${n.config.hostname ?? n.label} (${n.type})` }))}
+          />
+        </div>
+
+        <span className="text-[var(--text-muted)] shrink-0">→</span>
+
+        {/* Destination */}
+        <div className="flex items-center gap-1 min-w-0">
+          <span className="text-[10px] text-[var(--text-muted)] shrink-0">To</span>
+          <SelectMenu
+            className="text-xs w-40"
+            value={dstId}
+            onChange={setDstId}
+            placeholder="— Destination —"
+            options={nodes.filter(n => n.id !== srcId).map(n => ({ value: n.id, label: `${n.config.hostname ?? n.label} (${n.type})` }))}
+          />
+        </div>
+
+        {/* Protocol */}
+        <SelectMenu
+          className="text-xs w-28"
+          value={protocol}
+          onChange={v => setProtocol(v as 'icmp' | 'tcp' | 'udp')}
+          options={PROTOCOLS.map(p => ({ value: p.value, label: p.label }))}
+        />
+
+        {/* Port (only TCP/UDP) */}
+        {protocol !== 'icmp' && (
+          <div className="flex items-center gap-1 relative">
+            <input
+              className="input h-7 w-20 font-mono text-xs"
+              placeholder="Port"
+              value={dstPort}
+              onChange={e => setDstPort(e.target.value)}
+              type="number"
+              min={1}
+              max={65535}
+            />
+            <button onClick={() => setShowPresets(v => !v)} className="btn-ghost h-7 px-1.5" title="Preset ports">
+              <ChevronDown size={10} />
+            </button>
+            {showPresets && (
+              <div
+                className="rounded-lg p-1.5 shadow-2xl"
+                style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
+                  minWidth: 140, background: 'var(--bg-800)', border: '1px solid var(--border)',
+                }}
+              >
+                {PRESET_PORTS.map(p => (
+                  <button key={p.label} onClick={() => applyPreset(p.port, p.proto)}
+                    className="block w-full text-left px-2 py-1 rounded-md text-[11px] font-mono text-[var(--text-secondary)] hover:bg-white/10 hover:text-[var(--text-primary)] transition-colors">
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TTL */}
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-[var(--text-muted)] shrink-0">TTL</span>
+          <input className="input h-7 w-12 font-mono text-xs" value={ttl}
+            onChange={e => setTtl(e.target.value)} type="number" min={1} max={255} />
+        </div>
+
+        {/* Send button */}
+        <button
+          onClick={handleSend}
+          disabled={loading || !srcId || !dstId}
+          className={['shrink-0', loading ? 'btn-ghost' : 'btn-primary'].join(' ')}
+        >
+          <Send size={11} />
+          {loading ? 'Tracing…' : 'Send'}
+        </button>
       </div>
 
-      {/* Send button */}
-      <button
-        onClick={handleSend}
-        disabled={loading || !srcId || !dstId}
-        className={['btn shrink-0', loading ? 'btn-ghost opacity-60' : 'btn-primary'].join(' ')}
-      >
-        <Send size={11} />
-        {loading ? 'Tracing…' : 'Send'}
-      </button>
-
-      {/* ── Speed control ───────────────────────────────────── */}
-      <div data-tour="speed" className="flex items-center gap-1.5 border-l border-[var(--border)] pl-2 ml-1 shrink-0">
+      {/* ── Speed control — drops to its own full-width row below `lg` ─── */}
+      <div data-tour="speed" className="flex items-center gap-1.5 w-full lg:w-auto border-t lg:border-t-0 lg:border-l border-[var(--border)] pt-2 lg:pt-0 lg:pl-2 lg:ml-1 shrink-0">
         <Gauge size={11} className="text-[var(--text-muted)]" />
         <div className="flex rounded overflow-hidden border border-[var(--border)]">
           {SPEED_PRESETS.map(p => (
@@ -199,7 +211,7 @@ export default function PacketSender({
               className={[
                 'px-2 py-0.5 text-[10px] font-medium transition-colors border-r border-[var(--border)] last:border-r-0',
                 animSpeed === p.ms
-                  ? 'bg-[var(--accent)] text-white'
+                  ? 'bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white'
                   : 'bg-[var(--bg-800)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-700)]',
               ].join(' ')}
             >

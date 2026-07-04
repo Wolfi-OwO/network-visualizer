@@ -138,7 +138,7 @@ export default function PacketCapturePage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-900)] border-b border-[var(--border)] shrink-0">
+      <div className="flex flex-wrap items-center gap-2 gap-y-1.5 px-4 py-2 backdrop-blur-md bg-[var(--glass-bg)] border-b border-[var(--border)] shrink-0">
         <div className="flex items-center gap-1.5 mr-2">
           <div className={[
             'w-2 h-2 rounded-full',
@@ -205,7 +205,7 @@ export default function PacketCapturePage() {
         </div>
 
         {/* Bottom panel */}
-        <div className="flex flex-col overflow-hidden" style={{ height: '38%', minHeight: 0 }}>
+        <div className="flex flex-col overflow-hidden h-[45%] md:h-[38%]" style={{ minHeight: 0 }}>
           {/* Bottom tabs */}
           <div className="flex items-center border-b border-[var(--border)] bg-[var(--bg-950)] shrink-0">
             {bottomTabs.map(t => (
@@ -228,11 +228,11 @@ export default function PacketCapturePage() {
           {/* Bottom content - split: detail + hex */}
           <div className="flex-1 overflow-hidden">
             {bottomTab === 'detail' && (
-              <div className="flex h-full">
-                <div className="flex-1 overflow-hidden border-r border-[var(--border)]">
+              <div className="flex flex-col md:flex-row h-full">
+                <div className="flex-1 overflow-hidden border-b md:border-b-0 md:border-r border-[var(--border)]">
                   <PacketDetail packet={selected} />
                 </div>
-                <div className="w-96 overflow-hidden">
+                <div className="w-full h-48 shrink-0 md:h-auto md:w-96 overflow-hidden">
                   <HexDump packet={selected} />
                 </div>
               </div>

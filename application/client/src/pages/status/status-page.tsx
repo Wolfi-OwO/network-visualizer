@@ -24,7 +24,7 @@ function UptimeBar({ history }: { history: { ok: boolean; db: boolean }[] }) {
   // Pad to 90 segments (Discord-style 90-bar history).
   const bars = Array.from({ length: 90 }, (_, i) => history[history.length - 90 + i])
   return (
-    <div className="flex gap-[2px] h-7 items-stretch">
+    <div className="flex gap-[1px] sm:gap-[2px] h-7 items-stretch">
       {bars.map((b, i) => (
         <div
           key={i}
@@ -60,9 +60,9 @@ export default function StatusPage() {
 
   return (
     <div className="h-full w-full overflow-y-auto bg-[var(--bg-950)]">
-      <div className="max-w-2xl mx-auto px-6 py-10">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex items-center gap-2.5 mb-6">
-          <div className="flex items-center justify-center w-7 h-7 rounded-md bg-[var(--accent)]">
+          <div className="flex items-center justify-center w-7 h-7 rounded-md bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)]">
             <Radio size={14} className="text-white" />
           </div>
           <span className="text-sm font-bold text-[var(--text-primary)]">{appConfig.name} Status</span>

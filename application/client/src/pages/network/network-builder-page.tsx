@@ -6,7 +6,7 @@ import {
   BackgroundVariant, ConnectionMode,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Save, RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle, X, GraduationCap, Hammer, Activity, Undo2, Redo2, ShieldCheck, TerminalSquare, Download, History, Layers } from 'lucide-react'
+import { Save, RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle, X, GraduationCap, Hammer, Activity, Undo2, Redo2, ShieldCheck, TerminalSquare, Download, History, Layers, PanelLeft, MoreHorizontal, SlidersHorizontal } from 'lucide-react'
 import type { NetworkTopology, NetworkNode as NetNode, NetworkEdge as NetEdge, NodeType, NetworkNodeConfig, NetworkInterface, RoutingTableEntry } from '../../types/index.ts'
 import type { TraceResult } from '../../lib/api/index.ts'
 import { network as networkApi } from '../../lib/api/index.ts'
@@ -300,9 +300,83 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
   )
 }
 
+// A single row in the toolbar's "More" glass menu.
+function MenuItem({ icon: Icon, label, onClick, active, danger, disabled }: {
+  icon: React.ComponentType<{ size?: number }>
+  label: string
+  onClick: () => void
+  active?: boolean
+  danger?: boolean
+  disabled?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={[
+        'flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-md text-xs font-medium text-left transition-colors disabled:opacity-40',
+        active ? 'bg-white/10 text-[var(--accent)]' : danger ? 'text-[var(--red)] hover:bg-white/5' : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]',
+      ].join(' ')}
+    >
+      <Icon size={13} />
+      {label}
+      {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />}
+    </button>
+  )
+}
+
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 const AUTOSAVE_KEY = 'netviz.topology.autosave.v1'
+
+// Ambient-traffic protocol families a user can independently mute, and how
+// much overall traffic each volume level generates (session burst size per
+// tick + how fast ticks fire — jittered, not a metronome).
+const AMBIENT_PROTOCOLS = [
+  { key: 'dns',   label: 'DNS' },
+  { key: 'https', label: 'HTTPS' },
+  { key: 'sql',   label: 'SQL' },
+  { key: 'smb',   label: 'SMB / Mail' },
+  { key: 'mqtt',  label: 'MQTT' },
+  { key: 'arp',   label: 'ARP' },
+  { key: 'icmp',  label: 'ICMP ping' },
+] as const
+type AmbientProtocol = typeof AMBIENT_PROTOCOLS[number]['key']
+type TrafficVolume = 'low' | 'medium' | 'high'
+const VOLUME: Record<TrafficVolume, { minBurst: number; maxBurst: number; minMs: number; maxMs: number }> = {
+  low:    { minBurst: 0, maxBurst: 1, minMs: 1800, maxMs: 2600 },
+  medium: { minBurst: 1, maxBurst: 2, minMs: 900,  maxMs: 1400 },
+  high:   { minBurst: 2, maxBurst: 4, minMs: 450,  maxMs: 850 },
+}
+
+// Which "show this traffic" toggle a live packet belongs to, derived from its
+// decoded ports/protocol — so the panel filters what's DISPLAYED without changing
+// what the simulation generates. DHCP and anything unclassified is always shown.
+function ambientFamily(packet?: PacketInfo, label?: string): AmbientProtocol | undefined {
+  if (packet) {
+    if (packet.protocol === 'ARP') return 'arp'
+    if (packet.l4 === 'ICMP') return 'icmp'
+    const ports = [packet.srcPort, packet.dstPort]
+    const has = (p: number) => ports.includes(p)
+    if (has(53)) return 'dns'
+    if (has(3306)) return 'sql'
+    if (has(1883)) return 'mqtt'
+    if (has(445) || has(143) || has(631)) return 'smb'
+    if (has(80) || has(443)) return 'https'
+    return undefined   // DHCP (67/68) and anything else → always shown
+  }
+  if (label) {
+    const L = label.toUpperCase()
+    if (L.includes('ARP')) return 'arp'
+    if (L.includes('ICMP') || L.includes('PING')) return 'icmp'
+    if (L.includes('DNS')) return 'dns'
+    if (L.includes('SQL')) return 'sql'
+    if (L.includes('MQTT')) return 'mqtt'
+    if (L.includes('SMB') || L.includes('IMAP') || L.includes('IPP')) return 'smb'
+    if (L.includes('HTTP')) return 'https'
+  }
+  return undefined
+}
 
 interface TopoSnapshot { nodes: NetNode[]; edges: NetEdge[] }
 
@@ -356,6 +430,9 @@ export default function NetworkBuilderPage() {
   // Timing for true pause/resume of the in-flight dot
   const stepStartRef = useRef(0)
   const remainingRef = useRef(0)
+  // Re-checks an in-flight trace's route the instant the topology changes
+  // (assigned below, once the drop helpers exist).
+  const checkTraceLivenessRef = useRef<() => void>(() => {})
 
   // ── Live simulation (auto-DHCP + background traffic) ──
   const liveRef = useRef(true)
@@ -382,6 +459,25 @@ export default function NetworkBuilderPage() {
     if (!el) return null
     return (el instanceof SVGSVGElement ? el : el.closest('svg')) as SVGSVGElement | null
   }, [])
+
+  // Below `md` there's no room for an always-visible palette column, so it
+  // becomes a toggleable drawer over the canvas (closed by default on mobile).
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  // Secondary toolbar actions (Tutorial, Build, Validate, State, Versions, Export, Reset)
+  // live in a "More" menu — keeps the toolbar to a handful of buttons at any width.
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  // Ambient "Live" traffic composition — which protocol families to generate and
+  // how much of it, so a noisy protocol (or the whole simulation) can be turned
+  // down without an all-or-nothing Live toggle.
+  const [trafficVolume, setTrafficVolume] = useState<TrafficVolume>('medium')
+  const [enabledProtocols, setEnabledProtocols] = useState<Record<AmbientProtocol, boolean>>({
+    dns: true, https: true, sql: true, smb: true, mqtt: true, arp: true, icmp: false,
+  })
+  const [trafficPanelOpen, setTrafficPanelOpen] = useState(false)
+  const trafficVolumeRef = useRef(trafficVolume)
+  trafficVolumeRef.current = trafficVolume
 
   // ── Packet analyzer (Wireshark-style): freeze + capture ────────────────────
   const [inspectorOpen, setInspectorOpen] = useState(false)
@@ -500,9 +596,12 @@ export default function NetworkBuilderPage() {
 
   useEffect(() => {
     // Re-evaluate addressing + traffic right now instead of waiting for the next
-    // clock tick — the network responds the instant something changes. (Packets
-    // on links that just died are dropped by the rAF engine on the next frame.)
+    // clock tick — the network responds the instant something changes. (Live
+    // packets on links that just died are dropped by the rAF engine next frame.)
     if (!frozenRef.current) runSimTickRef.current()
+    // A user-initiated trace must react just as fast: if a device/link on its
+    // route just went down, drop the in-flight packet where it stands.
+    checkTraceLivenessRef.current()
   }, [topoSignature])
 
   // New node ids are `${type}-${++nodeCounter}` — start the counter above every
@@ -634,12 +733,74 @@ export default function NetworkBuilderPage() {
   }, [serializeTopology])
 
   // ── Animation engine (recursive setTimeout for variable speed) ─────────────
+
+  // Is the hop the packet is (about to be) crossing still viable? False once the
+  // edge for `step` is gone/down or either of its endpoints is powered off — so a
+  // trace never sails across a router that was switched off mid-flight.
+  const hopAlive = useCallback((result: TraceResult, step: number): boolean => {
+    const nodeOn = (id: string) => {
+      const n = nodesRef.current.find(x => x.id === id)
+      return !!n && (n.data as NetworkNodeData).config.powered !== false
+    }
+    const edgeId = result.edgePath[step - 1]
+    if (edgeId) {
+      const e = edgesRef.current.find(x => x.id === edgeId)
+      if (!e || (e.data?.linkStatus ?? 'up') === 'down') return false
+    }
+    const from = result.path[step - 1]
+    const to = result.path[step]
+    if (from && !nodeOn(from)) return false
+    if (to && !nodeOn(to)) return false
+    return true
+  }, [])
+
+  // Stop an in-flight trace where its route just broke: flag the dead link + the
+  // last node reached, tear down the (now-stale) result overlay, and report it.
+  const dropTraceAt = useCallback((edgeId?: string, nodeId?: string) => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    getEdgesSvg()?.unpauseAnimations()
+    traceResultRef.current = null
+    onAnimDoneRef.current = null
+    quietRef.current = false
+    isAnimatingRef.current = false
+    stepRef.current = 0
+    setTraceResult(null)
+    setTraceStep(-1)
+    setIsAnimating(false)
+    setIsPaused(false)
+    isPausedRef.current = false
+    setEdges(prev => prev.map(e => ({
+      ...e,
+      data: { ...e.data, packetState: (e.id === edgeId ? 'blocked' : 'idle') as PacketEdgeState, packetReversed: false },
+    })))
+    setNodes(prev => prev.map(n => ({
+      ...n,
+      data: { ...n.data, highlight: (n.id === nodeId ? 'blocked' : 'none') as NodeHighlight },
+    })))
+    setStatus('⚠ Packet dropped — a device or link on its route went down')
+    window.setTimeout(() => setStatus(''), 3000)
+  }, [getEdgesSvg, setEdges, setNodes, setIsAnimating, setIsPaused, setTraceResult, setTraceStep, setStatus])
+
+  // Fired whenever the topology signature changes (power / link edits): if a trace
+  // is mid-flight and the hop it's on just died, drop the packet immediately.
+  checkTraceLivenessRef.current = () => {
+    if (!isAnimatingRef.current || isPausedRef.current) return
+    const r = traceResultRef.current
+    const s = stepRef.current
+    if (r && !hopAlive(r, s)) dropTraceAt(r.edgePath[s - 1], r.path[s - 1])
+  }
+
   const runStep = useCallback(() => {
     if (isPausedRef.current) return
     const result = traceResultRef.current
     if (!result) return
 
     const step = stepRef.current + 1
+    // Drop the packet instead of animating it into a hop whose link/device died.
+    if (!hopAlive(result, step)) {
+      dropTraceAt(result.edgePath[step - 1], result.path[step - 1])
+      return
+    }
     stepRef.current = step
     setTraceStep(step)
 
@@ -672,7 +833,7 @@ export default function NetworkBuilderPage() {
       onAnimDoneRef.current = null
       done?.()
     }
-  }, [setEdges, setNodes, setIsAnimating, setTraceStep])
+  }, [setEdges, setNodes, setIsAnimating, setTraceStep, hopAlive, dropTraceAt])
 
   const startAnimation = useCallback((result: TraceResult, currentEdges: Edge<PacketEdgeData>[]) => {
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -737,41 +898,16 @@ export default function NetworkBuilderPage() {
     setNodes(prev => prev.map(n => ({ ...n, data: { ...n.data, highlight: 'none' as NodeHighlight } })))
   }, [setEdges, setNodes, getEdgesSvg, setIsAnimating, setIsPaused, setTraceResult, setTraceStep])
 
-  // Re-apply the current step's edge data, optionally bumping the anim version
-  const reapplyCurrentStep = useCallback((bumpVersion: boolean) => {
-    const result = traceResultRef.current
-    if (!result) return
-    if (bumpVersion) animVersionRef.current++
-    const step = stepRef.current
-    const reversed = edgeReversedRef.current
-    const animDuration = animSpeedRef.current
-    const animVersion = animVersionRef.current
-    setEdges(prev => prev.map(e => ({
-      ...e,
-      data: {
-        ...e.data,
-        packetState: getEdgeState(e.id, result, step),
-        packetReversed: reversed.has(e.id),
-        animDuration,
-        animVersion,
-      },
-    })))
-  }, [setEdges])
-
   const handleSpeedChange = useCallback((ms: number) => {
     animSpeedRef.current = ms
     setAnimSpeed(ms)
-    // Live traffic retimes itself in place — the rAF engine reads animSpeedRef
-    // every frame, so all in-flight dots smoothly change pace immediately.
-    // If actively playing, restart the current trace hop at the new speed.
-    if (isAnimating && !isPausedRef.current) {
-      if (timerRef.current) clearTimeout(timerRef.current)
-      reapplyCurrentStep(true)
-      stepStartRef.current = performance.now()
-      remainingRef.current = ms
-      timerRef.current = setTimeout(runStep, ms)
-    }
-  }, [isAnimating, runStep, reapplyCurrentStep, setAnimSpeed])
+    // Live rAF traffic retimes itself in place — the engine reads animSpeedRef on
+    // every frame, so all in-flight live dots change pace immediately and smoothly.
+    // The step-based trace can't retime an already-running SMIL hop without
+    // restarting it (which looked like a jarring reset), so the new speed simply
+    // takes effect from the next hop — runStep reads animSpeedRef when it schedules
+    // each one. No remount, no jump back to the start of the current hop.
+  }, [setAnimSpeed])
 
   const handlePauseToggle = useCallback(() => {
     if (isPausedRef.current) {
@@ -813,6 +949,7 @@ export default function NetworkBuilderPage() {
     flightsRef.current.push({
       id: `fl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       path, edgePath, hop: 0, progress: 0, color, label, packet, onDone, onAbort, el: null,
+      family: ambientFamily(packet, label),
     })
     bumpFlights()
     ensureRaf()
@@ -969,17 +1106,18 @@ export default function NetworkBuilderPage() {
 
     // What each server role actually speaks, so the label matches the device:
     // a printer gets IPP, a file server SMB, a mail server IMAP — not HTTP.
-    const SERVICE: Record<string, { label: string; color: string; usesDns: boolean; appTier?: boolean }> = {
-      www:           { label: 'HTTPS', color: '#38bdf8', usesDns: true, appTier: true },
-      server:        { label: 'HTTPS', color: '#3fb950', usesDns: true, appTier: true },
-      proxy:         { label: 'HTTPS', color: '#bc8cff', usesDns: true, appTier: true },
-      api_gateway:   { label: 'HTTPS', color: '#c297ff', usesDns: true, appTier: true },
-      load_balancer: { label: 'HTTPS', color: '#d2a8ff', usesDns: true, appTier: true },
-      mailserver:    { label: 'IMAP',  color: '#e3b341', usesDns: false },
-      fileserver:    { label: 'SMB',   color: '#56d4dd', usesDns: false },
-      nas:           { label: 'SMB',   color: '#56d4dd', usesDns: false },
-      storage:       { label: 'SMB',   color: '#56d4dd', usesDns: false },
-      printer:       { label: 'IPP',   color: '#f0a35e', usesDns: false },
+    // `group` is which "disable this protocol" toggle it falls under.
+    const SERVICE: Record<string, { label: string; color: string; usesDns: boolean; appTier?: boolean; group: AmbientProtocol }> = {
+      www:           { label: 'HTTPS', color: '#38bdf8', usesDns: true, appTier: true, group: 'https' },
+      server:        { label: 'HTTPS', color: '#3fb950', usesDns: true, appTier: true, group: 'https' },
+      proxy:         { label: 'HTTPS', color: '#bc8cff', usesDns: true, appTier: true, group: 'https' },
+      api_gateway:   { label: 'HTTPS', color: '#c297ff', usesDns: true, appTier: true, group: 'https' },
+      load_balancer: { label: 'HTTPS', color: '#d2a8ff', usesDns: true, appTier: true, group: 'https' },
+      mailserver:    { label: 'IMAP',  color: '#e3b341', usesDns: false, group: 'smb' },
+      fileserver:    { label: 'SMB',   color: '#56d4dd', usesDns: false, group: 'smb' },
+      nas:           { label: 'SMB',   color: '#56d4dd', usesDns: false, group: 'smb' },
+      storage:       { label: 'SMB',   color: '#56d4dd', usesDns: false, group: 'smb' },
+      printer:       { label: 'IPP',   color: '#f0a35e', usesDns: false, group: 'smb' },
     }
 
     // Cap concurrent dots so large topologies don't drown in re-renders
@@ -988,12 +1126,14 @@ export default function NetworkBuilderPage() {
     const back = (q: { path: string[]; edgePath: string[] }) => ({ path: [...q.path].reverse(), edgePath: [...q.edgePath].reverse() })
     const SQL_STMTS = ['SELECT * FROM users WHERE id = ?', 'SELECT token FROM sessions WHERE sid = ?', 'UPDATE carts SET qty = ? WHERE id = ?', 'INSERT INTO events (type, ts) VALUES (?, ?)', 'SELECT name, price FROM products LIMIT 20']
 
-    const burst = 1 + Math.floor(Math.random() * 2)   // 1–2 concurrent sessions
+    const vol = VOLUME[trafficVolumeRef.current]
+    const burst = vol.minBurst + Math.floor(Math.random() * (vol.maxBurst - vol.minBurst + 1))
     for (let k = 0; k < burst; k++) {
       const src = clients[Math.floor(Math.random() * clients.length)]
       const srcType = data(src).type
 
       // Role-appropriate destination. IoT only sends telemetry to gateways/cloud.
+      // Every protocol family is generated; the traffic panel filters what's shown.
       let candidates = flowNodes.filter(n => isOn(n) && hasIp(n) && n.id !== src.id && SERVICE[data(n).type])
       if (srcType === 'iot') candidates = candidates.filter(n => ['api_gateway', 'www', 'server'].includes(data(n).type))
       if (candidates.length === 0) continue
@@ -1063,11 +1203,43 @@ export default function NetworkBuilderPage() {
       }
       startSession()
     }
+
+    // Occasional ambient ICMP — any two addressed, powered hosts, independent
+    // of the client/service roles above (a PC pinging a switch's management IP,
+    // a server pinging the gateway, etc.). Hidden by default via the traffic panel.
+    if (flightsRef.current.length <= 30 && Math.random() < 0.35) {
+      const pingable = flowNodes.filter(n => isOn(n) && hasIp(n))
+      if (pingable.length >= 2) {
+        const pSrc = pingable[Math.floor(Math.random() * pingable.length)]
+        const pTargets = pingable.filter(n => n.id !== pSrc.id)
+        const pDst = pTargets[Math.floor(Math.random() * pTargets.length)]
+        const pp = findPath(pSrc.id, pDst.id, simpleEdges)
+        if (pp) {
+          spawnAgent(pp.path, pp.edgePath, '#79c0ff', 'ICMP', pkt(pSrc, pDst, 'ICMP', { phase: 'request' }), () => {
+            const rb = back(pp)
+            spawnAgent(rb.path, rb.edgePath, '#79c0ff', 'ICMP ◂', pkt(pDst, pSrc, 'ICMP', { phase: 'reply' }))
+          })
+        }
+      }
+    }
   }
 
+  // Self-rescheduling with jittered delays (rather than a fixed-period
+  // setInterval) so ambient traffic feels organic instead of metronomic; the
+  // delay range comes from the current volume level on every tick.
   useEffect(() => {
-    const iv = setInterval(() => runSimTickRef.current(), 1200)
-    return () => clearInterval(iv)
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout>
+    const schedule = () => {
+      const { minMs, maxMs } = VOLUME[trafficVolumeRef.current]
+      timer = setTimeout(() => {
+        if (cancelled) return
+        runSimTickRef.current()
+        schedule()
+      }, minMs + Math.random() * (maxMs - minMs))
+    }
+    schedule()
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [])
 
   // ── Node/edge management ────────────────────────────────────────────────────
@@ -1342,79 +1514,142 @@ export default function NetworkBuilderPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-900)] border-b border-[var(--border)] shrink-0">
-        <span className="text-xs font-semibold text-[var(--text-primary)]">{topology?.name ?? 'Network Builder'}</span>
-        <div className="flex-1" />
-        {status && <span className="text-[11px] text-[var(--green)] font-mono">{status}</span>}
-        <button onClick={() => setShowTutorial(true)} className="btn-ghost" title="Open tutorial">
-          <GraduationCap size={12} />Tutorial
-        </button>
-        <button onClick={handleStartBuild} className="btn-ghost" title="Guided hands-on build" disabled={guidedActive}>
-          <Hammer size={12} />Build
-        </button>
-        <button
-          onClick={() => { handleSave(); setShowValidation(v => !v) }}
-          className={showValidation ? 'btn-primary' : 'btn-ghost'}
-          title="Validate the design (saves first, then runs all checks)"
-        >
-          <ShieldCheck size={12} />Validate
-        </button>
-        <button
-          onClick={() => { handleSave(); setShowState(v => !v) }}
-          className={showState ? 'btn-primary' : 'btn-ghost'}
-          title="Show the selected device's live state (ARP, MAC, OSPF, STP, ACL, NAT)"
-        >
-          <TerminalSquare size={12} />State
-        </button>
-        <button
-          onClick={() => { handleSave(); setShowVersions(v => !v) }}
-          className={showVersions ? 'btn-primary' : 'btn-ghost'}
-          title="Snapshot history — save and restore versions of this topology"
-        >
-          <History size={12} />Versions
-        </button>
-        <button
-          onClick={() => setLiveMode(v => !v)}
-          className={liveMode ? 'btn-primary' : 'btn-ghost'}
-          title="Toggle live background traffic (hosts request DHCP automatically either way)"
-        >
-          <Activity size={12} />{liveMode ? 'Live ●' : 'Live'}
-        </button>
-        <button
-          onClick={() => setInspectorOpen(v => !v)}
-          className={inspectorOpen ? 'btn-primary' : 'btn-ghost'}
-          title="Packet analyzer — freeze traffic and click any packet to decode it (Wireshark-style)"
-        >
-          <Layers size={12} />Analyze
-        </button>
-        <button onClick={undo} disabled={historyRef.current.past.length === 0} className="btn-ghost" title="Undo (Ctrl+Z)">
-          <Undo2 size={12} />
-        </button>
-        <button onClick={redo} disabled={historyRef.current.future.length === 0} className="btn-ghost" title="Redo (Ctrl+Shift+Z)">
-          <Redo2 size={12} />
-        </button>
-        <div data-tour="toolbar" className="flex items-center gap-2">
-          <button onClick={handleSave} disabled={saving} className="btn-primary"><Save size={11} />{saving ? 'Saving…' : 'Save'}</button>
-          <button
-            onClick={async () => {
-              if (!topology?.id) return
-              await handleSave()
-              const { data } = await networkApi.topologyConfig(topology.id)
-              const url = URL.createObjectURL(new Blob([data], { type: 'text/plain' }))
-              const a = document.createElement('a')
-              a.href = url
-              a.download = `${(topology.name ?? 'network').replace(/\s+/g, '-')}.cfg`
-              a.click()
-              URL.revokeObjectURL(url)
-            }}
-            className="btn-ghost"
-            title="Export every device's running-config"
-          >
-            <Download size={11} />Export
+      {/* Toolbar — kept to a handful of controls; everything occasional lives in "More" */}
+      <div className="relative z-30 flex flex-wrap items-center justify-between gap-2 px-3 py-2 backdrop-blur-md bg-[var(--glass-bg)] border-b border-[var(--border)] shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-semibold text-[var(--text-primary)] truncate">{topology?.name ?? 'Network Builder'}</span>
+          {status && <span className="text-[11px] text-[var(--green)] font-mono shrink-0">{status}</span>}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={undo} disabled={historyRef.current.past.length === 0} className="btn-ghost !px-2" title="Undo (Ctrl+Z)">
+            <Undo2 size={12} />
           </button>
-          {selectedNode && <button onClick={handleDeleteSelected} className="btn-danger"><Trash2 size={11} />Delete</button>}
-          <button onClick={handleReset} className="btn-ghost"><RefreshCw size={11} />Reset</button>
+          <button onClick={redo} disabled={historyRef.current.future.length === 0} className="btn-ghost !px-2" title="Redo (Ctrl+Shift+Z)">
+            <Redo2 size={12} />
+          </button>
+          <button
+            onClick={() => setLiveMode(v => !v)}
+            className={liveMode ? 'btn-primary' : 'btn-ghost'}
+            title="Toggle live background traffic (hosts request DHCP automatically either way)"
+          >
+            <Activity size={12} />{liveMode ? 'Live ●' : 'Live'}
+          </button>
+          <div className="relative">
+            <button
+              onClick={() => setTrafficPanelOpen(v => !v)}
+              className={['btn-ghost !px-2', trafficPanelOpen ? 'bg-white/15 border-white/25 text-[var(--text-primary)]' : ''].join(' ')}
+              title="Ambient traffic settings — volume & protocol mix"
+            >
+              <SlidersHorizontal size={12} />
+            </button>
+            {trafficPanelOpen && (
+              <>
+                <div onClick={() => setTrafficPanelOpen(false)} aria-hidden="true" className="fixed inset-0 z-40" />
+                <div
+                  className="rounded-lg shadow-2xl p-3"
+                  style={{
+                    position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50,
+                    width: 256, background: 'var(--bg-800)', border: '1px solid var(--border)',
+                  }}
+                >
+                  <div className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Live traffic</div>
+
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <span className="text-[10px] text-[var(--text-muted)] shrink-0">Volume</span>
+                    <div className="flex rounded overflow-hidden border border-white/10 flex-1">
+                      {(['low', 'medium', 'high'] as const).map(v => (
+                        <button
+                          key={v}
+                          onClick={() => setTrafficVolume(v)}
+                          className={[
+                            'flex-1 px-2 py-1 text-[10px] font-medium capitalize transition-colors border-r border-white/10 last:border-r-0',
+                            trafficVolume === v
+                              ? 'bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white'
+                              : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-white/10',
+                          ].join(' ')}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                    {AMBIENT_PROTOCOLS.map(({ key, label }) => (
+                      <label key={key} className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={enabledProtocols[key]}
+                          onChange={() => setEnabledProtocols(prev => ({ ...prev, [key]: !prev[key] }))}
+                          className="w-3 h-3 accent-[var(--accent)]"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => setInspectorOpen(v => !v)}
+            className={inspectorOpen ? 'btn-primary' : 'btn-ghost'}
+            title="Packet analyzer — freeze traffic and click any packet to decode it (Wireshark-style)"
+          >
+            <Layers size={12} />Analyze
+          </button>
+          <div data-tour="toolbar" className="flex items-center gap-2">
+            <button onClick={handleSave} disabled={saving} className="btn-primary"><Save size={11} />{saving ? 'Saving…' : 'Save'}</button>
+            {selectedNode && <button onClick={handleDeleteSelected} className="btn-danger"><Trash2 size={11} />Delete</button>}
+
+            {/* More: Tutorial, Build, Validate, State, Versions, Export, Reset */}
+            <div className="relative pl-2 ml-0.5 border-l border-white/10">
+              <button
+                onClick={() => setMenuOpen(v => !v)}
+                className={['btn-ghost !px-2', menuOpen ? 'bg-white/15 border-white/25 text-[var(--text-primary)]' : ''].join(' ')}
+                title="More actions"
+              >
+                <MoreHorizontal size={14} />
+              </button>
+              {menuOpen && (
+                <>
+                  <div onClick={() => setMenuOpen(false)} aria-hidden="true" className="fixed inset-0 z-40" />
+                  <div
+                    className="rounded-lg shadow-2xl p-1.5 flex flex-col gap-0.5"
+                    style={{
+                      position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50,
+                      width: 224, background: 'var(--bg-800)', border: '1px solid var(--border)',
+                    }}
+                  >
+                    <MenuItem icon={GraduationCap} label="Tutorial" onClick={() => { setShowTutorial(true); setMenuOpen(false) }} />
+                    <MenuItem icon={Hammer} label="Guided build" disabled={guidedActive} onClick={() => { handleStartBuild(); setMenuOpen(false) }} />
+                    <div className="my-1 border-t border-[var(--glass-border)]" />
+                    <MenuItem icon={ShieldCheck} label="Validate" active={showValidation} onClick={() => { handleSave(); setShowValidation(v => !v); setMenuOpen(false) }} />
+                    <MenuItem icon={TerminalSquare} label="Device state" active={showState} onClick={() => { handleSave(); setShowState(v => !v); setMenuOpen(false) }} />
+                    <MenuItem icon={History} label="Versions" active={showVersions} onClick={() => { handleSave(); setShowVersions(v => !v); setMenuOpen(false) }} />
+                    <div className="my-1 border-t border-[var(--glass-border)]" />
+                    <MenuItem
+                      icon={Download}
+                      label="Export configs"
+                      onClick={async () => {
+                        setMenuOpen(false)
+                        if (!topology?.id) return
+                        await handleSave()
+                        const { data } = await networkApi.topologyConfig(topology.id)
+                        const url = URL.createObjectURL(new Blob([data], { type: 'text/plain' }))
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `${(topology.name ?? 'network').replace(/\s+/g, '-')}.cfg`
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      }}
+                    />
+                    <MenuItem icon={RefreshCw} label="Reset canvas" danger onClick={() => { setMenuOpen(false); handleReset() }} />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1434,10 +1669,37 @@ export default function NetworkBuilderPage() {
 
       {/* Main area */}
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-44 shrink-0"><NodePalette onDragStart={onDragStart} /></div>
+        {/* Palette: static column on `md`+, a toggleable drawer over the canvas below it */}
+        <div className="hidden md:block md:w-44 md:shrink-0"><NodePalette onDragStart={onDragStart} /></div>
 
         {/* Canvas */}
         <div ref={reactFlowWrapper} data-tour="canvas" className="flex-1 relative">
+          {/* Mobile-only palette toggle */}
+          <button
+            onClick={() => setPaletteOpen(v => !v)}
+            title="Toggle device palette"
+            className="md:hidden absolute top-3 left-3 z-30 glass rounded-md p-2 shadow-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+          >
+            <PanelLeft size={16} />
+          </button>
+
+          {/* Mobile palette drawer + backdrop */}
+          {paletteOpen && (
+            <div
+              onClick={() => setPaletteOpen(false)}
+              aria-hidden="true"
+              className="md:hidden absolute inset-0 z-30 bg-black/40"
+            />
+          )}
+          <div
+            className={[
+              'md:hidden absolute inset-y-0 left-0 z-40 w-44 max-w-[70vw] transform transition-transform duration-200',
+              paletteOpen ? 'translate-x-0' : '-translate-x-full',
+            ].join(' ')}
+          >
+            <NodePalette onDragStart={onDragStart} />
+          </div>
+
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -1463,7 +1725,7 @@ export default function NetworkBuilderPage() {
             <Background variant={BackgroundVariant.Dots} color="#21262d" gap={20} size={1} />
             <Controls />
             <MiniMap nodeColor={n => meta(n.type ?? '').color} />
-            <PacketFlightLayer flights={flightsRef.current} version={flightVersion} />
+            <PacketFlightLayer flights={flightsRef.current} version={flightVersion} enabled={enabledProtocols} />
           </ReactFlow>
 
           {/* Result overlay — shown when animation finishes */}
@@ -1521,7 +1783,7 @@ export default function NetworkBuilderPage() {
 
         {/* Right inspector (resizable): packet analyzer > trace > edge > node */}
         {inspectorOpen && (
-          <ResizablePanel>
+          <ResizablePanel onBackdropClick={() => { setInspectorOpen(false); if (frozenRef.current) applyFreeze(false) }}>
             <PacketInspector
               packets={capturedPackets}
               selectedId={selectedCaptureId}
@@ -1534,12 +1796,12 @@ export default function NetworkBuilderPage() {
           </ResizablePanel>
         )}
         {!inspectorOpen && traceResult && (
-          <ResizablePanel>
+          <ResizablePanel onBackdropClick={clearTrace}>
             <TracePanel result={traceResult} activeStep={traceStep} onClose={clearTrace} />
           </ResizablePanel>
         )}
         {!traceResult && selectedEdge && (
-          <ResizablePanel>
+          <ResizablePanel onBackdropClick={() => setSelectedEdgeId(null)}>
             <EdgePropertiesPanel
               edge={selectedEdge}
               sourceName={nodeName(selectedEdge.source)}
@@ -1556,7 +1818,7 @@ export default function NetworkBuilderPage() {
           </ResizablePanel>
         )}
         {!traceResult && !selectedEdge && selectedNode && (
-          <ResizablePanel>
+          <ResizablePanel onBackdropClick={() => setSelectedNodeId(null)}>
             <PropertiesPanel
               node={selectedNode}
               onClose={() => setSelectedNodeId(null)}

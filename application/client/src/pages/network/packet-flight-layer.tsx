@@ -17,15 +17,20 @@ export interface Flight {
   onDone?: () => void
   onAbort?: () => void
   el?: HTMLDivElement | null
+  family?: string       // ambient protocol family (dns/https/…) for the display filter
 }
 
 // Rendered inside React Flow's transformed viewport, so dots pan/zoom with the
-// canvas. Only re-renders when `version` changes (a flight added/removed), never
-// per frame — frame-to-frame motion is done imperatively on `flight.el`.
-function FlightLayer({ flights }: { flights: Flight[]; version: number }) {
+// canvas. Re-renders when `version` changes (a flight added/removed) or when the
+// `enabled` display filter changes — never per frame; frame-to-frame motion is
+// done imperatively on `flight.el`. Traffic whose family is toggled off in the
+// panel is hidden here, but still runs in the engine — it's filtered from view,
+// not from the simulation.
+function FlightLayer({ flights, enabled }: { flights: Flight[]; version: number; enabled: Record<string, boolean> }) {
+  const shown = flights.filter(f => !f.family || enabled[f.family])
   return (
     <ViewportPortal>
-      {flights.map(f => (
+      {shown.map(f => (
         <div
           key={f.id}
           ref={el => { f.el = el }}

@@ -33,7 +33,7 @@ export default function ValidationPanel({ topologyId, onClose, onFocus }: {
   useEffect(() => { run() }, [run])
 
   return (
-    <div className="absolute bottom-3 left-3 w-80 max-h-[60%] flex flex-col rounded-lg bg-[var(--bg-900)] border border-[var(--border)] shadow-xl z-20 overflow-hidden">
+    <div className="absolute bottom-3 left-3 w-[min(20rem,calc(100%-1.5rem))] max-h-[60%] flex flex-col rounded-lg popover shadow-xl z-20 overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border)]">
         <ShieldCheck size={14} className="text-[var(--accent)]" />
         <span className="text-xs font-semibold text-[var(--text-primary)]">Design validation</span>
