@@ -2,12 +2,12 @@
   "name": "routing-visualizer-backend",
   "version": "1.0.0",
   "scripts": {
-    "dev": "nodemon --watch src --watch server.ts --ext ts --exec \"node server.ts\"",
+    "dev": "nodemon --watch src --watch server.ts --ext ts --exec \"tsx server.ts\"",
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "fill-demo-data": "node  src/db/fill-demo-data.ts",
+    "fill-demo-data": "node --import ./register-tsnode.mjs src/db/fill-demo-data.ts",
     "test": "cross-env TS_NODE_TRANSPILE_ONLY=true AUTHJWT_VERIFY=false LOG_LEVEL=error MONGODB_CONNECTION_STRING=mongodb://127.0.0.1:50000/team_a c8 --reporter html --reporter text-summary --reporter json-summary mocha tests --recursive --timeout 10000 --exit",
     "test-ci": "cross-env TS_NODE_TRANSPILE_ONLY=true AUTHJWT_VERIFY=false LOG_LEVEL=error c8 --reporter cobertura --reporter text-summary mocha tests --recursive --timeout 10000 --exit --reporter mocha-junit-reporter"
   },
@@ -20,6 +20,7 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.2",
+    "tsx": "^4.23.0",
     "uuid": "^9.0.0",
     "winston": "^3.19.0"
   },
