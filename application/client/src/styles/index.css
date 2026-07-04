@@ -19,6 +19,21 @@
     --yellow: #d29922;
     --purple: #bc8cff;
     --orange: #ffa657;
+    --accent-2: #a371f7;
+    /* Opaque enough to always read as a solid card (menus/panels can open over
+       busy canvas content) — blur + the faint border still give it a glass feel
+       without ever looking like a plain black rectangle. */
+    --glass-bg: rgba(33, 38, 45, 0.94);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glow-accent: rgba(88, 166, 255, 0.35);
+  }
+
+  html {
+    /* Tells the browser/OS to theme native widgets (the parts of <select>'s
+       popup, scrollbars, etc. that our CSS can't reach) dark instead of the
+       platform default light — otherwise e.g. Linux/GTK Chrome renders select
+       option lists plain white no matter what we style on the element itself. */
+    color-scheme: dark;
   }
 
   html, body, #root {
@@ -27,6 +42,11 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
+  }
+
+  select, option {
+    background-color: var(--bg-800);
+    color: var(--text-primary);
   }
 
   body {
@@ -48,28 +68,41 @@
 
 @layer components {
   .btn {
-    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-all cursor-pointer select-none border;
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none border disabled:opacity-40 disabled:cursor-not-allowed;
   }
   .btn-primary {
-    @apply btn bg-[var(--accent)] text-white border-transparent hover:opacity-80;
+    @apply btn text-white border-transparent bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_4px_20px_-4px_var(--glow-accent)] hover:brightness-110;
   }
   .btn-ghost {
-    @apply btn bg-transparent text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-700)] hover:text-[var(--text-primary)];
+    @apply btn backdrop-blur-md bg-white/5 text-[var(--text-secondary)] border-white/10 hover:bg-white/10 hover:border-white/20 hover:text-[var(--text-primary)];
   }
   .btn-danger {
-    @apply btn bg-[var(--red)] text-white border-transparent hover:opacity-80;
+    @apply btn bg-[var(--red)] text-white border-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] hover:brightness-110 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_4px_16px_-4px_rgba(248,81,73,0.45)];
   }
   .btn-success {
-    @apply btn bg-[var(--green)] text-white border-transparent hover:opacity-80;
+    @apply btn bg-[var(--green)] text-white border-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] hover:brightness-110 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_4px_16px_-4px_rgba(63,185,80,0.45)];
   }
   .card {
-    @apply bg-[var(--bg-900)] border border-[var(--border)] rounded-lg;
+    @apply bg-[rgba(22,27,34,0.8)] backdrop-blur-sm border border-[var(--border)] rounded-lg;
+  }
+  .card-hover {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-[rgba(88,166,255,0.4)];
+  }
+  .glass {
+    @apply backdrop-blur-md bg-[var(--glass-bg)] border border-[var(--glass-border)];
+  }
+  /* Solid, fully opaque surface for anything that MUST always be legible on
+     top of arbitrary content (dropdown lists, popovers, menus) — no
+     backdrop-filter dependency, since blur support/rendering isn't guaranteed
+     in every browser/renderer and these can't afford to ever look broken. */
+  .popover {
+    @apply bg-[var(--bg-800)] border border-[var(--border)];
   }
   .input {
-    @apply bg-[var(--bg-800)] border border-[var(--border)] rounded px-3 py-1.5 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent)] transition-colors placeholder:text-[var(--text-muted)] w-full;
+    @apply backdrop-blur-sm bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent)] transition-colors placeholder:text-[var(--text-muted)] w-full;
   }
   .select {
-    @apply bg-[var(--bg-800)] border border-[var(--border)] rounded px-2 py-1.5 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent)] cursor-pointer;
+    @apply backdrop-blur-sm bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent)] cursor-pointer;
   }
   .badge {
     @apply inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono font-medium;
@@ -120,10 +153,11 @@
 .proto-SSDP   { background: rgba(156,163,175,0.07);border-left: 2px solid #9ca3af; }
 .proto-SIP    { background: rgba(255,123,114,0.1); border-left: 2px solid #ff7b72; }
 .proto-default{ background: rgba(110,118,129,0.05);border-left: 2px solid #6e7681; }
-.row-selected { background: rgba(88,166,255,0.18) !important; }
+.row-selected { background: linear-gradient(90deg, rgba(88,166,255,0.22), rgba(163,113,247,0.12)) !important; }
 
 /* Hex dump */
 .hex-line { font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.7; white-space: pre; }
+.hex-line:nth-child(even) { background: rgba(255,255,255,0.02); }
 .hex-offset { color: var(--text-muted); }
 .hex-bytes  { color: var(--accent); }
 .hex-ascii  { color: var(--green); }
