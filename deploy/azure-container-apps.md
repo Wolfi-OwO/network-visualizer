@@ -11,7 +11,7 @@ MongoDB vCore, or MongoDB Atlas).
 flowchart LR
     subgraph runtime["Runtime"]
         internet["Internet"] -- HTTPS --> ingress["ACA ingress (managed cert)"] --> container["container :8080"]
-        container -- "MONGO_URI (TLS)" --> mongo[("Azure Cosmos DB for MongoDB vCore — or Atlas")]
+        container -- "MONGODB_CONNECTION_STRING (TLS)" --> mongo[("Azure Cosmos DB for MongoDB vCore — or Atlas")]
     end
     subgraph delivery["Continuous delivery"]
         release["GitHub Release"] --> build["build client"] --> push["docker build & push to ACR"] --> update["az containerapp update"]
@@ -98,7 +98,7 @@ az containerapp create \
       REQUIRE_AUTH=false ALLOW_DEV_LOGIN=false MICROSOFT_TENANT=common \
       GOOGLE_CLIENT_ID="<google client id>" MICROSOFT_CLIENT_ID="<microsoft client id>" \
       JWT_SECRET=secretref:jwt-secret \
-      MONGO_URI=secretref:mongo-uri \
+      MONGODB_CONNECTION_STRING=secretref:mongo-uri \
       GOOGLE_CLIENT_SECRET=secretref:google-secret \
       MICROSOFT_CLIENT_SECRET=secretref:ms-secret
 

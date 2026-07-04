@@ -10,7 +10,7 @@ export const config = {
   /** Runtime environment */
   nodeEnv: process.env.NODE_ENV ?? 'development',
   /** MongoDB connection string */
-  mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/netviz',
+  mongoUri: process.env.MONGODB_CONNECTION_STRING || 'mongodb://localhost:27017/netviz',
   /** Drop & recreate the database on startup (for a clean demo) */
   dbRecreate: process.env.DB_RECREATE === 'true',
   /** Default origins allowed by CORS (localhost/127.0.0.1 on any port) */
