@@ -105,7 +105,7 @@ export default function PacketSender({
   }
 
   return (
-    <div data-tour="sender" className="relative z-20 flex flex-wrap items-center gap-2 px-3 py-2 backdrop-blur-md bg-[var(--glass-bg)] border-b border-[var(--border)]">
+    <div data-tour="sender" className="relative z-20 flex flex-wrap items-center gap-2 px-3 py-2 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)]">
       {/* Field controls: label → source → destination → protocol → port → TTL → send, wrap as one unit */}
       <div className="flex flex-wrap items-center gap-2">
         {/* Label */}

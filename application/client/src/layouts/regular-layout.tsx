@@ -11,8 +11,8 @@ export default function RegularLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-[var(--bg-950)]">
-      <header className="flex md:hidden items-center gap-2.5 px-3 h-12 shrink-0 backdrop-blur-md bg-[var(--glass-bg)] border-b border-[var(--border)]">
+    <div className="flex flex-col h-full w-full overflow-hidden">
+      <header className="flex md:hidden items-center gap-2.5 px-3 h-12 shrink-0 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)]">
         <button
           onClick={() => setSidebarOpen(true)}
           aria-label="Open menu"

@@ -16,7 +16,7 @@ export default function Footer() {
     appConfig.licenses && `${appConfig.licenses} license`,
   ].filter(Boolean).join(' · ')
   return (
-    <footer className="flex items-center justify-between gap-4 px-4 h-9 shrink-0 backdrop-blur-md bg-[var(--glass-bg)] border-t border-[var(--border)] text-[11px] text-[var(--text-muted)]">
+    <footer className="flex items-center justify-between gap-4 px-4 h-9 shrink-0 backdrop-blur-xl bg-[var(--glass-bg)] border-t border-[var(--glass-border)] text-[11px] text-[var(--text-muted)]">
       {/* Left — copyright */}
       <span className="truncate">© {year} {appConfig.company}. All Rights Reserved.</span>
 

@@ -112,7 +112,7 @@ export default function CIDRCalculatorPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-[var(--bg-900)] border-b border-[var(--border)] shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)] shrink-0">
         <Calculator size={16} className="text-[var(--accent)]" />
         <span className="text-sm font-semibold text-[var(--text-primary)]">CIDR Calculator</span>
         <span className="hidden sm:inline text-xs text-[var(--text-muted)]">IPv4 Subnet Calculator & Network Analyzer</span>
@@ -143,7 +143,7 @@ export default function CIDRCalculatorPage() {
               <button
                 key={p}
                 onClick={() => { dispatch({ type: 'set', key: 'input', value: p }); calculate(p) }}
-                className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--bg-700)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--bg-600)] transition-colors border border-[var(--border)]"
+                className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/5 text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-white/10 hover:border-white/20 transition-all border border-white/10 active:scale-[0.97]"
               >
                 {p}
               </button>
@@ -160,7 +160,7 @@ export default function CIDRCalculatorPage() {
         {result && (
           <>
             {/* Main results */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="animate-rise grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Left column */}
               <div className="card p-4 space-y-0.5">
                 <div className="panel-header -mx-4 -mt-4 mb-3">Network Details</div>

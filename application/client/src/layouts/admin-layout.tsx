@@ -10,7 +10,7 @@ const ADMIN_NAV = [
 // Layout for the administration area: horizontal top navigation instead of a sidebar.
 export default function AdminLayout() {
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-[var(--bg-950)]">
+    <div className="flex flex-col h-full w-full overflow-hidden">
       <TopNav items={ADMIN_NAV} />
       <main className="flex-1 min-h-0 overflow-auto">
         <Outlet />
