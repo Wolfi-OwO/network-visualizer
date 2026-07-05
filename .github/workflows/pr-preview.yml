@@ -1,0 +1,240 @@
+name: PR · preview
+
+# Per-PR preview on the  production Container App — no extra infra.
+#
+# On open/update: build the PR's image, then create a NEW revision on the app in
+# multiple-revision mode. Because the app is in `multiple` mode the revision
+# takes 0% of the load-balanced (production) traffic — it is off the load
+# balancer — yet it still gets its own public FQDN
+# (https://<app>--pr-<N>-<sha>.<region>.azurecontainerapps.io) so a reviewer can
+# open the change live. The URL is posted as a sticky PR comment.
+#
+# On close/merge: the PR's preview revisions are deactivated (torn down).
+#
+# ⚠️ Preview revisions share the app's env vars & secrets — including the
+# production database. They run different code against the same data. See
+# deploy/README.md if you want previews isolated to their own datastore.
+#
+# Inert until you set the repo variable PREVIEW_ENABLED=true, and never runs for
+# fork PRs (their token can't read secrets). Releases — not PRs — are the only
+# thing that shifts production traffic (see release.yml → deploy.yml).
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  id-token: write        # OIDC login to Azure
+  pull-requests: write   # sticky preview comment
+
+concurrency:
+  group: pr-preview-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Compute a stable, DNS-safe tag/suffix for this commit ──────────────────
+  prep:
+    name: Prepare
+    if: >-
+      github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.PREVIEW_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.o.outputs.tag }}
+    steps:
+      - id: o
+        run: |
+          SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
+          echo "tag=pr-${{ github.event.number }}-$SHA" >> "$GITHUB_OUTPUT"
+
+  # ── Build the PR image (unique tag per commit; never moves :latest) ────────
+  package:
+    name: Build preview image
+    needs: prep
+    uses: ./.github/workflows/package.yml
+    with:
+      tag: ${{ needs.prep.outputs.tag }}
+      push_latest: false
+    secrets: inherit
+
+  # ── Create a 0-traffic preview revision on the shared app + comment the URL ─
+  preview:
+    name: Deploy preview revision
+    needs: [prep, package]
+    runs-on: ubuntu-latest
+    # Reuses the existing `staging` GitHub environment (its OIDC federated
+    # credential + RESOURCE_GROUP/CONTAINERAPP_NAME vars, pointed at the shared
+    # app). No required-reviewer gate here — a preview never touches prod traffic.
+    environment: staging
+    steps:
+      - name: Check Azure config
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+        run: |
+          miss=0
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP ACR_NAME CONTAINERAPP_NAME IMAGE_NAME; do
+            [ -z "${!v}" ] && { echo "::error::missing: $v"; miss=1; }
+          done
+          [ "$miss" = 0 ] || { echo "Set Azure IDs as SECRETS and RESOURCE_GROUP/ACR_NAME/CONTAINERAPP_NAME/IMAGE_NAME as VARIABLES on the 'staging' environment (point RESOURCE_GROUP/CONTAINERAPP_NAME at the shared app)."; exit 1; }
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create 0-traffic preview revision
+        id: rev
+        env:
+          RG: ${{ vars.RESOURCE_GROUP }}
+          APP: ${{ vars.CONTAINERAPP_NAME }}
+          ACR: ${{ vars.ACR_NAME }}
+          IMAGE: ${{ vars.IMAGE_NAME }}
+          TAG: ${{ needs.prep.outputs.tag }}
+          PR: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+
+          # Multiple-revision mode is what lets a revision exist at 0% traffic.
+          # Idempotent and safe: switching keeps the current revision at 100%.
+          az containerapp revision set-mode -g "$RG" -n "$APP" --mode multiple -o none
+
+          REV="${APP}--${TAG}"
+
+          # Create the revision only if this exact commit hasn't been built yet
+          # (re-runs are then no-ops). New revisions start at 0% traffic in
+          # multiple mode; scale-to-zero so an idle preview costs nothing.
+          if az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" -o none 2>/dev/null; then
+            echo "Revision $REV already exists — reusing."
+          else
+            az containerapp update -g "$RG" -n "$APP" \
+              --image "${ACR}.azurecr.io/${IMAGE}:${TAG}" \
+              --revision-suffix "$TAG" \
+              --min-replicas 0 --max-replicas 1 -o none
+          fi
+
+          # Retire superseded preview revisions for THIS PR (keep only the newest).
+          for OLD in $(az containerapp revision list -g "$RG" -n "$APP" \
+              --query "[?starts_with(name, '${APP}--pr-${PR}-') && name!='${REV}'].name" -o tsv); do
+            echo "Deactivating superseded $OLD"
+            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$OLD" -o none || true
+          done
+
+          FQDN=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" \
+            --query properties.fqdn -o tsv)
+          echo "rev=$REV" >> "$GITHUB_OUTPUT"
+          echo "url=https://$FQDN" >> "$GITHUB_OUTPUT"
+          echo "Preview: https://$FQDN"
+
+      - name: Comment preview URL on the PR
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.rev.outputs.url }}
+          PREVIEW_REV: ${{ steps.rev.outputs.rev }}
+        with:
+          script: |
+            const url = process.env.PREVIEW_URL;
+            const rev = process.env.PREVIEW_REV;
+            const sha = context.payload.pull_request.head.sha.slice(0, 7);
+            const marker = '<!-- pr-preview -->';
+            const body = [
+              marker,
+              '## 🚀 Preview deployment',
+              '',
+              'This change is live on its own URL — **0% production traffic** (off the load balancer):',
+              '',
+              `**${url}**`,
+              '',
+              `<sub>revision \`${rev}\` · commit ${sha} · scales to zero when idle · torn down when this PR closes</sub>`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+  # ── On PR close/merge: destroy the preview (deactivate its revisions) ───────
+  teardown:
+    name: Tear down preview
+    if: >-
+      github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.PREVIEW_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Check Azure config
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
+        run: |
+          miss=0
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP CONTAINERAPP_NAME; do
+            [ -z "${!v}" ] && { echo "::error::missing: $v"; miss=1; }
+          done
+          [ "$miss" = 0 ] || { echo "Missing Azure config for teardown."; exit 1; }
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deactivate this PR's preview revisions
+        env:
+          RG: ${{ vars.RESOURCE_GROUP }}
+          APP: ${{ vars.CONTAINERAPP_NAME }}
+          PR: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          REVS=$(az containerapp revision list -g "$RG" -n "$APP" \
+            --query "[?starts_with(name, '${APP}--pr-${PR}-')].name" -o tsv)
+          [ -z "$REVS" ] && echo "No preview revisions for PR #$PR."
+          for r in $REVS; do
+            echo "Deactivating $r"
+            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$r" -o none || true
+          done
+
+      - name: Comment teardown on the PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const merged = context.payload.pull_request.merged;
+            const marker = '<!-- pr-preview -->';
+            const body = [
+              marker,
+              '## 🧹 Preview torn down',
+              '',
+              merged
+                ? 'This PR was merged — its preview revision has been deactivated.'
+                : 'This PR was closed — its preview revision has been deactivated.',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
