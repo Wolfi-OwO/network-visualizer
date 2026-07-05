@@ -1,23 +1,23 @@
 name: PR · preview
 
-# Per-PR preview on the  production Container App — no extra infra.
+# Per-PR preview on a DEDICATED Container App (vars.PREVIEW_CONTAINERAPP_NAME,
+# e.g. netviz-preview) — completely separate from production (netviz), which is
+# never touched by a pull request.
 #
-# On open/update: build the PR's image, then create a NEW revision on the app in
-# multiple-revision mode. Because the app is in `multiple` mode the revision
-# takes 0% of the load-balanced (production) traffic — it is off the load
-# balancer — yet it still gets its own public FQDN
-# (https://<app>--pr-<N>-<sha>.<region>.azurecontainerapps.io) so a reviewer can
-# open the change live. The URL is posted as a sticky PR comment.
+# The preview app's template carries a **mongo sidecar** next to the app
+# container. Each PR gets its own revision (multiple-revision mode) with its own
+# public revision URL; the app talks to the sidecar over localhost, so every
+# preview is fully isolated with its own throwaway database — no production data,
+# no shared secrets. The sidecar has no volume, so its data resets if the replica
+# restarts.
 #
-# On close/merge: the PR's preview revisions are deactivated (torn down).
-#
-# ⚠️ Preview revisions share the app's env vars & secrets — including the
-# production database. They run different code against the same data. See
-# deploy/README.md if you want previews isolated to their own datastore.
+# On open/update: update ONLY the app container's image on the preview app
+# (the sidecar is preserved), then comment the revision URL.
+# On close/merge: the PR's preview revisions are deactivated.
 #
 # Inert until you set the repo variable PREVIEW_ENABLED=true, and never runs for
-# fork PRs (their token can't read secrets). Releases — not PRs — are the only
-# thing that shifts production traffic (see release.yml → deploy.yml).
+# fork PRs (their token can't read secrets). Releases — not PRs — ship to
+# production (see release.yml → deploy.yml).
 
 on:
   pull_request:
@@ -60,14 +60,14 @@ jobs:
       push_latest: false
     secrets: inherit
 
-  # ── Create a 0-traffic preview revision on the shared app + comment the URL ─
+  # ── Roll the PR image onto a new revision of the dedicated preview app ──────
   preview:
     name: Deploy preview revision
     needs: [prep, package]
     runs-on: ubuntu-latest
-    # Reuses the existing `staging` GitHub environment (its OIDC federated
-    # credential + RESOURCE_GROUP/CONTAINERAPP_NAME vars, pointed at the shared
-    # app). No required-reviewer gate here — a preview never touches prod traffic.
+    # The `staging` GitHub environment supplies the OIDC identity (no gate). Its
+    # service principal is Contributor on the resource group, so it can manage the
+    # preview app too.
     environment: staging
     steps:
       - name: Check Azure config
@@ -77,14 +77,14 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           ACR_NAME: ${{ vars.ACR_NAME }}
-          CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
+          PREVIEW_CONTAINERAPP_NAME: ${{ vars.PREVIEW_CONTAINERAPP_NAME }}
           IMAGE_NAME: ${{ vars.IMAGE_NAME }}
         run: |
           miss=0
-          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP ACR_NAME CONTAINERAPP_NAME IMAGE_NAME; do
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP ACR_NAME PREVIEW_CONTAINERAPP_NAME IMAGE_NAME; do
             [ -z "${!v}" ] && { echo "::error::missing: $v"; miss=1; }
           done
-          [ "$miss" = 0 ] || { echo "Set Azure IDs as SECRETS and RESOURCE_GROUP/ACR_NAME/CONTAINERAPP_NAME/IMAGE_NAME as VARIABLES on the 'staging' environment (point RESOURCE_GROUP/CONTAINERAPP_NAME at the shared app)."; exit 1; }
+          [ "$miss" = 0 ] || { echo "Set Azure IDs as SECRETS and RESOURCE_GROUP/ACR_NAME/PREVIEW_CONTAINERAPP_NAME/IMAGE_NAME as VARIABLES. PREVIEW_CONTAINERAPP_NAME is the dedicated preview app (with the mongo sidecar)."; exit 1; }
 
       - name: Azure Login
         uses: azure/login@v2
@@ -93,61 +93,33 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Create 0-traffic preview revision
+      - name: Roll preview image onto a new revision
         id: rev
         env:
           RG: ${{ vars.RESOURCE_GROUP }}
-          APP: ${{ vars.CONTAINERAPP_NAME }}
+          APP: ${{ vars.PREVIEW_CONTAINERAPP_NAME }}
           ACR: ${{ vars.ACR_NAME }}
           IMAGE: ${{ vars.IMAGE_NAME }}
           TAG: ${{ needs.prep.outputs.tag }}
           PR: ${{ github.event.number }}
         run: |
           set -euo pipefail
-
-          # Multiple-revision mode is what lets a revision exist at 0% traffic.
-          # Idempotent and safe: switching keeps the current revision at 100%.
-          az containerapp revision set-mode -g "$RG" -n "$APP" --mode multiple -o none
-
-          # CRITICAL: pin the current production revision BY NAME at 100% *before*
-          # creating anything. If prod is routed via a `latestRevision: true`
-          # entry, the new (newer) preview revision would otherwise inherit all of
-          # its traffic — hijacking production. Pinning by name removes that entry.
-          PROD=$(az containerapp show -g "$RG" -n "$APP" \
-            --query 'properties.configuration.ingress.traffic[?weight>`0`].revisionName' -o tsv \
-            | grep -v '^$' | head -1 || true)
-          if [ -z "$PROD" ]; then
-            # Traffic is latest-based (no named revision): fall back to the newest
-            # active revision that is NOT itself a preview.
-            PROD=$(az containerapp revision list -g "$RG" -n "$APP" \
-              --query "reverse(sort_by([?properties.active && !starts_with(name, '${APP}--pr-')], &properties.createdTime))[0].name" -o tsv)
-          fi
-          if [ -n "$PROD" ]; then
-            echo "Production revision: $PROD (pinned to 100%)"
-            az containerapp ingress traffic set -g "$RG" -n "$APP" --revision-weight "${PROD}=100" -o none
-          fi
-
           REV="${APP}--${TAG}"
 
-          # Create the revision only if this exact commit hasn't been built yet
-          # (re-runs are then no-ops). Scale-to-zero so an idle preview costs nothing.
+          # Update ONLY the app container's image (container name == app name);
+          # the mongo sidecar already in the template is preserved. Creates a new
+          # per-PR revision. Re-runs of the same commit are no-ops.
           if az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" -o none 2>/dev/null; then
             echo "Revision $REV already exists — reusing."
           else
             az containerapp update -g "$RG" -n "$APP" \
+              --container-name "$APP" \
               --image "${ACR}.azurecr.io/${IMAGE}:${TAG}" \
-              --revision-suffix "$TAG" \
-              --min-replicas 0 --max-replicas 1 -o none
+              --revision-suffix "$TAG" -o none
           fi
 
-          # Belt-and-braces: production stays at 100%, this preview is forced to 0%
-          # (off the load balancer). It stays reachable only via its revision URL.
-          if [ -n "$PROD" ] && [ "$PROD" != "$REV" ]; then
-            az containerapp ingress traffic set -g "$RG" -n "$APP" \
-              --revision-weight "${PROD}=100" "${REV}=0" -o none
-          fi
-
-          # Retire superseded preview revisions for THIS PR (keep only the newest).
+          # Retire superseded preview revisions for THIS PR (keep only the newest),
+          # so we don't leave idle replicas running.
           for OLD in $(az containerapp revision list -g "$RG" -n "$APP" \
               --query "[?starts_with(name, '${APP}--pr-${PR}-') && name!='${REV}'].name" -o tsv); do
             echo "Deactivating superseded $OLD"
@@ -175,11 +147,11 @@ jobs:
               marker,
               '## 🚀 Preview deployment',
               '',
-              'This change is live on its own URL — **0% production traffic** (off the load balancer):',
+              'Isolated preview on its own revision — dedicated throwaway database (mongo sidecar), no production data:',
               '',
               `**${url}**`,
               '',
-              `<sub>revision \`${rev}\` · commit ${sha} · scales to zero when idle · torn down when this PR closes</sub>`,
+              `<sub>revision \`${rev}\` · commit ${sha} · fresh database each restart · torn down when this PR closes</sub>`,
             ].join('\n');
 
             const { owner, repo } = context.repo;
@@ -208,10 +180,10 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
-          CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
+          PREVIEW_CONTAINERAPP_NAME: ${{ vars.PREVIEW_CONTAINERAPP_NAME }}
         run: |
           miss=0
-          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP CONTAINERAPP_NAME; do
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP PREVIEW_CONTAINERAPP_NAME; do
             [ -z "${!v}" ] && { echo "::error::missing: $v"; miss=1; }
           done
           [ "$miss" = 0 ] || { echo "Missing Azure config for teardown."; exit 1; }
@@ -226,7 +198,7 @@ jobs:
       - name: Deactivate this PR's preview revisions
         env:
           RG: ${{ vars.RESOURCE_GROUP }}
-          APP: ${{ vars.CONTAINERAPP_NAME }}
+          APP: ${{ vars.PREVIEW_CONTAINERAPP_NAME }}
           PR: ${{ github.event.number }}
         run: |
           set -euo pipefail
