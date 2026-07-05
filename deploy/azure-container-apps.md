@@ -178,14 +178,65 @@ works automatically — the SPA detects the hostname and renders the status page
 
 ## Part 4 — Continuous delivery
 
-On every published release, [`release.yml`](../.github/workflows/release.yml)
-chains two reusable workflows: [`package.yml`](../.github/workflows/package.yml)
-builds the image on the runner and **pushes it to ACR with the registry's
-admin username/password** (repo secrets), then
-[`deploy.yml`](../.github/workflows/deploy.yml) logs in to Azure with
-**OpenID Connect** (federated credentials — no client secret to store or
-rotate) and runs `az containerapp update`. Dispatch `deploy.yml` manually
-with any existing tag to roll back.
+Two Container Apps: **`netviz`** (production) and **`netviz-preview`** (per-PR
+previews with a mongo sidecar).
+
+- **Releases** ([`release.yml`](../.github/workflows/release.yml)) chain
+  [`package.yml`](../.github/workflows/package.yml) (builds the image and
+  **pushes it to ACR with the registry admin username/password**) then
+  [`deploy.yml`](../.github/workflows/deploy.yml), which logs in with
+  **OpenID Connect** (federated credentials — no stored client secret) and rolls
+  a new revision of **`netviz`**. Production is single-revision, so the new
+  revision serves 100%. Dispatch `deploy.yml` with any older tag to roll back.
+- **Pull requests** ([`pr-preview.yml`](../.github/workflows/pr-preview.yml)) roll
+  the PR image onto a new revision of **`netviz-preview`**, reachable at its own
+  FQDN `https://netviz-preview--pr-<N>-<sha>.<region>.azurecontainerapps.io`.
+  Closing the PR deactivates it. Previews are fully isolated from production — own
+  database (sidecar), no production secrets.
+
+### Provision the preview app (`netviz-preview`)
+
+A dedicated multiple-revision app whose template holds the app container **plus a
+`mongo:7` sidecar**; the app connects to the sidecar over `localhost`.
+
+```bash
+# Mirror mongo into ACR so the sidecar pulls from your registry (no Docker Hub limits)
+az acr import -n netvizacr --source docker.io/library/mongo:7 --image mongo:7
+
+# 1) Create the app (single container first — reliable identity + AcrPull path)
+az containerapp create -g netviz-rg -n netviz-preview \
+  --environment netviz-env \
+  --image netvizacr.azurecr.io/netviz:latest \
+  --registry-server netvizacr.azurecr.io --registry-identity system \
+  --ingress external --target-port 8080 \
+  --revisions-mode multiple --min-replicas 1 --max-replicas 1 \
+  --cpu 0.5 --memory 1.0Gi \
+  --secrets jwt-secret="$(openssl rand -base64 48)" \
+  --env-vars NODE_ENV=production PORT=8080 HOST=0.0.0.0 \
+             MONGODB_CONNECTION_STRING=mongodb://localhost:27017/netviz \
+             REQUIRE_AUTH=false ALLOW_DEV_LOGIN=true JWT_SECRET=secretref:jwt-secret
+
+# 2) Add the mongo sidecar to the template (multi-container needs a YAML patch).
+#    Fetch the app, append a second container, re-apply just the template:
+az containerapp show -g netviz-rg -n netviz-preview -o json > pv.json
+python3 - <<'PY'
+import json, yaml
+d = json.load(open('pv.json')); app = d['properties']['template']['containers'][0]
+app['resources'] = {'cpu': 0.5, 'memory': '1.0Gi'}
+mongo = {'name': 'mongo', 'image': 'netvizacr.azurecr.io/mongo:7',
+         'resources': {'cpu': 0.5, 'memory': '1.0Gi'}}
+yaml.safe_dump({'properties': {'template': {
+    'containers': [app, mongo],
+    'scale': {'minReplicas': 1, 'maxReplicas': 1}}}},
+    open('sidecar.yaml', 'w'), sort_keys=False)
+PY
+az containerapp update -g netviz-rg -n netviz-preview --yaml sidecar.yaml
+```
+
+Then `gh variable set PREVIEW_CONTAINERAPP_NAME -R <owner>/<repo> --body netviz-preview`
+and `gh variable set PREVIEW_ENABLED --body true`. The workflow thereafter only
+updates the **app** container per PR (`--container-name netviz-preview --image …`),
+so the sidecar is preserved automatically.
 
 1. Enable the ACR admin account and read its credentials (they become the
    `ACR_USERNAME` / `ACR_PASSWORD` repo secrets):
@@ -195,19 +246,23 @@ with any existing tag to roll back.
    az acr credential show -n netvizacr --query "{user:username, pass:passwords[0].value}" -o tsv
    ```
 
-2. Register an app + service principal and federate it to this repo's
-   `production` environment (used only for the Container App rollout):
+2. Register an app + service principal and federate it to **both** GitHub
+   environments — `production` (releases) and `staging` (PR previews). Both point
+   at the same Container App; the two subjects just let each job mint an OIDC
+   token:
 
    ```bash
    GH_REPO="OWNER/REPO"                       # your GitHub repo
    APP_ID=$(az ad app create --display-name "gh-routing-visualizer-cd" --query appId -o tsv)
    az ad sp create --id "$APP_ID"
-   az ad app federated-credential create --id "$APP_ID" --parameters "{
-     \"name\": \"gh-routing-visualizer-production\",
-     \"issuer\": \"https://token.actions.githubusercontent.com\",
-     \"subject\": \"repo:${GH_REPO}:environment:production\",
-     \"audiences\": [\"api://AzureADTokenExchange\"]
-   }"
+   for ENV in production staging; do
+     az ad app federated-credential create --id "$APP_ID" --parameters "{
+       \"name\": \"gh-routing-visualizer-${ENV}\",
+       \"issuer\": \"https://token.actions.githubusercontent.com\",
+       \"subject\": \"repo:${GH_REPO}:environment:${ENV}\",
+       \"audiences\": [\"api://AzureADTokenExchange\"]
+     }"
+   done
    SUB_ID=$(az account show --query id -o tsv)
    az role assignment create --assignee "$APP_ID" --role Contributor \
      --scope "/subscriptions/${SUB_ID}/resourceGroups/${RG}"
@@ -244,9 +299,19 @@ with any existing tag to roll back.
 | --------------- | -------------------------------------------------------------------------------------------------- |
 | Logs (stream)   | `az containerapp logs show -g netviz-rg -n netviz --follow`                                        |
 | Revisions       | `az containerapp revision list -g netviz-rg -n netviz -o table`                                    |
-| Rollback        | `az containerapp update -g netviz-rg -n netviz --image netvizacr.azurecr.io/netviz:<prev-tag>`     |
+| Kill a preview  | `az containerapp revision deactivate -g netviz-rg -n netviz --revision netviz--pr-<N>-<sha>`       |
 | Update a secret | `az containerapp secret set -g netviz-rg -n netviz --secrets mongo-uri=…` then update the revision |
 | Scale           | `az containerapp update -g netviz-rg -n netviz --min-replicas 1 --max-replicas 5`                  |
+
+**Rollback / traffic** (multiple-revision mode — traffic is set by weight, not by
+the running image):
+
+```bash
+# roll production back to a previous revision (or dispatch deploy.yml with its tag)
+az containerapp ingress traffic set -g netviz-rg -n netviz --revision-weight <prev-rev>=100
+# canary: 90/10 split across two revisions
+az containerapp ingress traffic set -g netviz-rg -n netviz --revision-weight <rev-a>=90 <rev-b>=10
+```
 
 ### Notes
 

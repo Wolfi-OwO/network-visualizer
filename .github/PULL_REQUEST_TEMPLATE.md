@@ -27,3 +27,9 @@
 ## Screenshots (UI changes)
 
 <!-- Before/after if the change is visual. -->
+
+---
+
+<sub>🤖 On this PR, CI posts a **coverage report** comment, and (once
+`PREVIEW_ENABLED=true`) a **live preview URL** on its own 0%-traffic revision.
+The preview is torn down automatically when this PR is merged or closed.</sub>
