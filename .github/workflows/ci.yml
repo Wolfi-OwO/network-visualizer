@@ -5,6 +5,9 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  # Lets the release pipeline reuse this exact suite as its test stage, so a
+  # release ships only what already passed lint/build/test on the tagged commit.
+  workflow_call:
 
 permissions:
   contents: read

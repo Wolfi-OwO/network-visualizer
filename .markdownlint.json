@@ -1,0 +1,8 @@
+{
+  "//": "Ruleset for davidanson.vscode-markdownlint and markdownlint-cli2. Prose line length (MD013) and inline HTML (MD033) are intentionally relaxed: the README uses a centered HTML header and long table rows / paragraphs. All structural rules stay on.",
+  "default": true,
+  "MD013": false,
+  "MD033": false,
+  "MD041": false,
+  "MD024": { "siblings_only": true }
+}

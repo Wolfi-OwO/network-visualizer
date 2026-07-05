@@ -21,7 +21,7 @@ export default function FilterBar({ value, onChange }: FilterBarProps) {
   const isActive = value.trim().length > 0
 
   return (
-    <div className="flex flex-wrap items-center gap-2 px-3 py-2 backdrop-blur-md bg-[var(--glass-bg)] border-b border-[var(--border)]">
+    <div className="flex flex-wrap items-center gap-2 px-3 py-2 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)]">
       <div className={[
         'flex items-center flex-1 min-w-[140px] gap-2 px-2 py-1 rounded border transition-colors',
         isActive ? 'border-[var(--accent)] bg-[var(--bg-800)]' : 'border-[var(--border)] bg-[var(--bg-800)]',

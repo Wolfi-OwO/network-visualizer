@@ -51,15 +51,15 @@ Every tunable lives in [`src/config/index.ts`](src/config/index.ts) and is
 documented in [`.env.example`](.env.example) — copy it to `.env` and adjust.
 Highlights:
 
-| Variable                   | Default                            | Purpose                                            |
-| -------------------------- | ---------------------------------- | -------------------------------------------------- |
-| `HOST` / `PORT`            | `0.0.0.0` / `8080`                 | Bind address and port                              |
-| `MONGODB_CONNECTION_STRING`                | `mongodb://localhost:27017/netviz` | MongoDB connection string                          |
-| `JWT_SECRET` / `JWT_TTL`   | — / `7d`                           | Session signing secret (validated in prod) and TTL |
-| `ALLOW_DEV_LOGIN`          | `true` outside production          | Password-less local login                          |
-| `REQUIRE_AUTH`             | `false`                            | Disable the anonymous shared workspace             |
-| `CORS_ORIGINS`             | `localhost` / `127.0.0.1`          | Comma-separated CORS allow-list                    |
-| `GOOGLE_*` / `MICROSOFT_*` | —                                  | OAuth provider credentials                         |
+| Variable                    | Default                            | Purpose                                            |
+| --------------------------- | ---------------------------------- | -------------------------------------------------- |
+| `HOST` / `PORT`             | `0.0.0.0` / `8080`                 | Bind address and port                              |
+| `MONGODB_CONNECTION_STRING` | `mongodb://localhost:27017/netviz` | MongoDB connection string                          |
+| `JWT_SECRET` / `JWT_TTL`    | — / `7d`                           | Session signing secret (validated in prod) and TTL |
+| `ALLOW_DEV_LOGIN`           | `true` outside production          | Password-less local login                          |
+| `REQUIRE_AUTH`              | `false`                            | Disable the anonymous shared workspace             |
+| `CORS_ORIGINS`              | `localhost` / `127.0.0.1`          | Comma-separated CORS allow-list                    |
+| `GOOGLE_*` / `MICROSOFT_*`  | —                                  | OAuth provider credentials                         |
 
 OAuth redirect URIs are derived from the request, so no base-URL variable is
 needed — register `<public URL>/auth/<provider>/callback` with the provider.

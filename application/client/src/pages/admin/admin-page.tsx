@@ -12,8 +12,13 @@ function fmtUptime(s: number): string {
 
 function Stat({ icon: Icon, label, value, sub }: { icon: typeof Cpu; label: string; value: string | number; sub?: string }) {
   return (
-    <div className="flex items-center gap-3 p-4 rounded-lg bg-[var(--bg-900)] border border-[var(--border)]">
-      <Icon size={18} className="text-[var(--accent)] shrink-0" />
+    <div className="card card-hover flex items-center gap-3 p-4">
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+        style={{ background: 'rgba(88,166,255,0.12)', boxShadow: 'inset 0 0 0 1px rgba(88,166,255,0.28), 0 0 18px -6px #58a6ff' }}
+      >
+        <Icon size={16} className="text-[var(--accent)] shrink-0" />
+      </div>
       <div className="min-w-0">
         <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">{label}</div>
         <div className="text-sm font-medium text-[var(--text-primary)] truncate">{value}</div>
@@ -151,16 +156,16 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl">
+    <div className="animate-rise p-4 sm:p-6 max-w-4xl">
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <h1 className="text-lg font-bold text-[var(--text-primary)]">Administration</h1>
+        <h1 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">Administration</h1>
         <div className="flex-1" />
         <button onClick={load} className="btn-ghost text-xs"><RefreshCw size={12} className={loading ? 'animate-spin' : ''} />Refresh</button>
         {m && <button onClick={download} className="btn-ghost text-xs"><Download size={12} />Report</button>}
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-4 rounded-lg bg-[var(--bg-900)] border border-[var(--border)] text-xs text-[var(--text-secondary)]">
+        <div className="card flex items-center gap-2 p-4 text-xs text-[var(--text-secondary)]">
           <ShieldAlert size={16} className="text-amber-400" />
           {error} {!user && <span>Sign in as an admin to view system metrics.</span>}
         </div>

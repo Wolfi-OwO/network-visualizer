@@ -36,15 +36,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex items-center justify-center h-full w-full bg-[var(--bg-950)] p-4 sm:p-6 overflow-hidden">
+    <div className="relative flex items-center justify-center h-full w-full p-4 sm:p-6 overflow-hidden">
       <div
-        className="pointer-events-none absolute top-1/4 left-1/2 -translate-x-1/2 w-[40rem] h-[40rem] opacity-30"
+        className="pointer-events-none absolute top-[18%] left-[38%] -translate-x-1/2 w-[38rem] h-[38rem] opacity-40 blur-[2px]"
         style={{ background: 'radial-gradient(closest-side, var(--glow-accent), transparent)' }}
       />
-      <div className="relative w-full max-w-sm rounded-xl glass p-6 shadow-2xl">
+      <div
+        className="pointer-events-none absolute bottom-[10%] right-[30%] w-[34rem] h-[34rem] opacity-35 blur-[2px]"
+        style={{ background: 'radial-gradient(closest-side, var(--glow-accent-2), transparent)' }}
+      />
+      <div className="animate-rise relative w-full max-w-sm rounded-2xl glass p-6 shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset,0_40px_80px_-24px_rgba(0,0,0,0.85)]">
         <div className="flex items-center gap-2.5 mb-5">
-          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)]">
-            <Radio size={16} className="text-white" />
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] ring-1 ring-white/15 shadow-[0_0_22px_-2px_var(--glow-accent)]">
+            <Radio size={17} className="text-white" />
           </div>
           <div>
             <div className="text-sm font-bold text-[var(--text-primary)] leading-none">{appConfig.name}</div>
@@ -61,12 +65,12 @@ export default function LoginPage() {
         {/* OAuth providers */}
         <div className="space-y-2">
           {info?.providers.includes('google') && (
-            <a href={auth.oauthUrl('google')} className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-md text-xs font-medium bg-white text-gray-800 hover:opacity-90">
+            <a href={auth.oauthUrl('google')} className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-medium bg-white text-gray-800 transition-all duration-200 hover:brightness-95 hover:shadow-lg active:scale-[0.98]">
               <span className="font-bold text-[#4285F4]">G</span> Sign in with Google
             </a>
           )}
           {info?.providers.includes('microsoft') && (
-            <a href={auth.oauthUrl('microsoft')} className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-md text-xs font-medium bg-[#2f2f2f] text-white hover:opacity-90 border border-[var(--border)]">
+            <a href={auth.oauthUrl('microsoft')} className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-medium bg-[#2f2f2f] text-white border border-white/10 transition-all duration-200 hover:bg-[#3a3a3a] hover:shadow-lg active:scale-[0.98]">
               <span className="font-bold text-[#00a4ef]">⊞</span> Sign in with Microsoft
             </a>
           )}

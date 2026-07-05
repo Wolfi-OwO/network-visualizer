@@ -57,8 +57,34 @@ drops line coverage below 90%, add tests rather than lowering the bar.
 2. Keep the change focused; unrelated refactors go in separate PRs.
 3. Update documentation that your change makes stale (READMEs,
    [docs/api.md](docs/api.md), `.env.example`, [CHANGELOG.md](CHANGELOG.md)).
-4. Fill in the PR template; link related issues.
+4. Push your branch and open a PR against `main`. GitHub pre-fills the
+   description from the PR template (see below) — fill in every section and link
+   related issues (`Fixes #123`).
 5. CI must be green before review.
+
+### The PR template
+
+Every new pull request is pre-populated from
+[`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) — you
+don't create it, GitHub inserts it into the description box automatically. Fill
+in each section:
+
+- **What does this change?** — a short summary and the motivation. For larger
+  PRs, group the description by area (e.g. UI / Docs / CI). Link issues with
+  `Fixes #123`.
+- **Type of change** — tick every box that applies (Bug fix, New feature,
+  Refactor / cleanup, Documentation, CI / build / deployment).
+- **Checklist** — tick each item once it holds: `lint` + `build` pass, backend
+  `npm test` and the 90% coverage gate stay green, new behavior has tests, docs
+  are updated, and breaking changes are called out.
+- **Breaking changes / migration notes** — write `None`, or exactly what
+  operators/users must do when upgrading (and mirror it in `CHANGELOG.md`).
+- **Screenshots (UI changes)** — before/after images for anything visual.
+
+To adjust the template for everyone, edit
+[`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md); GitHub
+picks up the change for subsequent PRs. The same mechanism backs the
+[issue templates](.github/ISSUE_TEMPLATE).
 
 ## Reporting bugs & requesting features
 

@@ -15,7 +15,10 @@ function StatCard({ label, value, sub, icon, color }: {
 }) {
   return (
     <div className="card card-hover p-4 flex items-start gap-3">
-      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: color + '22' }}>
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+        style={{ background: color + '1f', boxShadow: `inset 0 0 0 1px ${color}44, 0 0 18px -6px ${color}` }}
+      >
         <div style={{ color }}>{icon}</div>
       </div>
       <div className="min-w-0">
@@ -33,9 +36,12 @@ function QuickAction({ label, desc, icon, color, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="card card-hover p-4 flex items-center gap-3 text-left w-full group"
+      className="card card-hover p-4 flex items-center gap-3 text-left w-full group active:scale-[0.99]"
     >
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: color + '22' }}>
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105"
+        style={{ background: color + '1f', boxShadow: `inset 0 0 0 1px ${color}44, 0 0 18px -6px ${color}` }}
+      >
         <div style={{ color }}>{icon}</div>
       </div>
       <div className="flex-1 min-w-0">
@@ -72,26 +78,33 @@ export default function DashboardPage() {
     <div className="relative flex flex-col h-full overflow-y-auto p-4 sm:p-5 space-y-5">
       {/* Ambient glow behind the header */}
       <div
-        className="pointer-events-none absolute -top-24 left-0 w-[36rem] h-72 opacity-40"
+        className="pointer-events-none absolute -top-24 left-0 w-[36rem] h-72 opacity-50"
         style={{ background: 'radial-gradient(closest-side, var(--glow-accent), transparent)' }}
+      />
+      <div
+        className="pointer-events-none absolute -top-16 right-0 w-[30rem] h-64 opacity-35"
+        style={{ background: 'radial-gradient(closest-side, var(--glow-accent-2), transparent)' }}
       />
 
       {/* Welcome */}
-      <div className="relative flex flex-wrap items-center justify-between gap-2">
+      <div className="animate-rise relative flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold text-[var(--text-primary)]">NetViz Dashboard</h1>
+          <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">NetViz Dashboard</h1>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
             Network visualization, packet analysis & subnet tools
           </p>
         </div>
         <div className="glass flex items-center gap-2 px-3 py-1.5 rounded-full">
-          <div className="w-1.5 h-1.5 rounded-full bg-[var(--green)] animate-pulse" />
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-[var(--green)] opacity-70 animate-ping" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--green)]" />
+          </span>
           <span className="text-[11px] text-[var(--text-secondary)]">Backend connected</span>
         </div>
       </div>
 
       {/* Stats row */}
-      <div className="relative grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="animate-rise relative grid grid-cols-2 lg:grid-cols-4 gap-3" style={{ animationDelay: '80ms' }}>
         <StatCard
           label="Packets Captured"
           value={stats?.total.toLocaleString() ?? '—'}
@@ -122,7 +135,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="animate-rise grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ animationDelay: '160ms' }}>
         {/* Quick actions */}
         <div className="lg:col-span-1 space-y-2">
           <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">Quick Access</div>
@@ -212,7 +225,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Feature overview */}
-      <div className="card p-5">
+      <div className="animate-rise card p-5" style={{ animationDelay: '240ms' }}>
         <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-4">Features</div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
