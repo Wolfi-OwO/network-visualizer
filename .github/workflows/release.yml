@@ -21,6 +21,11 @@ on:
 permissions:
   contents: write
   id-token: write
+  # ci.yml (reused as the test stage) declares a coverage-comment job that
+  # requests pull-requests: write. GitHub validates a reusable workflow's job
+  # permissions against the caller even when the job is skipped by its `if`, so
+  # the caller must grant it here — it goes unused during a release.
+  pull-requests: write
 
 concurrency:
   group: release
