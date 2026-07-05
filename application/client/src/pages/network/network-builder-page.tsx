@@ -1515,7 +1515,7 @@ export default function NetworkBuilderPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar — kept to a handful of controls; everything occasional lives in "More" */}
-      <div className="relative z-30 flex flex-wrap items-center justify-between gap-2 px-3 py-2 backdrop-blur-md bg-[var(--glass-bg)] border-b border-[var(--border)] shrink-0">
+      <div className="relative z-30 flex flex-wrap items-center justify-between gap-2 px-3 py-2 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)] shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs font-semibold text-[var(--text-primary)] truncate">{topology?.name ?? 'Network Builder'}</span>
           {status && <span className="text-[11px] text-[var(--green)] font-mono shrink-0">{status}</span>}

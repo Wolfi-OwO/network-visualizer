@@ -1,0 +1,50 @@
+name: PR · staging preview
+
+# On a pull request to main, build the PR's image and roll it out to the shared
+# `staging` environment so a reviewer can preview the change live before
+# approving it.
+#
+# This is the PREVIEW, not the merge gate. The ">90% test" requirement is
+# enforced by ci.yml (which runs on every PR) plus the branch-protection rule on
+# main — a PR can't be merged until those checks pass and a reviewer approves.
+#
+# Inert until you opt in: it only runs when the repo variable
+# STAGING_ENABLED is "true" (set it once the staging Container App + OIDC exist —
+# see deploy/README.md) and never for fork PRs, which can't read secrets.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write   # deploy.yml uses OIDC to log in to Azure
+
+concurrency:
+  group: pr-staging-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Build preview image
+    # Same-repo PRs only (forks have no secrets), and only once opted in.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.STAGING_ENABLED == 'true'
+    uses: ./.github/workflows/package.yml
+    with:
+      tag: pr-${{ github.event.number }}
+      push_latest: false          # never move :latest for a preview build
+    secrets: inherit
+
+  deploy:
+    name: Deploy preview → staging
+    needs: package
+    uses: ./.github/workflows/deploy.yml
+    with:
+      tag: pr-${{ github.event.number }}
+      environment: staging
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read

@@ -1,7 +1,14 @@
 name: Deploy
 
-# Rolls the Azure Container App to an already-pushed image tag. Called by
-# release.yml after packaging, or run manually to deploy/roll back any tag.
+# Rolls the Azure Container App to an already-pushed image tag, in a chosen
+# environment (staging or production). Called by release.yml for each stage, or
+# run manually to deploy/roll back any tag to any environment.
+#
+# The target environment selects its own scoped GitHub variables/secrets
+# (RESOURCE_GROUP, CONTAINERAPP_NAME, …) and its own OIDC federated credential
+# (subject: repo:<owner>/<repo>:environment:<environment>). Production can carry
+# a "required reviewers" protection rule so the rollout waits for a manual
+# approval — see deploy/README.md.
 on:
   workflow_call:
     inputs:
@@ -9,12 +16,25 @@ on:
         description: "Image tag to deploy (must exist in ACR)"
         required: true
         type: string
+      environment:
+        description: "Target environment"
+        required: false
+        default: production
+        type: string
   workflow_dispatch:
     inputs:
       tag:
         description: "Image tag to deploy (must exist in ACR)"
         required: true
         type: string
+      environment:
+        description: "Target environment"
+        required: true
+        default: production
+        type: choice
+        options:
+          - staging
+          - production
 
 permissions:
   id-token: write   # OIDC token for secretless Azure login
@@ -22,11 +42,13 @@ permissions:
 
 jobs:
   aca:
-    name: Roll out to Container Apps
+    name: Roll out to ${{ inputs.environment }}
     runs-on: ubuntu-latest
     # The OIDC federated credential is bound to this environment
-    # (subject: repo:<owner>/<repo>:environment:production)
-    environment: production
+    # (subject: repo:<owner>/<repo>:environment:<environment>). The environment
+    # also scopes RESOURCE_GROUP / CONTAINERAPP_NAME and any protection rules
+    # (e.g. required reviewers on production pause the job for manual approval).
+    environment: ${{ inputs.environment }}
 
     steps:
       # Fail fast with a clear message when config is missing
@@ -40,11 +62,12 @@ jobs:
           CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
           IMAGE_NAME: ${{ vars.IMAGE_NAME }}
         run: |
+          echo "Deploying tag '${{ inputs.tag }}' to environment '${{ inputs.environment }}'"
           miss=0
           for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP ACR_NAME CONTAINERAPP_NAME IMAGE_NAME; do
             if [ -z "${!v}" ]; then echo "::error::missing: $v"; miss=1; else echo "ok: $v"; fi
           done
-          [ "$miss" = 0 ] || { echo "Azure IDs must be SECRETS; RESOURCE_GROUP/ACR_NAME/CONTAINERAPP_NAME/IMAGE_NAME must be VARIABLES."; exit 1; }
+          [ "$miss" = 0 ] || { echo "Azure IDs must be SECRETS; RESOURCE_GROUP/ACR_NAME/CONTAINERAPP_NAME/IMAGE_NAME must be VARIABLES (scope them to the '${{ inputs.environment }}' environment)."; exit 1; }
 
       - name: Azure Login
         uses: azure/login@v2

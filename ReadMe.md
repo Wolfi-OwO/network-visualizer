@@ -21,11 +21,13 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 
 </div>
 
-![Network Builder](docs/screenshots/network-builder.png)
+![NetViz dashboard](docs/screenshots/dashboard.png)
 
 ## Features
 
 ### Network Builder
+
+![Network Builder — live topology with hop-by-hop packet flow](docs/screenshots/network-builder.png)
 
 - **Drag-and-drop canvas** (powered by React Flow) with 25+ device types across categories: routers, L2/L3 switches, firewalls, IDS/IPS, VPN gateways, load balancers, reverse proxies, API gateways, servers (DNS, DHCP, mail, file, database, VM host), NAS/storage, endpoints (PC, laptop, phone, printer, IoT) and Internet/ISP/cloud.
 - **Clean line-icon set** (no emoji), color-coded per role, with per-device **hardware/capabilities** (NIC, Wi-Fi card, CPU/RAM…).
@@ -38,10 +40,14 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 
 ### Packet Capture (Wireshark-style)
 
+![Packet capture — live SSE stream, protocol filters, hex dump](docs/screenshots/packet-capture.png)
+
 - Live packet stream over **Server-Sent Events**, protocol tree, hex dump, statistics.
 - **16+ protocols** generated realistically (HTTP, TLS, DNS, mDNS, DHCP, ARP, ICMP, TCP, UDP, STP, NTP, LLDP, SNMP, OSPF, SSDP, SIP) with **per-protocol on/off toggles**.
 
 ### CIDR Calculator
+
+![CIDR calculator — subnet math, binary view and address-space map](docs/screenshots/cidr-calculator.png)
 
 - Subnet / network / broadcast / host math, binary view, subnet splitter, and supernet (route summarization) with strict input validation.
 
@@ -80,7 +86,7 @@ routing-visualizer/
 │  │  └─ app.ts                 # express app assembly (CORS, body parsing, routes, SPA serving)
 │  ├─ server.ts                 # entrypoint (config validation, DB connect + seed, health checks)
 │  ├─ tests/                    # Mocha + Supertest suite (in-memory MongoDB)
-│  ├─ Dockerfile · .env.example · README.md
+│  ├─ Dockerfile · docker-compose.yml · .env.example · README.md
 │  │
 │  └─ client/                   # React + Vite frontend (kebab-case, explicit import extensions)
 │     ├─ src/
@@ -94,7 +100,6 @@ routing-visualizer/
 ├─ deploy/                      # production deployment runbook (Azure Container Apps)
 ├─ organizational/              # roles, admin guide, access control, account lifecycle
 ├─ .github/workflows/           # lint.yml · ci.yml (build + test) · package.yml · deploy.yml · release.yml
-├─ docker-compose.yml           # full stack: mongo + backend (serving the built SPA)
 ├─ CONTRIBUTING.md · SECURITY.md · CHANGELOG.md · LICENSE
 └─ ReadMe.md
 ```
@@ -106,7 +111,7 @@ routing-visualizer/
 ### Prerequisites
 
 - **Node.js ≥ 20** (CI uses Node 22) and **npm**
-- **MongoDB** — run one locally with `docker run -p 27017:27017 mongo:7` (or use the bundled `docker compose up mongo`). Override the connection with `MONGODB_CONNECTION_STRING` (default `mongodb://localhost:27017/netviz`). The backend seeds a demo "Enterprise Network" topology on first start.
+- **MongoDB** — run one locally with `docker run -p 27017:27017 mongo:7` (or use the bundled `docker compose up mongo` from `application/`). Override the connection with `MONGODB_CONNECTION_STRING` (default `mongodb://localhost:27017/netviz`). The backend seeds a demo "Enterprise Network" topology on first start.
 
 ### Run in development
 
@@ -133,11 +138,12 @@ Then open **<http://localhost:5173>**.
 ### Run the full stack with Docker Compose
 
 ```bash
-cp application/.env.example application/.env   # adjust secrets first
+cd application
+cp .env.example .env       # adjust secrets first
 docker compose up --build
 ```
 
-This starts MongoDB and the backend container (which also serves the built SPA) on **<http://localhost:8080>**.
+This starts MongoDB and the backend container (which also serves the built SPA) on **<http://localhost:8080>**. The `docker-compose.yml` lives in `application/`, so run Compose from there.
 
 ## Scripts
 
@@ -228,12 +234,33 @@ The pipeline is split into atomic workflows, each runnable on its own:
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | [`lint.yml`](.github/workflows/lint.yml) | push / PR | ESLint for server and client |
-| [`ci.yml`](.github/workflows/ci.yml) | push / PR | Type-check + build + backend tests (in-memory MongoDB); uploads the `client-dist` artifact and publishes the live coverage badge on `main` |
+| [`ci.yml`](.github/workflows/ci.yml) | push / PR / release | Type-check + build + backend tests (in-memory MongoDB, **≥90% coverage gate**); uploads the `client-dist` artifact and publishes the live coverage badge on `main`. Reusable — the release pipeline runs it as its test stage |
+| [`pr-staging.yml`](.github/workflows/pr-staging.yml) | PR to `main` | Builds the PR image and deploys a live **staging preview** for reviewers. Opt-in (repo variable `STAGING_ENABLED=true`); skipped for fork PRs |
 | [`package.yml`](.github/workflows/package.yml) | release (via `release.yml`) or manual | Builds the client + Docker image, pushes it to ACR |
-| [`deploy.yml`](.github/workflows/deploy.yml) | release (via `release.yml`) or manual | Rolls the Azure Container App to a given image tag (also your rollback tool) |
-| [`release.yml`](.github/workflows/release.yml) | GitHub Release published | Orchestrates `package` → `deploy` — see [deploy/](deploy/README.md) |
+| [`deploy.yml`](.github/workflows/deploy.yml) | release (via `release.yml`) or manual | Rolls the Azure Container App to a given image tag **in a chosen environment** (`staging` / `production`) — also your rollback tool |
+| [`release.yml`](.github/workflows/release.yml) | GitHub Release published | Staged pipeline: **test → package → deploy staging → deploy production** — see [deploy/](deploy/README.md) |
 
-All jobs run on Node 22 with npm caching, least-privilege tokens, and concurrency cancellation of superseded runs. The coverage badge at the top of this README reads a shields.io endpoint JSON that CI pushes to the `badges` branch on every `main` build.
+### Pull-request lifecycle
+
+`main` is protected: a change reaches it only through a reviewed PR that passes checks.
+
+```text
+open PR ─▶ tests + coverage ≥90% ─▶ staging preview ─▶ reviewer approves ─▶ merge
+```
+
+- **Tests / coverage** — `ci.yml` and `lint.yml` run on every PR; the four checks (`Server (build + test)`, `Client (build)`, `Server (ESLint)`, `Client (ESLint)`) are **required** and must be green before merge.
+- **Staging preview** — once opted in, `pr-staging.yml` deploys the branch so a reviewer can click through it live.
+- **Review + merge** — the branch rule requires **1 approving review** and resolved conversations; direct pushes to `main` are blocked. Admins can still merge their own PRs (so a solo maintainer isn't locked out).
+
+### Release → production
+
+Publishing a release promotes one image through stages so it only reaches production after passing tests and a staging rollout:
+
+```text
+Release v1.2.3 ─▶ test ─▶ package ─▶ deploy: staging ─▶ [approval] ─▶ deploy: production
+```
+
+Staging deploys automatically; production is gated by the `production` environment's **required-reviewers** rule, so a maintainer approves the promotion (like a real project). All jobs run on Node 22 with npm caching, least-privilege tokens, and concurrency cancellation of superseded runs. The coverage badge at the top of this README reads a shields.io endpoint JSON that CI pushes to the `badges` branch on every `main` build.
 
 ## Configuration
 
@@ -243,7 +270,7 @@ All backend configuration is read from the environment in `application/src/confi
 | --------------------------------------------------- | -------- | ---------------------------------- | --------------------------------------------------- |
 | `HOST` / `PORT`                                     | backend  | `0.0.0.0` / `8080`                 | Bind address and port                               |
 | `NODE_ENV`                                          | backend  | `development`                      | Enables production config validation                |
-| `MONGODB_CONNECTION_STRING`                                         | backend  | `mongodb://localhost:27017/netviz` | MongoDB connection string                           |
+| `MONGODB_CONNECTION_STRING`                         | backend  | `mongodb://localhost:27017/netviz` | MongoDB connection string                           |
 | `DB_RECREATE`                                       | backend  | `false`                            | Drop & re-seed the database on startup              |
 | `CORS_ORIGINS`                                      | backend  | `localhost` / `127.0.0.1`          | Comma-separated CORS allow-list                     |
 | `JSON_BODY_LIMIT`                                   | backend  | `8mb`                              | Max JSON request body                               |
@@ -263,6 +290,7 @@ All backend configuration is read from the environment in `application/src/confi
 | Document                                                     | What it covers                                                       |
 | ------------------------------------------------------------ | -------------------------------------------------------------------- |
 | [docs/api.md](docs/api.md)                                   | Full HTTP API reference (`/api/*` resources and `/auth/*` endpoints) |
+| [docs/use-cases/](docs/use-cases/README.md)                  | Use-case diagrams & descriptions (actors, flows, UML) + requirements |
 | [application/README.md](application/README.md)               | Backend package: layout, scripts, configuration                      |
 | [application/client/README.md](application/client/README.md) | Frontend package: layout, scripts, dev proxy                         |
 | [deploy/README.md](deploy/README.md)                         | Production deployment (Azure Container Apps runbook, CD)             |

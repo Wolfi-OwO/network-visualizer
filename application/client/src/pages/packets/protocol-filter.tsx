@@ -35,7 +35,7 @@ export default function ProtocolFilter({ counts, hidden, onToggle, onAll, onNone
 
   return (
     <div className="relative shrink-0">
-      <div className="flex items-center gap-1.5 px-4 py-1.5 bg-[var(--bg-900)] border-b border-[var(--border)] overflow-x-auto">
+      <div className="flex items-center gap-1.5 px-4 py-1.5 backdrop-blur-xl bg-[var(--bg-900)]/80 border-b border-[var(--glass-border)] overflow-x-auto">
       <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] shrink-0 mr-1">
         Protocols
       </span>
@@ -57,7 +57,7 @@ export default function ProtocolFilter({ counts, hidden, onToggle, onAll, onNone
             key={id}
             onClick={() => onToggle(id)}
             title={`${on ? 'Hide' : 'Show'} ${id}`}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium font-mono whitespace-nowrap shrink-0 transition-all border"
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium font-mono whitespace-nowrap shrink-0 transition-all border hover:brightness-125 active:scale-[0.95]"
             style={{
               background: on ? `${color}22` : 'transparent',
               borderColor: on ? `${color}66` : 'var(--border)',

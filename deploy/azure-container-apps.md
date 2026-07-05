@@ -1,7 +1,8 @@
 # Deploy to Azure Container Apps (ACA)
 
-The deployment target for NetViz. ACA runs the container, provides HTTPS ingress
-+ managed TLS certificates, scales to/from zero, and needs no OS to patch.
+The deployment target for NetViz. ACA runs the container and provides HTTPS
+ingress with managed TLS certificates, scales to/from zero, and needs no OS to
+patch.
 Because ACA is **stateless**, the database is a managed service (Cosmos DB for
 MongoDB vCore, or MongoDB Atlas).
 
@@ -57,7 +58,7 @@ indexes, which the RU-based Cosmos Mongo API does not fully support). Two good o
 
 Your connection string looks like (note `retrywrites=false` for Cosmos):
 
-```
+```text
 mongodb+srv://netvizadmin:<pw>@netviz-mongo.global.mongocluster.cosmos.azure.com/netviz?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false
 ```
 
