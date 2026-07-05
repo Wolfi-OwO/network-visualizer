@@ -109,11 +109,28 @@ jobs:
           # Idempotent and safe: switching keeps the current revision at 100%.
           az containerapp revision set-mode -g "$RG" -n "$APP" --mode multiple -o none
 
+          # CRITICAL: pin the current production revision BY NAME at 100% *before*
+          # creating anything. If prod is routed via a `latestRevision: true`
+          # entry, the new (newer) preview revision would otherwise inherit all of
+          # its traffic — hijacking production. Pinning by name removes that entry.
+          PROD=$(az containerapp show -g "$RG" -n "$APP" \
+            --query 'properties.configuration.ingress.traffic[?weight>`0`].revisionName' -o tsv \
+            | grep -v '^$' | head -1 || true)
+          if [ -z "$PROD" ]; then
+            # Traffic is latest-based (no named revision): fall back to the newest
+            # active revision that is NOT itself a preview.
+            PROD=$(az containerapp revision list -g "$RG" -n "$APP" \
+              --query "reverse(sort_by([?properties.active && !starts_with(name, '${APP}--pr-')], &properties.createdTime))[0].name" -o tsv)
+          fi
+          if [ -n "$PROD" ]; then
+            echo "Production revision: $PROD (pinned to 100%)"
+            az containerapp ingress traffic set -g "$RG" -n "$APP" --revision-weight "${PROD}=100" -o none
+          fi
+
           REV="${APP}--${TAG}"
 
           # Create the revision only if this exact commit hasn't been built yet
-          # (re-runs are then no-ops). New revisions start at 0% traffic in
-          # multiple mode; scale-to-zero so an idle preview costs nothing.
+          # (re-runs are then no-ops). Scale-to-zero so an idle preview costs nothing.
           if az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" -o none 2>/dev/null; then
             echo "Revision $REV already exists — reusing."
           else
@@ -121,6 +138,13 @@ jobs:
               --image "${ACR}.azurecr.io/${IMAGE}:${TAG}" \
               --revision-suffix "$TAG" \
               --min-replicas 0 --max-replicas 1 -o none
+          fi
+
+          # Belt-and-braces: production stays at 100%, this preview is forced to 0%
+          # (off the load balancer). It stays reachable only via its revision URL.
+          if [ -n "$PROD" ] && [ "$PROD" != "$REV" ]; then
+            az containerapp ingress traffic set -g "$RG" -n "$APP" \
+              --revision-weight "${PROD}=100" "${REV}=0" -o none
           fi
 
           # Retire superseded preview revisions for THIS PR (keep only the newest).

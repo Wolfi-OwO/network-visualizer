@@ -89,11 +89,17 @@ jobs:
           az containerapp revision set-mode -g "$RG" -n "$APP" --mode multiple -o none
 
           # Pre-normalize: pin whatever serves today to a NAMED revision. If prod
-          # were routed via `latestRevision:true`, the next preview revision (which
-          # becomes the newest) would inherit production traffic — pinning by name
-          # prevents that hijack.
-          LATEST=$(az containerapp revision list -g "$RG" -n "$APP" \
-            --query "reverse(sort_by([?properties.active], &properties.createdTime))[0].name" -o tsv)
+          # were routed via `latestRevision:true`, a preview revision (which may be
+          # the newest) could inherit production traffic — pinning by name prevents
+          # that hijack. Prefer the currently-weighted named revision; else the
+          # newest active NON-preview revision.
+          LATEST=$(az containerapp show -g "$RG" -n "$APP" \
+            --query 'properties.configuration.ingress.traffic[?weight>`0`].revisionName' -o tsv \
+            | grep -v '^$' | head -1 || true)
+          if [ -z "$LATEST" ]; then
+            LATEST=$(az containerapp revision list -g "$RG" -n "$APP" \
+              --query "reverse(sort_by([?properties.active && !starts_with(name, '${APP}--pr-')], &properties.createdTime))[0].name" -o tsv)
+          fi
           [ -n "$LATEST" ] && az containerapp ingress traffic set -g "$RG" -n "$APP" \
             --revision-weight "${LATEST}=100" -o none
 
