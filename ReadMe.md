@@ -234,10 +234,25 @@ The pipeline is split into atomic workflows, each runnable on its own:
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | [`lint.yml`](.github/workflows/lint.yml) | push / PR | ESLint for server and client |
-| [`ci.yml`](.github/workflows/ci.yml) | push / PR / release | Type-check + build + backend tests (in-memory MongoDB); uploads the `client-dist` artifact and publishes the live coverage badge on `main`. Reusable — the release pipeline runs it as its test stage |
+| [`ci.yml`](.github/workflows/ci.yml) | push / PR / release | Type-check + build + backend tests (in-memory MongoDB, **≥90% coverage gate**); uploads the `client-dist` artifact and publishes the live coverage badge on `main`. Reusable — the release pipeline runs it as its test stage |
+| [`pr-staging.yml`](.github/workflows/pr-staging.yml) | PR to `main` | Builds the PR image and deploys a live **staging preview** for reviewers. Opt-in (repo variable `STAGING_ENABLED=true`); skipped for fork PRs |
 | [`package.yml`](.github/workflows/package.yml) | release (via `release.yml`) or manual | Builds the client + Docker image, pushes it to ACR |
 | [`deploy.yml`](.github/workflows/deploy.yml) | release (via `release.yml`) or manual | Rolls the Azure Container App to a given image tag **in a chosen environment** (`staging` / `production`) — also your rollback tool |
 | [`release.yml`](.github/workflows/release.yml) | GitHub Release published | Staged pipeline: **test → package → deploy staging → deploy production** — see [deploy/](deploy/README.md) |
+
+### Pull-request lifecycle
+
+`main` is protected: a change reaches it only through a reviewed PR that passes checks.
+
+```text
+open PR ─▶ tests + coverage ≥90% ─▶ staging preview ─▶ reviewer approves ─▶ merge
+```
+
+- **Tests / coverage** — `ci.yml` and `lint.yml` run on every PR; the four checks (`Server (build + test)`, `Client (build)`, `Server (ESLint)`, `Client (ESLint)`) are **required** and must be green before merge.
+- **Staging preview** — once opted in, `pr-staging.yml` deploys the branch so a reviewer can click through it live.
+- **Review + merge** — the branch rule requires **1 approving review** and resolved conversations; direct pushes to `main` are blocked. Admins can still merge their own PRs (so a solo maintainer isn't locked out).
+
+### Release → production
 
 Publishing a release promotes one image through stages so it only reaches production after passing tests and a staging rollout:
 

@@ -62,6 +62,16 @@ environment.
 See the runbook for the one-time provisioning of the registry, database and
 Container App.
 
+### PR staging previews (optional)
+
+[`pr-staging.yml`](../.github/workflows/pr-staging.yml) can deploy each pull
+request to the `staging` environment so reviewers preview it live. It is inert
+until you set the repository variable **`STAGING_ENABLED=true`** (and it never
+runs for fork PRs, which can't read secrets). Until then, the required ≥90% test
+checks plus the review approval are the PR gate; the preview is just a
+convenience. Concurrent PRs share one staging Container App — the latest push
+wins (superseded runs are cancelled).
+
 ## Related
 
 - Image / app metadata (OCI labels, footer version) — see

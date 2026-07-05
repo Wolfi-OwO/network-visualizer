@@ -21,6 +21,9 @@ and the project aims to adhere to [Semantic Versioning](https://semver.org/).
   behind the environment's required-reviewers approval. `deploy.yml` takes an
   `environment` input (`staging` / `production`); `ci.yml` is reusable as the
   release test stage.
+- Pull-request lifecycle enforced on `main`: required test/build/lint checks
+  (≥90% coverage) plus one approving review before merge, with an optional live
+  staging preview per PR.
 
 ### Fixed
 
@@ -38,3 +41,6 @@ and the project aims to adhere to [Semantic Versioning](https://semver.org/).
 - Use-case documentation under `docs/use-cases/`: use-case diagrams and
   descriptions (actors, flows, UML) plus a requirements catalog.
 - `.markdownlint.json` defining the repo's Markdown ruleset.
+- `pr-staging.yml` — opt-in per-PR staging preview (repo variable
+  `STAGING_ENABLED`); `package.yml` gained a `push_latest` input so preview
+  builds don't move the `:latest` tag.

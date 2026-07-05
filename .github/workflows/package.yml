@@ -10,12 +10,22 @@ on:
         description: "Image tag (e.g. v1.0.0)"
         required: true
         type: string
+      push_latest:
+        description: "Also tag/push :latest (off for PR preview builds)"
+        required: false
+        default: true
+        type: boolean
   workflow_dispatch:
     inputs:
       tag:
         description: "Image tag (e.g. v1.0.0)"
         required: true
         type: string
+      push_latest:
+        description: "Also tag/push :latest"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -74,13 +84,16 @@ jobs:
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build & push image
+        env:
+          PUSH_LATEST: ${{ inputs.push_latest }}
         run: |
           IMAGE="${{ vars.ACR_NAME }}.azurecr.io/${{ vars.IMAGE_NAME }}"
+          TAGS=(-t "$IMAGE:${{ inputs.tag }}")
+          [ "$PUSH_LATEST" = "true" ] && TAGS+=(-t "$IMAGE:latest")
           docker build ./application \
             --build-arg APP_VERSION=${{ steps.meta.outputs.version }} \
             --build-arg VCS_REF=${{ github.sha }} \
             --build-arg BUILD_DATE=${{ steps.meta.outputs.date }} \
-            -t "$IMAGE:${{ inputs.tag }}" \
-            -t "$IMAGE:latest"
+            "${TAGS[@]}"
           docker push "$IMAGE:${{ inputs.tag }}"
-          docker push "$IMAGE:latest"
+          [ "$PUSH_LATEST" = "true" ] && docker push "$IMAGE:latest" || true
