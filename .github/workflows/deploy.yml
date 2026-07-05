@@ -1,13 +1,10 @@
 name: Deploy
 
-# Rolls the production Container App forward to an already-pushed image tag, and
-# routes 100% of the load-balanced traffic to the new revision. Called by
-# release.yml, or run manually to deploy/roll back any tag.
-#
-# The app runs in MULTIPLE-revision mode (so per-PR preview revisions can exist
-# at 0% traffic — see pr-preview.yml). In that mode a new revision does NOT take
-# traffic automatically, so this workflow creates the revision and then shifts
-# all production traffic onto it (leaving preview revisions at 0%, untouched).
+# Rolls the production Container App forward to an already-pushed image tag.
+# Production (netviz) is a standalone, single-container app — PR previews run on
+# a separate app (see pr-preview.yml), so this uses single-revision mode: the new
+# revision automatically takes 100% of traffic. Called by release.yml, or run
+# manually to deploy/roll back any tag.
 #
 # The `production` environment scopes RESOURCE_GROUP / CONTAINERAPP_NAME, its
 # OIDC federated credential (subject repo:<owner>/<repo>:environment:production)
@@ -74,7 +71,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Roll out image and route 100% traffic to it
+      - name: Roll out image
         env:
           RG: ${{ vars.RESOURCE_GROUP }}
           APP: ${{ vars.CONTAINERAPP_NAME }}
@@ -84,24 +81,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Keep the app in multiple-revision mode (idempotent: switching leaves
-          # the current revision serving 100%, so this never disrupts prod).
-          az containerapp revision set-mode -g "$RG" -n "$APP" --mode multiple -o none
-
-          # Pre-normalize: pin whatever serves today to a NAMED revision. If prod
-          # were routed via `latestRevision:true`, a preview revision (which may be
-          # the newest) could inherit production traffic — pinning by name prevents
-          # that hijack. Prefer the currently-weighted named revision; else the
-          # newest active NON-preview revision.
-          LATEST=$(az containerapp show -g "$RG" -n "$APP" \
-            --query 'properties.configuration.ingress.traffic[?weight>`0`].revisionName' -o tsv \
-            | grep -v '^$' | head -1 || true)
-          if [ -z "$LATEST" ]; then
-            LATEST=$(az containerapp revision list -g "$RG" -n "$APP" \
-              --query "reverse(sort_by([?properties.active && !starts_with(name, '${APP}--pr-')], &properties.createdTime))[0].name" -o tsv)
-          fi
-          [ -n "$LATEST" ] && az containerapp ingress traffic set -g "$RG" -n "$APP" \
-            --revision-weight "${LATEST}=100" -o none
+          # Single-revision mode: the new revision automatically serves 100%.
+          az containerapp revision set-mode -g "$RG" -n "$APP" --mode single -o none
 
           # Deterministic, DNS-safe revision suffix from the tag, made unique per
           # run so re-deploys (rollbacks) never collide with an existing revision.
@@ -109,23 +90,14 @@ jobs:
           SUFFIX=$(echo "${BASE}-${GITHUB_RUN_ID}" | cut -c1-40 | sed 's/-$//')
           REV="${APP}--${SUFFIX}"
 
-          # Create the new production revision (explicit scale so prod is
-          # deterministic regardless of what preview revisions set).
+          # MONGODB_CONNECTION_STRING is set explicitly: the app was renamed off the
+          # old MONGO_URI variable, so relying on the inherited template would leave
+          # new revisions on the localhost fallback.
           az containerapp update -g "$RG" -n "$APP" \
             --image "${ACR}.azurecr.io/${IMAGE}:${TAG}" \
             --revision-suffix "$SUFFIX" \
+            --set-env-vars MONGODB_CONNECTION_STRING=secretref:mongo-uri \
             --min-replicas 1 --max-replicas 3 -o none
-
-          # Cut over: zero every currently-serving (now name-pinned) revision, then
-          # send 100% to the new one. Preview revisions carry no traffic entry, so
-          # they stay at 0% and keep their own preview URLs.
-          ARGS=()
-          while IFS= read -r name; do
-            [ -n "$name" ] && [ "$name" != "$REV" ] && ARGS+=("$name=0")
-          done < <(az containerapp show -g "$RG" -n "$APP" \
-            --query 'properties.configuration.ingress.traffic[?weight>`0`].revisionName' -o tsv)
-          ARGS+=("${REV}=100")
-          az containerapp ingress traffic set -g "$RG" -n "$APP" --revision-weight "${ARGS[@]}" -o none
 
           FQDN=$(az containerapp show -g "$RG" -n "$APP" --query properties.configuration.ingress.fqdn -o tsv)
           echo "Deployed '$TAG' as revision '$REV' — 100% traffic at https://$FQDN"

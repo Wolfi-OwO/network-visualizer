@@ -178,25 +178,65 @@ works automatically — the SPA detects the hostname and renders the status page
 
 ## Part 4 — Continuous delivery
 
-The app runs in **multiple-revision mode** so one Container App serves both
-per-PR previews and production:
+Two Container Apps: **`netviz`** (production) and **`netviz-preview`** (per-PR
+previews with a mongo sidecar).
 
-```bash
-az containerapp revision set-mode -g netviz-rg -n netviz --mode multiple
-```
-
-- **Pull requests** ([`pr-preview.yml`](../.github/workflows/pr-preview.yml)) get
-  a **new revision at 0% traffic** — off the load balancer, but reachable at its
-  own FQDN `https://netviz--pr-<N>-<sha>.<region>.azurecontainerapps.io`. Closing
-  the PR deactivates it. (Preview revisions share this app's secrets, including
-  the production DB — see [README.md](./README.md).)
 - **Releases** ([`release.yml`](../.github/workflows/release.yml)) chain
   [`package.yml`](../.github/workflows/package.yml) (builds the image and
   **pushes it to ACR with the registry admin username/password**) then
   [`deploy.yml`](../.github/workflows/deploy.yml), which logs in with
-  **OpenID Connect** (federated credentials — no stored client secret), creates a
-  revision and **shifts 100% of traffic onto it**. Dispatch `deploy.yml` with any
-  older tag to roll production back.
+  **OpenID Connect** (federated credentials — no stored client secret) and rolls
+  a new revision of **`netviz`**. Production is single-revision, so the new
+  revision serves 100%. Dispatch `deploy.yml` with any older tag to roll back.
+- **Pull requests** ([`pr-preview.yml`](../.github/workflows/pr-preview.yml)) roll
+  the PR image onto a new revision of **`netviz-preview`**, reachable at its own
+  FQDN `https://netviz-preview--pr-<N>-<sha>.<region>.azurecontainerapps.io`.
+  Closing the PR deactivates it. Previews are fully isolated from production — own
+  database (sidecar), no production secrets.
+
+### Provision the preview app (`netviz-preview`)
+
+A dedicated multiple-revision app whose template holds the app container **plus a
+`mongo:7` sidecar**; the app connects to the sidecar over `localhost`.
+
+```bash
+# Mirror mongo into ACR so the sidecar pulls from your registry (no Docker Hub limits)
+az acr import -n netvizacr --source docker.io/library/mongo:7 --image mongo:7
+
+# 1) Create the app (single container first — reliable identity + AcrPull path)
+az containerapp create -g netviz-rg -n netviz-preview \
+  --environment netviz-env \
+  --image netvizacr.azurecr.io/netviz:latest \
+  --registry-server netvizacr.azurecr.io --registry-identity system \
+  --ingress external --target-port 8080 \
+  --revisions-mode multiple --min-replicas 1 --max-replicas 1 \
+  --cpu 0.5 --memory 1.0Gi \
+  --secrets jwt-secret="$(openssl rand -base64 48)" \
+  --env-vars NODE_ENV=production PORT=8080 HOST=0.0.0.0 \
+             MONGODB_CONNECTION_STRING=mongodb://localhost:27017/netviz \
+             REQUIRE_AUTH=false ALLOW_DEV_LOGIN=true JWT_SECRET=secretref:jwt-secret
+
+# 2) Add the mongo sidecar to the template (multi-container needs a YAML patch).
+#    Fetch the app, append a second container, re-apply just the template:
+az containerapp show -g netviz-rg -n netviz-preview -o json > pv.json
+python3 - <<'PY'
+import json, yaml
+d = json.load(open('pv.json')); app = d['properties']['template']['containers'][0]
+app['resources'] = {'cpu': 0.5, 'memory': '1.0Gi'}
+mongo = {'name': 'mongo', 'image': 'netvizacr.azurecr.io/mongo:7',
+         'resources': {'cpu': 0.5, 'memory': '1.0Gi'}}
+yaml.safe_dump({'properties': {'template': {
+    'containers': [app, mongo],
+    'scale': {'minReplicas': 1, 'maxReplicas': 1}}}},
+    open('sidecar.yaml', 'w'), sort_keys=False)
+PY
+az containerapp update -g netviz-rg -n netviz-preview --yaml sidecar.yaml
+```
+
+Then `gh variable set PREVIEW_CONTAINERAPP_NAME -R <owner>/<repo> --body netviz-preview`
+and `gh variable set PREVIEW_ENABLED --body true`. The workflow thereafter only
+updates the **app** container per PR (`--container-name netviz-preview --image …`),
+so the sidecar is preserved automatically.
 
 1. Enable the ACR admin account and read its credentials (they become the
    `ACR_USERNAME` / `ACR_PASSWORD` repo secrets):

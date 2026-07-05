@@ -235,32 +235,32 @@ The pipeline is split into atomic workflows, each runnable on its own:
 | --- | --- | --- |
 | [`lint.yml`](.github/workflows/lint.yml) | push / PR | ESLint for server and client |
 | [`ci.yml`](.github/workflows/ci.yml) | push / PR / release | Type-check + build + backend tests (in-memory MongoDB, **≥90% coverage gate**); posts a **coverage-report comment** on PRs, uploads the `client-dist` artifact, and publishes the live coverage badge on `main`. Reusable — the release pipeline runs it as its test stage |
-| [`pr-preview.yml`](.github/workflows/pr-preview.yml) | PR to `main` (opened/updated/closed) | Builds the PR image and creates a **0%-traffic preview revision** on the shared Container App — its own public URL, off the load balancer — and comments the link. Deactivates it when the PR closes. Opt-in (repo variable `PREVIEW_ENABLED=true`); skipped for fork PRs |
+| [`pr-preview.yml`](.github/workflows/pr-preview.yml) | PR to `main` (opened/updated/closed) | Builds the PR image and rolls it onto a new revision of the dedicated **`netviz-preview`** app (with a mongo sidecar) — its own public URL and throwaway database — and comments the link. Deactivates it when the PR closes. Opt-in (repo variable `PREVIEW_ENABLED=true`); skipped for fork PRs |
 | [`package.yml`](.github/workflows/package.yml) | release / PR preview / manual | Builds the client + Docker image, pushes it to ACR |
-| [`deploy.yml`](.github/workflows/deploy.yml) | release (via `release.yml`) or manual | Rolls the Container App to a given image tag and **shifts 100% of traffic** to the new revision — also your rollback tool |
+| [`deploy.yml`](.github/workflows/deploy.yml) | release (via `release.yml`) or manual | Rolls the production app to a given image tag (single-revision → 100% traffic) — also your rollback tool |
 | [`release.yml`](.github/workflows/release.yml) | GitHub Release published | Staged pipeline: **test → package → deploy production (gated)** — see [deploy/](deploy/README.md) |
 
 ### Pull-request lifecycle
 
-`main` is protected: a change reaches it only through a reviewed PR that passes checks. One Container App serves both previews and production — a PR gets its own revision at **0% production traffic**, so it never touches live users.
+`main` is protected: a change reaches it only through a reviewed PR that passes checks. Previews run on a **separate `netviz-preview` app** with its own database, so a PR never touches production or live users.
 
 ```text
-open PR ─▶ test + coverage comment ─▶ 0%-traffic preview (public URL comment) ─▶ review ─▶ merge ─▶ preview destroyed
+open PR ─▶ test + coverage comment ─▶ isolated preview (public URL comment) ─▶ review ─▶ merge ─▶ preview destroyed
 ```
 
 - **Tests / coverage** — `ci.yml` and `lint.yml` run on every PR; the four checks (`Server (build + test)`, `Client (build)`, `Server (ESLint)`, `Client (ESLint)`) are **required** and must be green before merge. `ci.yml` also posts the coverage report as a sticky comment.
-- **Preview** — once opted in, `pr-preview.yml` creates a preview revision on the shared app with its own URL (`https://<app>--pr-<N>-<sha>…azurecontainerapps.io`) and comments it. The revision carries no load-balancer weight, and is deactivated automatically when the PR is merged or closed.
+- **Preview** — once opted in, `pr-preview.yml` creates a revision on `netviz-preview` with its own URL (`https://netviz-preview--pr-<N>-<sha>…azurecontainerapps.io`) and comments it. The app talks to a mongo sidecar over `localhost` (isolated, ephemeral data); the revision is deactivated automatically when the PR is merged or closed.
 - **Review + merge** — the branch rule requires **1 approving review** and resolved conversations; direct pushes to `main` are blocked. Admins can still merge their own PRs (so a solo maintainer isn't locked out).
 
 ### Release → production
 
-Only a published release moves production traffic. One image is tested, built, then promoted behind a manual gate:
+Only a published release ships to production. One image is tested, built, then promoted behind a manual gate:
 
 ```text
-Release v1.2.3 ─▶ test ─▶ package ─▶ [approval] ─▶ deploy: 100% production traffic
+Release v1.2.3 ─▶ test ─▶ package ─▶ [approval] ─▶ deploy: netviz (100% traffic)
 ```
 
-Production is gated by the `production` environment's **required-reviewers** rule, so a maintainer approves the promotion. `deploy.yml` creates a new revision and cuts all traffic onto it (preview revisions stay at 0%). All jobs run on Node 22 with npm caching, least-privilege tokens, and concurrency cancellation of superseded runs. The coverage badge at the top of this README reads a shields.io endpoint JSON that CI pushes to the `badges` branch on every `main` build.
+Production is gated by the `production` environment's **required-reviewers** rule, so a maintainer approves the promotion. `deploy.yml` creates a new revision of `netviz` (single-revision mode routes 100% to it). All jobs run on Node 22 with npm caching, least-privilege tokens, and concurrency cancellation of superseded runs. The coverage badge at the top of this README reads a shields.io endpoint JSON that CI pushes to the `badges` branch on every `main` build.
 
 ## Configuration
 

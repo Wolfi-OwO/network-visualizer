@@ -8,29 +8,31 @@ and the project aims to adhere to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **Continuous delivery reworked around a single Container App.** The app now
-  runs in **multiple-revision mode**: releases create a new revision and shift
-  **100% of traffic** onto it (`deploy.yml`), while the separate staging app is
-  gone. `deploy.yml` doubles as the rollback tool (dispatch it with an older tag).
-- **Per-PR previews now deploy to a 0%-traffic revision** on that same app
-  instead of a dedicated staging environment — each PR gets its own public URL,
-  off the load balancer, and the revision is deactivated automatically when the
-  PR is merged or closed.
+- **Continuous delivery split into two Container Apps.** Production (`netviz`)
+  runs single-revision (each release routes 100% to the new revision via
+  `deploy.yml`); pull requests deploy to a dedicated **`netviz-preview`** app.
+  `deploy.yml` doubles as the rollback tool (dispatch it with an older tag).
+- **Per-PR previews are fully isolated.** Each PR rolls its image onto a new
+  revision of `netviz-preview` — its own public URL and its **own throwaway
+  database** (a `mongo:7` sidecar reached over `localhost`), with **no production
+  data or secrets**. Revisions are deactivated when the PR is merged or closed.
+- `deploy.yml` sets `MONGODB_CONNECTION_STRING` explicitly, fixing production
+  drift left when the app was renamed off the old `MONGO_URI` variable.
 - Release workflow permissions widened to `contents: write` + `id-token: write`
   so the gated production deploy can mint its OIDC token.
 
 ### Added
 
 - `pr-preview.yml` — opt-in per-PR preview (repo variable `PREVIEW_ENABLED`) that
-  builds the PR image, spins up a 0%-traffic revision on the shared app, comments
-  the live URL, and tears it down on close.
+  builds the PR image, updates the app container on `netviz-preview` (preserving
+  the mongo sidecar), comments the live URL, and tears it down on close.
 - `ci.yml` posts a **coverage-report comment** on every pull request (sticky,
   updated in place on each push).
 
 ### Removed
 
 - `pr-staging.yml` and the dedicated staging Container App — replaced by the
-  0%-traffic preview revisions in `pr-preview.yml`.
+  isolated preview revisions in `pr-preview.yml`.
 
 ## [2.2.0] - 2026-07-05
 
