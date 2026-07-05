@@ -1,0 +1,236 @@
+name: PR · preview
+
+# Per-PR preview on a DEDICATED Container App (vars.PREVIEW_CONTAINERAPP_NAME,
+# e.g. netviz-preview) — completely separate from production (netviz), which is
+# never touched by a pull request.
+#
+# The preview app's template carries a **mongo sidecar** next to the app
+# container. Each PR gets its own revision (multiple-revision mode) with its own
+# public revision URL; the app talks to the sidecar over localhost, so every
+# preview is fully isolated with its own throwaway database — no production data,
+# no shared secrets. The sidecar has no volume, so its data resets if the replica
+# restarts.
+#
+# On open/update: update ONLY the app container's image on the preview app
+# (the sidecar is preserved), then comment the revision URL.
+# On close/merge: the PR's preview revisions are deactivated.
+#
+# Inert until you set the repo variable PREVIEW_ENABLED=true, and never runs for
+# fork PRs (their token can't read secrets). Releases — not PRs — ship to
+# production (see release.yml → deploy.yml).
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  id-token: write        # OIDC login to Azure
+  pull-requests: write   # sticky preview comment
+
+concurrency:
+  group: pr-preview-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Compute a stable, DNS-safe tag/suffix for this commit ──────────────────
+  prep:
+    name: Prepare
+    if: >-
+      github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.PREVIEW_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.o.outputs.tag }}
+    steps:
+      - id: o
+        run: |
+          SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
+          echo "tag=pr-${{ github.event.number }}-$SHA" >> "$GITHUB_OUTPUT"
+
+  # ── Build the PR image (unique tag per commit; never moves :latest) ────────
+  package:
+    name: Build preview image
+    needs: prep
+    uses: ./.github/workflows/package.yml
+    with:
+      tag: ${{ needs.prep.outputs.tag }}
+      push_latest: false
+    secrets: inherit
+
+  # ── Roll the PR image onto a new revision of the dedicated preview app ──────
+  preview:
+    name: Deploy preview revision
+    needs: [prep, package]
+    runs-on: ubuntu-latest
+    # The `staging` GitHub environment supplies the OIDC identity (no gate). Its
+    # service principal is Contributor on the resource group, so it can manage the
+    # preview app too.
+    environment: staging
+    steps:
+      - name: Check Azure config
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          PREVIEW_CONTAINERAPP_NAME: ${{ vars.PREVIEW_CONTAINERAPP_NAME }}
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+        run: |
+          miss=0
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP ACR_NAME PREVIEW_CONTAINERAPP_NAME IMAGE_NAME; do
+            [ -z "${!v}" ] && { echo "::error::missing: $v"; miss=1; }
+          done
+          [ "$miss" = 0 ] || { echo "Set Azure IDs as SECRETS and RESOURCE_GROUP/ACR_NAME/PREVIEW_CONTAINERAPP_NAME/IMAGE_NAME as VARIABLES. PREVIEW_CONTAINERAPP_NAME is the dedicated preview app (with the mongo sidecar)."; exit 1; }
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Roll preview image onto a new revision
+        id: rev
+        env:
+          RG: ${{ vars.RESOURCE_GROUP }}
+          APP: ${{ vars.PREVIEW_CONTAINERAPP_NAME }}
+          ACR: ${{ vars.ACR_NAME }}
+          IMAGE: ${{ vars.IMAGE_NAME }}
+          TAG: ${{ needs.prep.outputs.tag }}
+          PR: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          REV="${APP}--${TAG}"
+
+          # Update ONLY the app container's image (container name == app name);
+          # the mongo sidecar already in the template is preserved. Creates a new
+          # per-PR revision. Re-runs of the same commit are no-ops.
+          if az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" -o none 2>/dev/null; then
+            echo "Revision $REV already exists — reusing."
+          else
+            az containerapp update -g "$RG" -n "$APP" \
+              --container-name "$APP" \
+              --image "${ACR}.azurecr.io/${IMAGE}:${TAG}" \
+              --revision-suffix "$TAG" -o none
+          fi
+
+          # Retire superseded preview revisions for THIS PR (keep only the newest),
+          # so we don't leave idle replicas running.
+          for OLD in $(az containerapp revision list -g "$RG" -n "$APP" \
+              --query "[?starts_with(name, '${APP}--pr-${PR}-') && name!='${REV}'].name" -o tsv); do
+            echo "Deactivating superseded $OLD"
+            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$OLD" -o none || true
+          done
+
+          FQDN=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" \
+            --query properties.fqdn -o tsv)
+          echo "rev=$REV" >> "$GITHUB_OUTPUT"
+          echo "url=https://$FQDN" >> "$GITHUB_OUTPUT"
+          echo "Preview: https://$FQDN"
+
+      - name: Comment preview URL on the PR
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.rev.outputs.url }}
+          PREVIEW_REV: ${{ steps.rev.outputs.rev }}
+        with:
+          script: |
+            const url = process.env.PREVIEW_URL;
+            const rev = process.env.PREVIEW_REV;
+            const sha = context.payload.pull_request.head.sha.slice(0, 7);
+            const marker = '<!-- pr-preview -->';
+            const body = [
+              marker,
+              '## 🚀 Preview deployment',
+              '',
+              'Isolated preview on its own revision — dedicated throwaway database (mongo sidecar), no production data:',
+              '',
+              `**${url}**`,
+              '',
+              `<sub>revision \`${rev}\` · commit ${sha} · fresh database each restart · torn down when this PR closes</sub>`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+  # ── On PR close/merge: destroy the preview (deactivate its revisions) ───────
+  teardown:
+    name: Tear down preview
+    if: >-
+      github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.PREVIEW_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Check Azure config
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          PREVIEW_CONTAINERAPP_NAME: ${{ vars.PREVIEW_CONTAINERAPP_NAME }}
+        run: |
+          miss=0
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP PREVIEW_CONTAINERAPP_NAME; do
+            [ -z "${!v}" ] && { echo "::error::missing: $v"; miss=1; }
+          done
+          [ "$miss" = 0 ] || { echo "Missing Azure config for teardown."; exit 1; }
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deactivate this PR's preview revisions
+        env:
+          RG: ${{ vars.RESOURCE_GROUP }}
+          APP: ${{ vars.PREVIEW_CONTAINERAPP_NAME }}
+          PR: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          REVS=$(az containerapp revision list -g "$RG" -n "$APP" \
+            --query "[?starts_with(name, '${APP}--pr-${PR}-')].name" -o tsv)
+          [ -z "$REVS" ] && echo "No preview revisions for PR #$PR."
+          for r in $REVS; do
+            echo "Deactivating $r"
+            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$r" -o none || true
+          done
+
+      - name: Comment teardown on the PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const merged = context.payload.pull_request.merged;
+            const marker = '<!-- pr-preview -->';
+            const body = [
+              marker,
+              '## 🧹 Preview torn down',
+              '',
+              merged
+                ? 'This PR was merged — its preview revision has been deactivated.'
+                : 'This PR was closed — its preview revision has been deactivated.',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

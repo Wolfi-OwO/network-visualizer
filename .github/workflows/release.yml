@@ -1,21 +1,19 @@
 name: Release
 
-# Staged release pipeline for a published GitHub Release (tag v1.2.3):
+# Production release pipeline for a published GitHub Release (tag v1.2.3):
 #
-#   test  →  package  →  deploy (staging)  →  deploy (production, gated)
+#   test  →  package  →  deploy (production, gated)
 #
 # 1. test        — re-runs the full CI suite (lint/build/tests) on the tagged
 #                  commit, so nothing ships that hasn't passed.
 # 2. package     — builds the client + Docker image and pushes it to ACR.
-# 3. staging     — rolls the image out to the `staging` environment (automatic).
-# 4. production  — rolls the SAME image out to `production`. Configure the
-#                  `production` environment with "Required reviewers" so this
-#                  job waits for a maintainer's approval — that is the manual
-#                  gate to promote a release to production.
+# 3. production  — deploy.yml rolls the image onto the shared Container App and
+#                  shifts 100% of traffic to the new revision. Give the
+#                  `production` environment a "Required reviewers" rule so this
+#                  job waits for a maintainer's approval — the manual go-live gate.
 #
-# The heavy lifting lives in the reusable ci.yml / package.yml / deploy.yml
-# workflows, which can also be dispatched individually (deploy.yml doubles as
-# the rollback tool for any tag and environment). See deploy/README.md.
+# Releases are the ONLY thing that moves production traffic. Pull requests get
+# 0%-traffic preview revisions on the same app (see pr-preview.yml).
 on:
   release:
     types: [published]
@@ -42,23 +40,11 @@ jobs:
       tag: ${{ github.event.release.tag_name }}
     secrets: inherit
 
-  deploy-staging:
-    name: Deploy · staging
-    needs: package
-    uses: ./.github/workflows/deploy.yml
-    with:
-      tag: ${{ github.event.release.tag_name }}
-      environment: staging
-    secrets: inherit
-    permissions:
-      id-token: write
-      contents: read
-
   deploy-production:
     name: Deploy · production
-    # Only after staging is live; the `production` environment's protection
-    # rule (required reviewers) turns this into a manual promotion gate.
-    needs: deploy-staging
+    # The `production` environment's protection rule (required reviewers) turns
+    # this into a manual promotion gate.
+    needs: package
     uses: ./.github/workflows/deploy.yml
     with:
       tag: ${{ github.event.release.tag_name }}
