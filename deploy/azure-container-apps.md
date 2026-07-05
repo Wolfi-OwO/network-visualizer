@@ -178,14 +178,25 @@ works automatically — the SPA detects the hostname and renders the status page
 
 ## Part 4 — Continuous delivery
 
-On every published release, [`release.yml`](../.github/workflows/release.yml)
-chains two reusable workflows: [`package.yml`](../.github/workflows/package.yml)
-builds the image on the runner and **pushes it to ACR with the registry's
-admin username/password** (repo secrets), then
-[`deploy.yml`](../.github/workflows/deploy.yml) logs in to Azure with
-**OpenID Connect** (federated credentials — no client secret to store or
-rotate) and runs `az containerapp update`. Dispatch `deploy.yml` manually
-with any existing tag to roll back.
+The app runs in **multiple-revision mode** so one Container App serves both
+per-PR previews and production:
+
+```bash
+az containerapp revision set-mode -g netviz-rg -n netviz --mode multiple
+```
+
+- **Pull requests** ([`pr-preview.yml`](../.github/workflows/pr-preview.yml)) get
+  a **new revision at 0% traffic** — off the load balancer, but reachable at its
+  own FQDN `https://netviz--pr-<N>-<sha>.<region>.azurecontainerapps.io`. Closing
+  the PR deactivates it. (Preview revisions share this app's secrets, including
+  the production DB — see [README.md](./README.md).)
+- **Releases** ([`release.yml`](../.github/workflows/release.yml)) chain
+  [`package.yml`](../.github/workflows/package.yml) (builds the image and
+  **pushes it to ACR with the registry admin username/password**) then
+  [`deploy.yml`](../.github/workflows/deploy.yml), which logs in with
+  **OpenID Connect** (federated credentials — no stored client secret), creates a
+  revision and **shifts 100% of traffic onto it**. Dispatch `deploy.yml` with any
+  older tag to roll production back.
 
 1. Enable the ACR admin account and read its credentials (they become the
    `ACR_USERNAME` / `ACR_PASSWORD` repo secrets):
@@ -195,19 +206,23 @@ with any existing tag to roll back.
    az acr credential show -n netvizacr --query "{user:username, pass:passwords[0].value}" -o tsv
    ```
 
-2. Register an app + service principal and federate it to this repo's
-   `production` environment (used only for the Container App rollout):
+2. Register an app + service principal and federate it to **both** GitHub
+   environments — `production` (releases) and `staging` (PR previews). Both point
+   at the same Container App; the two subjects just let each job mint an OIDC
+   token:
 
    ```bash
    GH_REPO="OWNER/REPO"                       # your GitHub repo
    APP_ID=$(az ad app create --display-name "gh-routing-visualizer-cd" --query appId -o tsv)
    az ad sp create --id "$APP_ID"
-   az ad app federated-credential create --id "$APP_ID" --parameters "{
-     \"name\": \"gh-routing-visualizer-production\",
-     \"issuer\": \"https://token.actions.githubusercontent.com\",
-     \"subject\": \"repo:${GH_REPO}:environment:production\",
-     \"audiences\": [\"api://AzureADTokenExchange\"]
-   }"
+   for ENV in production staging; do
+     az ad app federated-credential create --id "$APP_ID" --parameters "{
+       \"name\": \"gh-routing-visualizer-${ENV}\",
+       \"issuer\": \"https://token.actions.githubusercontent.com\",
+       \"subject\": \"repo:${GH_REPO}:environment:${ENV}\",
+       \"audiences\": [\"api://AzureADTokenExchange\"]
+     }"
+   done
    SUB_ID=$(az account show --query id -o tsv)
    az role assignment create --assignee "$APP_ID" --role Contributor \
      --scope "/subscriptions/${SUB_ID}/resourceGroups/${RG}"
@@ -244,9 +259,19 @@ with any existing tag to roll back.
 | --------------- | -------------------------------------------------------------------------------------------------- |
 | Logs (stream)   | `az containerapp logs show -g netviz-rg -n netviz --follow`                                        |
 | Revisions       | `az containerapp revision list -g netviz-rg -n netviz -o table`                                    |
-| Rollback        | `az containerapp update -g netviz-rg -n netviz --image netvizacr.azurecr.io/netviz:<prev-tag>`     |
+| Kill a preview  | `az containerapp revision deactivate -g netviz-rg -n netviz --revision netviz--pr-<N>-<sha>`       |
 | Update a secret | `az containerapp secret set -g netviz-rg -n netviz --secrets mongo-uri=…` then update the revision |
 | Scale           | `az containerapp update -g netviz-rg -n netviz --min-replicas 1 --max-replicas 5`                  |
+
+**Rollback / traffic** (multiple-revision mode — traffic is set by weight, not by
+the running image):
+
+```bash
+# roll production back to a previous revision (or dispatch deploy.yml with its tag)
+az containerapp ingress traffic set -g netviz-rg -n netviz --revision-weight <prev-rev>=100
+# canary: 90/10 split across two revisions
+az containerapp ingress traffic set -g netviz-rg -n netviz --revision-weight <rev-a>=90 <rev-b>=10
+```
 
 ### Notes
 

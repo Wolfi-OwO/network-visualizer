@@ -111,3 +111,64 @@ jobs:
           name: client-dist
           path: application/client/dist
           if-no-files-found: error
+
+  # Posts the server test coverage as a sticky PR comment (created once, updated
+  # in place on every push). PR-only — skipped when ci.yml is reused as the
+  # release test stage (workflow_call) and for fork PRs, whose read-only token
+  # can't comment.
+  coverage-comment:
+    name: Coverage report (PR comment)
+    runs-on: ubuntu-latest
+    needs: server
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Download coverage summary
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-summary
+
+      - name: Build & post coverage comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const t = JSON.parse(fs.readFileSync('coverage-summary.json', 'utf8')).total;
+            const gate = 90;
+            const lines = t.lines.pct;
+            const ok = lines >= gate;
+            const row = (name, m) => `| ${name} | ${m.pct.toFixed(1)}% | ${m.covered}/${m.total} |`;
+            const sha = context.payload.pull_request.head.sha.slice(0, 7);
+            const marker = '<!-- coverage-comment -->';
+            const body = [
+              marker,
+              '## 🧪 Coverage report',
+              '',
+              '| Metric | % | Covered / Total |',
+              '| --- | --: | --: |',
+              row('Lines', t.lines),
+              row('Statements', t.statements),
+              row('Functions', t.functions),
+              row('Branches', t.branches),
+              '',
+              ok
+                ? `✅ Line coverage **${lines.toFixed(1)}%** meets the ${gate}% gate.`
+                : `⚠️ Line coverage **${lines.toFixed(1)}%** is below the ${gate}% gate.`,
+              '',
+              `<sub>commit ${sha}</sub>`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

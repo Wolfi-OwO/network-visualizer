@@ -1,14 +1,17 @@
 name: Deploy
 
-# Rolls the Azure Container App to an already-pushed image tag, in a chosen
-# environment (staging or production). Called by release.yml for each stage, or
-# run manually to deploy/roll back any tag to any environment.
+# Rolls the production Container App forward to an already-pushed image tag, and
+# routes 100% of the load-balanced traffic to the new revision. Called by
+# release.yml, or run manually to deploy/roll back any tag.
 #
-# The target environment selects its own scoped GitHub variables/secrets
-# (RESOURCE_GROUP, CONTAINERAPP_NAME, …) and its own OIDC federated credential
-# (subject: repo:<owner>/<repo>:environment:<environment>). Production can carry
-# a "required reviewers" protection rule so the rollout waits for a manual
-# approval — see deploy/README.md.
+# The app runs in MULTIPLE-revision mode (so per-PR preview revisions can exist
+# at 0% traffic — see pr-preview.yml). In that mode a new revision does NOT take
+# traffic automatically, so this workflow creates the revision and then shifts
+# all production traffic onto it (leaving preview revisions at 0%, untouched).
+#
+# The `production` environment scopes RESOURCE_GROUP / CONTAINERAPP_NAME, its
+# OIDC federated credential (subject repo:<owner>/<repo>:environment:production)
+# and its "required reviewers" gate — see deploy/README.md.
 on:
   workflow_call:
     inputs:
@@ -33,7 +36,6 @@ on:
         default: production
         type: choice
         options:
-          - staging
           - production
 
 permissions:
@@ -44,10 +46,6 @@ jobs:
   aca:
     name: Roll out to ${{ inputs.environment }}
     runs-on: ubuntu-latest
-    # The OIDC federated credential is bound to this environment
-    # (subject: repo:<owner>/<repo>:environment:<environment>). The environment
-    # also scopes RESOURCE_GROUP / CONTAINERAPP_NAME and any protection rules
-    # (e.g. required reviewers on production pause the job for manual approval).
     environment: ${{ inputs.environment }}
 
     steps:
@@ -76,9 +74,52 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy to Container App
+      - name: Roll out image and route 100% traffic to it
+        env:
+          RG: ${{ vars.RESOURCE_GROUP }}
+          APP: ${{ vars.CONTAINERAPP_NAME }}
+          ACR: ${{ vars.ACR_NAME }}
+          IMAGE: ${{ vars.IMAGE_NAME }}
+          TAG: ${{ inputs.tag }}
         run: |
-          az containerapp update \
-            --name ${{ vars.CONTAINERAPP_NAME }} \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --image ${{ vars.ACR_NAME }}.azurecr.io/${{ vars.IMAGE_NAME }}:${{ inputs.tag }}
+          set -euo pipefail
+
+          # Keep the app in multiple-revision mode (idempotent: switching leaves
+          # the current revision serving 100%, so this never disrupts prod).
+          az containerapp revision set-mode -g "$RG" -n "$APP" --mode multiple -o none
+
+          # Pre-normalize: pin whatever serves today to a NAMED revision. If prod
+          # were routed via `latestRevision:true`, the next preview revision (which
+          # becomes the newest) would inherit production traffic — pinning by name
+          # prevents that hijack.
+          LATEST=$(az containerapp revision list -g "$RG" -n "$APP" \
+            --query "reverse(sort_by([?properties.active], &properties.createdTime))[0].name" -o tsv)
+          [ -n "$LATEST" ] && az containerapp ingress traffic set -g "$RG" -n "$APP" \
+            --revision-weight "${LATEST}=100" -o none
+
+          # Deterministic, DNS-safe revision suffix from the tag, made unique per
+          # run so re-deploys (rollbacks) never collide with an existing revision.
+          BASE=$(echo "$TAG" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/-\+/-/g; s/^-//; s/-$//')
+          SUFFIX=$(echo "${BASE}-${GITHUB_RUN_ID}" | cut -c1-40 | sed 's/-$//')
+          REV="${APP}--${SUFFIX}"
+
+          # Create the new production revision (explicit scale so prod is
+          # deterministic regardless of what preview revisions set).
+          az containerapp update -g "$RG" -n "$APP" \
+            --image "${ACR}.azurecr.io/${IMAGE}:${TAG}" \
+            --revision-suffix "$SUFFIX" \
+            --min-replicas 1 --max-replicas 3 -o none
+
+          # Cut over: zero every currently-serving (now name-pinned) revision, then
+          # send 100% to the new one. Preview revisions carry no traffic entry, so
+          # they stay at 0% and keep their own preview URLs.
+          ARGS=()
+          while IFS= read -r name; do
+            [ -n "$name" ] && [ "$name" != "$REV" ] && ARGS+=("$name=0")
+          done < <(az containerapp show -g "$RG" -n "$APP" \
+            --query 'properties.configuration.ingress.traffic[?weight>`0`].revisionName' -o tsv)
+          ARGS+=("${REV}=100")
+          az containerapp ingress traffic set -g "$RG" -n "$APP" --revision-weight "${ARGS[@]}" -o none
+
+          FQDN=$(az containerapp show -g "$RG" -n "$APP" --query properties.configuration.ingress.fqdn -o tsv)
+          echo "Deployed '$TAG' as revision '$REV' — 100% traffic at https://$FQDN"
