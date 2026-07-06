@@ -26,7 +26,6 @@ export function apiRootLinks(): Links {
     auth: { href: '/auth/me' },
     audit: { href: `${API_BASE}/audit` },
     metrics: { href: `${API_BASE}/metrics` },
-    status: { href: `${API_BASE}/status` },
     ready: { href: `${API_BASE}/ready` },
     live: { href: `${API_BASE}/live` },
   }

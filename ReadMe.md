@@ -55,7 +55,7 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 
 - **Sign in with Google or Microsoft** (OAuth 2.0 with CSRF-protected state), or a password-less **dev login** for local use. Sessions are signed JWTs in an `httpOnly` cookie.
 - **Role-based access control** — `admin` / `editor` / `viewer`; the first account to sign in becomes admin. Per-user, isolated network workspaces.
-- **Admin console** for user & role management, an **audit log** of mutating actions (TTL-expired), **system metrics**, and a public **status page** with uptime history.
+- **Admin console** for user & role management, an **audit log** of mutating actions (TTL-expired), and **system metrics**.
 - Details in [organizational/](organizational/README.md).
 
 ## Tech stack
@@ -75,9 +75,9 @@ The HTTP API is **RESTful (Richardson Maturity Model level 3)**: plural resource
 routing-visualizer/
 ├─ application/                 # Express + TypeScript backend (REST + SSE)
 │  ├─ src/
-│  │  ├─ routes/                # express.Router per resource: auth, users, networks, packets, capture, cidr, audit, metrics, status
+│  │  ├─ routes/                # express.Router per resource: auth, users, networks, packets, capture, cidr, audit, metrics
 │  │  ├─ handlers/              # request handlers (controllers) per route
-│  │  ├─ services/              # business logic: packet-simulator, packet-sender, cidr, auth, metrics, status, versions, validation
+│  │  ├─ services/              # business logic: packet-simulator, packet-sender, cidr, auth, metrics, versions, validation
 │  │  ├─ db/                    # MongoDB: connection, models/, network-service (repository), seed
 │  │  ├─ middlewares/           # auth (sessions + roles), audit, rate-limit, request-logger, error-handler
 │  │  ├─ lib/                   # logger, HTTP error classes, hateoas links, health-checks, jwt
@@ -90,7 +90,7 @@ routing-visualizer/
 │  │
 │  └─ client/                   # React + Vite frontend (kebab-case, explicit import extensions)
 │     ├─ src/
-│     │  ├─ pages/              # one folder per page (dashboard/, network/, packets/, cidr/, admin/, auth/, status/)
+│     │  ├─ pages/              # one folder per page (dashboard/, network/, packets/, cidr/, admin/, auth/)
 │     │  ├─ components/ · layouts/ · hooks/ · context/
 │     │  ├─ lib/api/            # axios API client (one module per backend resource)
 │     │  ├─ config/ · styles/ · types/

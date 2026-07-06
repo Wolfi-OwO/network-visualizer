@@ -14,7 +14,6 @@ import { apiRootLinks } from './lib/hateoas.js';
 import authRouter from './routes/auth.routes.js';
 import auditRouter from './routes/audit.routes.js';
 import metricsRouter from './routes/metrics.routes.js';
-import statusRouter from './routes/status.routes.js';
 import usersRouter from './routes/users.routes.js';
 import networksRouter from './routes/networks.routes.js';
 import cidrRouter from './routes/cidr.routes.js';
@@ -67,7 +66,6 @@ const networkGuards = config.requireAuth ? [requireAuth, requireWrite] : [requir
 
 app.use('/auth', authLimiter, authRouter);
 app.use('/api', apiLimiter, countRequest);
-app.use('/api/status', statusRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/metrics', metricsRouter);
 app.use('/api/users', usersRouter);                           // admin-only account & role management
