@@ -34,8 +34,6 @@ export const config = {
   requireAuth: process.env.REQUIRE_AUTH === 'true',
   /** How long to keep audit-log entries (days) */
   auditRetentionDays: Number(process.env.AUDIT_RETENTION_DAYS) || 90,
-  /** Interval between health samples used for the status page / uptime tracking */
-  healthSampleSeconds: Number(process.env.HEALTH_SAMPLE_SECONDS) || 30,
   oauth: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID ?? '',

@@ -11,27 +11,8 @@ export interface Metrics {
   auth: { providers: string[] }
 }
 
-export type ComponentStatus = 'operational' | 'degraded' | 'down' | 'idle'
-
-export interface StatusComponent {
-  key: string
-  name: string
-  status: ComponentStatus
-  uptime?: { h24: number; d7: number; d30: number }
-}
-
-export interface StatusReport {
-  status: 'operational' | 'degraded' | 'down'
-  currentUptimeSeconds: number
-  monitoringSince: number
-  sampleIntervalMs: number
-  components: StatusComponent[]
-  history: { at: number; ok: boolean; db: boolean }[]
-}
-
-// Admin observability — runtime + application metrics; plus the public status page.
+// Admin observability — runtime + application metrics.
 export const system = {
   // `silent`: the admin dashboard polls this and handles a non-admin 403 itself.
   metrics: () => api.get<Metrics>('/metrics', { silent: true }),
-  status: () => api.get<StatusReport>('/status'),
 }

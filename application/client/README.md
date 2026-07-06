@@ -2,7 +2,7 @@
 
 React 19 + TypeScript + Vite single-page app: the network builder canvas
 (React Flow), Wireshark-style packet capture, CIDR calculator, dashboard,
-status page, and the admin console. Talks to the backend at `/api` (and
+and the admin console. Talks to the backend at `/api` (and
 `/auth` for sign-in) — same origin in production, proxied in development.
 
 ## Layout
@@ -11,7 +11,7 @@ status page, and the admin console. Talks to the backend at `/api` (and
 src/
 ├─ pages/          # one folder per page incl. its components
 │  ├─ dashboard/   ├─ network/    ├─ packets/    ├─ cidr/
-│  ├─ admin/       ├─ auth/       ├─ status/     └─ error/
+│  ├─ admin/       ├─ auth/       └─ error/
 ├─ components/     # core/ (generic UI) · toasts/
 ├─ layouts/        # regular-layout, admin-layout, top-nav, sidebar, error-page
 ├─ lib/api/        # axios client (one module per backend resource; auth uses /auth)

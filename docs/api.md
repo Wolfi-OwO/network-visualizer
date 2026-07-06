@@ -108,9 +108,3 @@ share the `local` workspace).
 | DELETE | `/api/users/:id` | Remove an account → `204`                            |
 | GET    | `/api/metrics`   | System metrics (uptime, memory, requests, DB counts) |
 | GET    | `/api/audit`     | Audit log of mutating actions                        |
-
-## Status — `/api/status`
-
-| Method | Path          | Description                              |
-| ------ | ------------- | ---------------------------------------- |
-| GET    | `/api/status` | Public service status and uptime history |

@@ -3,7 +3,7 @@
 Express + TypeScript API that powers the NetViz frontend: live packet simulation
 (Server-Sent Events), the packet-trace engine, CIDR math, MongoDB-backed
 topologies, OAuth sign-in with role-based access control, and an admin surface
-(users, metrics, audit log, status page). In production it also serves the built
+(users, metrics, audit log). In production it also serves the built
 SPA from `client/dist` on the same origin.
 
 ## Layout
@@ -18,11 +18,10 @@ src/
 │  ├─ capture.routes.ts     # /api/capture    — capture state & protocol toggles
 │  ├─ cidr.routes.ts        # /api/cidr       — subnet / supernet calculations
 │  ├─ audit.routes.ts       # /api/audit      — audit log (admin)
-│  ├─ metrics.routes.ts     # /api/metrics    — system metrics (admin)
-│  └─ status.routes.ts      # /api/status     — public status & uptime history
+│  └─ metrics.routes.ts     # /api/metrics    — system metrics (admin)
 ├─ handlers/       # request handlers (controllers) per route
 ├─ services/       # business logic: packet-simulator, packet-sender (routing/firewall/
-│                  #   NAT/VLAN), cidr, auth, metrics, status, versions, validation, export
+│                  #   NAT/VLAN), cidr, auth, metrics, versions, validation, export
 ├─ db/             # MongoDB: connection, models/, network repository, demo seed
 ├─ middlewares/    # auth (sessions + roles), audit, rate-limit, request-logger, error-handler
 ├─ lib/            # logger, HTTP error classes, hateoas links, jwt, health-checks
