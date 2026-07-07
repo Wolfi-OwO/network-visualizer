@@ -6,6 +6,9 @@ change, and opening a pull request — with real screenshots for every step, and
 then covers the project's conventions and quality bar for anyone already
 comfortable with Git.
 
+Everyone participating in this project is expected to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
 New to Git or GitHub? Start with
 [Your first contribution, step by step](#your-first-contribution-step-by-step).
 Already know the drill? Jump to

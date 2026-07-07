@@ -11,6 +11,13 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FWolfi-OwO%2Fnetwork-visualizer%2Fbadges%2Fcoverage.json)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml)
 
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![Good first issues](https://img.shields.io/github/issues/Wolfi-OwO/network-visualizer/good%20first%20issue?color=7057ff&label=good%20first%20issues)](https://github.com/Wolfi-OwO/network-visualizer/labels/good%20first%20issue)
+[![Open issues](https://img.shields.io/github/issues/Wolfi-OwO/network-visualizer)](https://github.com/Wolfi-OwO/network-visualizer/issues)
+[![Contributors](https://img.shields.io/github/contributors/Wolfi-OwO/network-visualizer)](https://github.com/Wolfi-OwO/network-visualizer/graphs/contributors)
+[![Discussions](https://img.shields.io/github/discussions/Wolfi-OwO/network-visualizer)](https://github.com/Wolfi-OwO/network-visualizer/discussions)
+
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black)
 ![Vite](https://img.shields.io/badge/Vite-646cff?logo=vite&logoColor=white)
@@ -21,13 +28,13 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 
 </div>
 
-![NetViz dashboard](docs/screenshots/pagedashboard.png)
+![NetViz dashboard](docs/screenshots/page/dashboard.png)
 
 ## Features
 
 ### Network Builder
 
-![Network Builder — live topology with hop-by-hop packet flow](docs/screenshots/pagenetwork-builder.png)
+![Network Builder — live topology with hop-by-hop packet flow](docs/screenshots/page/network-builder.png)
 
 - **Drag-and-drop canvas** (powered by React Flow) with 25+ device types across categories: routers, L2/L3 switches, firewalls, IDS/IPS, VPN gateways, load balancers, reverse proxies, API gateways, servers (DNS, DHCP, mail, file, database, VM host), NAS/storage, endpoints (PC, laptop, phone, printer, IoT) and Internet/ISP/cloud.
 - **Clean line-icon set** (no emoji), color-coded per role, with per-device **hardware/capabilities** (NIC, Wi-Fi card, CPU/RAM…).
@@ -40,14 +47,14 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 
 ### Packet Capture (Wireshark-style)
 
-![Packet capture — live SSE stream, protocol filters, hex dump](docs/screenshots/pagepacket-capture.png)
+![Packet capture — live SSE stream, protocol filters, hex dump](docs/screenshots/page/packet-capture.png)
 
 - Live packet stream over **Server-Sent Events**, protocol tree, hex dump, statistics.
 - **16+ protocols** generated realistically (HTTP, TLS, DNS, mDNS, DHCP, ARP, ICMP, TCP, UDP, STP, NTP, LLDP, SNMP, OSPF, SSDP, SIP) with **per-protocol on/off toggles**.
 
 ### CIDR Calculator
 
-![CIDR calculator — subnet math, binary view and address-space map](docs/screenshots/pagecidr-calculator.png)
+![CIDR calculator — subnet math, binary view and address-space map](docs/screenshots/page/cidr-calculator.png)
 
 - Subnet / network / broadcast / host math, binary view, subnet splitter, and supernet (route summarization) with strict input validation.
 
@@ -297,13 +304,19 @@ All backend configuration is read from the environment in `application/src/confi
 | [organizational/README.md](organizational/README.md)         | Identity, roles & permissions, admin guide, account lifecycle        |
 | [SECURITY.md](SECURITY.md)                                   | Security model and how to report a vulnerability                     |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                           | Development workflow, quality gates, PR conventions                  |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)                     | Community standards for participating in this project                |
 | [CHANGELOG.md](CHANGELOG.md)                                 | Notable changes per release                                          |
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the development
-workflow, quality gates, and pull-request conventions. Bug reports and feature requests
-use the [issue templates](.github/ISSUE_TEMPLATE).
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for a full,
+screenshot-by-screenshot walkthrough of forking, branching, and opening a pull
+request, plus the development workflow, quality gates, and PR conventions. Bug
+reports and feature requests use the [issue templates](.github/ISSUE_TEMPLATE),
+and general questions belong in
+[Discussions](https://github.com/Wolfi-OwO/network-visualizer/discussions).
+Everyone participating is expected to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Security
 

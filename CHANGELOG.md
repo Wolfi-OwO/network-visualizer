@@ -40,7 +40,7 @@ and the project aims to adhere to [Semantic Versioning](https://semver.org/).
 
 - **Use-case documentation** under `docs/use-cases/`: use-case diagrams and
   descriptions (actors, flows, UML) plus a requirements catalog.
-- **High-resolution UI screenshots** under `docs/screenshots/page` (dashboard,
+- **High-resolution UI screenshots** under `docs/screenshots/page/` (dashboard,
   network builder, packet capture, CIDR calculator, login).
 - Opt-in **per-PR staging preview** (`pr-staging.yml`, repo variable
   `STAGING_ENABLED`); `package.yml` gained a `push_latest` input so preview
