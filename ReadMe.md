@@ -21,13 +21,13 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 
 </div>
 
-![NetViz dashboard](docs/screenshots/dashboard.png)
+![NetViz dashboard](docs/screenshots/pagedashboard.png)
 
 ## Features
 
 ### Network Builder
 
-![Network Builder — live topology with hop-by-hop packet flow](docs/screenshots/network-builder.png)
+![Network Builder — live topology with hop-by-hop packet flow](docs/screenshots/pagenetwork-builder.png)
 
 - **Drag-and-drop canvas** (powered by React Flow) with 25+ device types across categories: routers, L2/L3 switches, firewalls, IDS/IPS, VPN gateways, load balancers, reverse proxies, API gateways, servers (DNS, DHCP, mail, file, database, VM host), NAS/storage, endpoints (PC, laptop, phone, printer, IoT) and Internet/ISP/cloud.
 - **Clean line-icon set** (no emoji), color-coded per role, with per-device **hardware/capabilities** (NIC, Wi-Fi card, CPU/RAM…).
@@ -40,14 +40,14 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 
 ### Packet Capture (Wireshark-style)
 
-![Packet capture — live SSE stream, protocol filters, hex dump](docs/screenshots/packet-capture.png)
+![Packet capture — live SSE stream, protocol filters, hex dump](docs/screenshots/pagepacket-capture.png)
 
 - Live packet stream over **Server-Sent Events**, protocol tree, hex dump, statistics.
 - **16+ protocols** generated realistically (HTTP, TLS, DNS, mDNS, DHCP, ARP, ICMP, TCP, UDP, STP, NTP, LLDP, SNMP, OSPF, SSDP, SIP) with **per-protocol on/off toggles**.
 
 ### CIDR Calculator
 
-![CIDR calculator — subnet math, binary view and address-space map](docs/screenshots/cidr-calculator.png)
+![CIDR calculator — subnet math, binary view and address-space map](docs/screenshots/pagecidr-calculator.png)
 
 - Subnet / network / broadcast / host math, binary view, subnet splitter, and supernet (route summarization) with strict input validation.
 
