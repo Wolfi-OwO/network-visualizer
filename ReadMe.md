@@ -7,7 +7,7 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 
 [![Lint](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/lint.yml/badge.svg)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/lint.yml)
 [![CI](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml)
-[![Release](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/release.yml/badge.svg)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/release.yml)
+[![Release](https://img.shields.io/github/v/release/Wolfi-OwO/network-visualizer?label=release&color=blue)](https://github.com/Wolfi-OwO/network-visualizer/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FWolfi-OwO%2Fnetwork-visualizer%2Fbadges%2Fcoverage.json)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml)
 
