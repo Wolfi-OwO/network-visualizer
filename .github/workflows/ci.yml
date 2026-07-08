@@ -52,35 +52,15 @@ jobs:
           path: application/coverage/coverage-summary.json
           if-no-files-found: error
 
-  # Publishes a shields.io endpoint JSON with the real line-coverage number to
-  # the `badges` branch (single orphan commit, force-pushed). The README badge
-  # reads it via img.shields.io/endpoint.
-  coverage-badge:
-    name: Coverage badge
-    runs-on: ubuntu-latest
-    needs: server
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download coverage summary
-        uses: actions/download-artifact@v4
+      # Codecov hosts the coverage number and generates the README badge itself —
+      # no branch/gist of our own to maintain. fail_ci_if_error is false so a
+      # Codecov hiccup can't fail the required "Server (build + test)" check.
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
         with:
-          name: coverage-summary
-
-      - name: Generate badge JSON and push to the badges branch
-        run: |
-          PCT=$(node -p "require('./coverage-summary.json').total.lines.pct.toFixed(1)")
-          COLOR=$(node -p "const p=$PCT; p>=90?'brightgreen':p>=80?'green':p>=70?'yellowgreen':p>=60?'yellow':'red'")
-          mkdir badges && cd badges
-          printf '{"schemaVersion":1,"label":"coverage","message":"%s%%","color":"%s"}\n' "$PCT" "$COLOR" > coverage.json
-          git init -b badges
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add coverage.json
-          git commit -m "chore: coverage badge ${PCT}%"
-          git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" badges
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: application/coverage/lcov.info
+          fail_ci_if_error: false
 
   client:
     name: Client (build)

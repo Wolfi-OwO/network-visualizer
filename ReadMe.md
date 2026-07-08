@@ -9,7 +9,7 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 [![CI](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Wolfi-OwO/network-visualizer?label=release&color=blue)](https://github.com/Wolfi-OwO/network-visualizer/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FWolfi-OwO%2Fnetwork-visualizer%2Fbadges%2Fcoverage.json)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/Wolfi-OwO/network-visualizer/branch/main/graph/badge.svg)](https://codecov.io/gh/Wolfi-OwO/network-visualizer)
 
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
@@ -241,7 +241,7 @@ The pipeline is split into atomic workflows, each runnable on its own:
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | [`lint.yml`](.github/workflows/lint.yml) | push / PR | ESLint for server and client |
-| [`ci.yml`](.github/workflows/ci.yml) | push / PR / release | Type-check + build + backend tests (in-memory MongoDB, **≥90% coverage gate**); posts a **coverage-report comment** on PRs, uploads the `client-dist` artifact, and publishes the live coverage badge on `main`. Reusable — the release pipeline runs it as its test stage |
+| [`ci.yml`](.github/workflows/ci.yml) | push / PR / release | Type-check + build + backend tests (in-memory MongoDB, **≥90% coverage gate**); posts a **coverage-report comment** on PRs, uploads the `client-dist` artifact, and uploads coverage to Codecov. Reusable — the release pipeline runs it as its test stage |
 | [`pr-preview.yml`](.github/workflows/pr-preview.yml) | PR to `main` (opened/updated/closed) | Builds the PR image and rolls it onto a new revision of the dedicated **`netviz-preview`** app (with a mongo sidecar) — its own public URL and throwaway database — and comments the link. Deactivates it when the PR closes. Opt-in (repo variable `PREVIEW_ENABLED=true`); skipped for fork PRs |
 | [`package.yml`](.github/workflows/package.yml) | release / PR preview / manual | Builds the client + Docker image, pushes it to ACR |
 | [`deploy.yml`](.github/workflows/deploy.yml) | release (via `release.yml`) or manual | Rolls the production app to a given image tag (single-revision → 100% traffic) — also your rollback tool |
@@ -267,7 +267,7 @@ Only a published release ships to production. One image is tested, built, then p
 Release v1.2.3 ─▶ test ─▶ package ─▶ [approval] ─▶ deploy: netviz (100% traffic)
 ```
 
-Production is gated by the `production` environment's **required-reviewers** rule, so a maintainer approves the promotion. `deploy.yml` creates a new revision of `netviz` (single-revision mode routes 100% to it). All jobs run on Node 22 with npm caching, least-privilege tokens, and concurrency cancellation of superseded runs. The coverage badge at the top of this README reads a shields.io endpoint JSON that CI pushes to the `badges` branch on every `main` build.
+Production is gated by the `production` environment's **required-reviewers** rule, so a maintainer approves the promotion. `deploy.yml` creates a new revision of `netviz` (single-revision mode routes 100% to it). All jobs run on Node 22 with npm caching, least-privilege tokens, and concurrency cancellation of superseded runs. The coverage badge at the top of this README is served by Codecov, which CI uploads the lcov report to on every build.
 
 ## Configuration
 
