@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "fill-demo-data": "node --import ./register-tsnode.mjs src/db/fill-demo-data.ts",
-    "test": "cross-env TS_NODE_TRANSPILE_ONLY=true AUTHJWT_VERIFY=false LOG_LEVEL=error MONGODB_CONNECTION_STRING=mongodb://127.0.0.1:50000/team_a c8 --reporter html --reporter text-summary --reporter json-summary mocha tests --recursive --timeout 10000 --exit",
+    "test": "cross-env TS_NODE_TRANSPILE_ONLY=true AUTHJWT_VERIFY=false LOG_LEVEL=error MONGODB_CONNECTION_STRING=mongodb://127.0.0.1:50000/team_a c8 --reporter html --reporter text-summary --reporter json-summary --reporter lcov mocha tests --recursive --timeout 10000 --exit",
     "test-ci": "cross-env TS_NODE_TRANSPILE_ONLY=true AUTHJWT_VERIFY=false LOG_LEVEL=error c8 --reporter cobertura --reporter text-summary mocha tests --recursive --timeout 10000 --exit --reporter mocha-junit-reporter"
   },
   "dependencies": {
