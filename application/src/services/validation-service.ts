@@ -137,7 +137,7 @@ export function validateTopology(topo: NetworkTopology): ValidationReport {
       return px !== null && bi.some((y) => inSubnet(y.ipAddress!, x.ipAddress!, px))
     })
     if (!share) {
-      add('warning', 'link-subnet-mismatch', `${label(a)} ↔ ${label(b)} are directly connected but share no common subnet`, { edgeId: e.id, nodeId: a.id })
+      add('warning', 'link-subnet-mismatch', `${label(a)} <-> ${label(b)} are directly connected but share no common subnet`, { edgeId: e.id, nodeId: a.id })
     }
   }
 

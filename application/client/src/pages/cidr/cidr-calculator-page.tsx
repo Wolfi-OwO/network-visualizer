@@ -1,5 +1,5 @@
 import { useState, useReducer, useCallback } from 'react'
-import { Calculator, ChevronDown, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react'
+import { Calculator, ChevronDown, ChevronRight, AlertCircle, CheckCircle, Check, Copy, X } from 'lucide-react'
 import { cidr as cidrApi } from '../../lib/api/index.ts'
 import { cidrReducer, initialCidrState } from './cidr-calculator-page.reducer.ts'
 
@@ -13,9 +13,12 @@ function CopyBtn({ value }: { value: string }) {
   return (
     <button
       onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
-      className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg-700)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:scale-105 transition-all ml-1 font-mono"
+      className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg-700)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:scale-105 transition-all ml-1 font-mono"
+      title={copied ? 'Copied' : 'Copy'}
     >
-      {copied ? '✓' : 'copy'}
+      {copied
+        ? <><Check size={9} className="text-[var(--green)]" /> copied</>
+        : <><Copy size={9} /> copy</>}
     </button>
   )
 }
@@ -207,8 +210,12 @@ export default function CIDRCalculatorPage() {
                       <BinaryDisplay binary={result.binaryNetworkAddress} prefix={result.cidrPrefix} />
                     </div>
                     <div className="text-[10px] text-[var(--text-muted)] mt-1 flex gap-3">
-                      <span><span className="text-[var(--accent)]">■</span> Network bits</span>
-                      <span><span className="text-[var(--text-muted)]">■</span> Host bits</span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="inline-block w-2 h-2 rounded-sm bg-[var(--accent)]" /> Network bits
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="inline-block w-2 h-2 rounded-sm bg-[var(--text-muted)]" /> Host bits
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -220,7 +227,7 @@ export default function CIDRCalculatorPage() {
               <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Address Space Visualization</div>
               <div className="relative h-8 rounded overflow-hidden bg-[var(--bg-700)]">
                 <div
-                  className="absolute left-0 top-0 h-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] opacity-30"
+                  className="absolute left-0 top-0 h-full bg-[var(--accent)] opacity-25"
                   style={{ width: `${(result.cidrPrefix / 32) * 100}%` }}
                 />
                 <div className="absolute inset-0 flex items-center justify-between px-3">
@@ -316,7 +323,8 @@ export default function CIDRCalculatorPage() {
                   <button
                     onClick={() => dispatch({ type: 'set', key: 'supernetInputs', value: inp => inp.filter((_, j) => j !== i) })}
                     className="btn-ghost text-[var(--red)] border-[var(--red)]/30"
-                  >✕</button>
+                    title="Remove this network"
+                  ><X size={12} /></button>
                 )}
               </div>
             ))}

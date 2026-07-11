@@ -10,7 +10,7 @@ SPA from `client/dist` on the same origin.
 
 ```text
 src/
-├─ routes/         # express.Router definitions (path → handler)
+├─ routes/         # express.Router definitions (path -> handler)
 │  ├─ auth.routes.ts        # /auth           — OAuth (Google/Microsoft), dev login, session, logout
 │  ├─ users.routes.ts       # /api/users      — account & role management (admin)
 │  ├─ networks.routes.ts    # /api/networks   — topology CRUD, versions, validation, export
@@ -54,6 +54,7 @@ Highlights:
 | --------------------------- | ---------------------------------- | -------------------------------------------------- |
 | `HOST` / `PORT`             | `0.0.0.0` / `8080`                 | Bind address and port                              |
 | `MONGODB_CONNECTION_STRING` | `mongodb://localhost:27017/netviz` | MongoDB connection string                          |
+| `MONGODB_DB_NAME`           | — (database from the string above) | Override the database (PR previews get their own)  |
 | `JWT_SECRET` / `JWT_TTL`    | — / `7d`                           | Session signing secret (validated in prod) and TTL |
 | `ALLOW_DEV_LOGIN`           | `true` outside production          | Password-less local login                          |
 | `REQUIRE_AUTH`              | `false`                            | Disable the anonymous shared workspace             |

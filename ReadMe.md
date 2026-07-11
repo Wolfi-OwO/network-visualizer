@@ -28,9 +28,17 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 
 </div>
 
-![NetViz dashboard](docs/screenshots/page/dashboard.png)
+![NetViz in action — building a topology, tracing a packet hop-by-hop, capturing traffic and calculating subnets](docs/demo/netviz-demo.gif)
+
+<div align="center"><sub>A 30-second tour — live traffic simulation, a hop-by-hop packet trace, Wireshark-style capture and the CIDR calculator.<br/>Also available as <a href="docs/demo/netviz-demo.mp4">full-resolution video</a>.</sub></div>
 
 ## Features
+
+### Dashboard
+
+![NetViz dashboard](docs/screenshots/page/dashboard.png)
+
+- At-a-glance capture counters, protocol distribution and an inventory of the current topology, with quick access to every tool.
 
 ### Network Builder
 
@@ -101,7 +109,7 @@ routing-visualizer/
 │     │  ├─ components/ · layouts/ · hooks/ · context/
 │     │  ├─ lib/api/            # axios API client (one module per backend resource)
 │     │  ├─ config/ · styles/ · types/
-│     ├─ vite.config.ts         # dev proxy  /api and /auth → http://localhost:8080
+│     ├─ vite.config.ts         # dev proxy  /api and /auth -> http://localhost:8080
 │     └─ README.md
 ├─ docs/                        # API reference, screenshots
 ├─ deploy/                      # production deployment runbook (Azure Container Apps)
@@ -132,7 +140,7 @@ npm install
 npm run dev
 ```
 
-**2) Frontend** (Vite dev server on **:5173**, proxies `/api` and `/auth` → `:8080`)
+**2) Frontend** (Vite dev server on **:5173**, proxies `/api` and `/auth` -> `:8080`)
 
 ```bash
 cd application/client
@@ -159,7 +167,7 @@ This starts MongoDB and the backend container (which also serves the built SPA) 
 | Script              | Description                                        |
 | ------------------- | -------------------------------------------------- |
 | `npm run dev`       | Start with hot-reload (nodemon + ts-node)          |
-| `npm run build`     | Compile TypeScript → `dist/`                       |
+| `npm run build`     | Compile TypeScript -> `dist/`                      |
 | `npm start`         | Run the compiled server (`node dist/server.js`)    |
 | `npm run lint`      | Run ESLint                                         |
 | `npm run typecheck` | Type-check without emitting                        |
@@ -168,13 +176,13 @@ This starts MongoDB and the backend container (which also serves the built SPA) 
 
 **Frontend** (`application/client/`)
 
-| Script              | Description                                         |
-| ------------------- | --------------------------------------------------- |
-| `npm run dev`       | Vite dev server with HMR                            |
-| `npm run build`     | Type-check (`tsc -b`) + production bundle → `dist/` |
-| `npm run preview`   | Preview the production bundle locally               |
-| `npm run lint`      | Run ESLint                                          |
-| `npm run typecheck` | Type-check without emitting                         |
+| Script              | Description                                          |
+| ------------------- | ---------------------------------------------------- |
+| `npm run dev`       | Vite dev server with HMR                             |
+| `npm run build`     | Type-check (`tsc -b`) + production bundle -> `dist/` |
+| `npm run preview`   | Preview the production bundle locally                |
+| `npm run lint`      | Run ESLint                                           |
+| `npm run typecheck` | Type-check without emitting                          |
 
 ## Building for production
 
@@ -183,7 +191,7 @@ This starts MongoDB and the backend container (which also serves the built SPA) 
 ```bash
 cd application
 npm install
-npm run build      # → application/dist/
+npm run build      # -> application/dist/
 npm start          # node dist/server.js   (set PORT to override 8080)
 ```
 
@@ -192,7 +200,7 @@ npm start          # node dist/server.js   (set PORT to override 8080)
 ```bash
 cd application/client
 npm install
-npm run build      # → application/client/dist/ (static assets)
+npm run build      # -> application/client/dist/ (static assets)
 npm run preview    # optional local preview
 ```
 
@@ -242,32 +250,32 @@ The pipeline is split into atomic workflows, each runnable on its own:
 | --- | --- | --- |
 | [`lint.yml`](.github/workflows/lint.yml) | push / PR | ESLint for server and client |
 | [`ci.yml`](.github/workflows/ci.yml) | push / PR / release | Type-check + build + backend tests (in-memory MongoDB, **≥90% coverage gate**); posts a **coverage-report comment** on PRs, uploads the `client-dist` artifact, and uploads coverage to Codecov. Reusable — the release pipeline runs it as its test stage |
-| [`pr-preview.yml`](.github/workflows/pr-preview.yml) | PR to `main` (opened/updated/closed) | Builds the PR image and rolls it onto a new revision of the dedicated **`netviz-preview`** app (with a mongo sidecar) — its own public URL and throwaway database — and comments the link. Deactivates it when the PR closes. Opt-in (repo variable `PREVIEW_ENABLED=true`); skipped for fork PRs |
+| [`pr-preview.yml`](.github/workflows/pr-preview.yml) | PR to `main` (opened/updated/closed) | Builds the PR image and copies it onto a new **zero-traffic revision of the production app**, with its own public URL and its own throwaway database — then comments the link. Deactivates it when the PR closes. Opt-in (repo variable `PREVIEW_ENABLED=true`); skipped for fork PRs |
 | [`package.yml`](.github/workflows/package.yml) | release / PR preview / manual | Builds the client + Docker image, pushes it to ACR |
-| [`deploy.yml`](.github/workflows/deploy.yml) | release (via `release.yml`) or manual | Rolls the production app to a given image tag (single-revision → 100% traffic) — also your rollback tool |
-| [`release.yml`](.github/workflows/release.yml) | GitHub Release published | Staged pipeline: **test → package → deploy production (gated)** — see [deploy/](deploy/README.md) |
+| [`deploy.yml`](.github/workflows/deploy.yml) | release (via `release.yml`) or manual | Copies a new revision from the live production revision, waits for it to be healthy, then shifts 100% of traffic to it — also your rollback tool |
+| [`release.yml`](.github/workflows/release.yml) | GitHub Release published | Staged pipeline: **test -> package -> deploy production (gated)** — see [deploy/](deploy/README.md) |
 
 ### Pull-request lifecycle
 
-`main` is protected: a change reaches it only through a reviewed PR that passes checks. Previews run on a **separate `netviz-preview` app** with its own database, so a PR never touches production or live users.
+`main` is protected: a change reaches it only through a reviewed PR that passes checks. A preview is a **zero-traffic revision of the production app**, on its own throwaway database — so a PR gets a real, public, reviewable URL without touching production data or live users, and without a second app to pay for.
 
 ```text
-open PR ─▶ test + coverage comment ─▶ isolated preview (public URL comment) ─▶ review ─▶ merge ─▶ preview destroyed
+open PR -> test + coverage comment -> isolated preview (public URL comment) -> review -> merge -> preview destroyed
 ```
 
 - **Tests / coverage** — `ci.yml` and `lint.yml` run on every PR; the four checks (`Server (build + test)`, `Client (build)`, `Server (ESLint)`, `Client (ESLint)`) are **required** and must be green before merge. `ci.yml` also posts the coverage report as a sticky comment.
-- **Preview** — once opted in, `pr-preview.yml` creates a revision on `netviz-preview` with its own URL (`https://netviz-preview--pr-<N>-<sha>…azurecontainerapps.io`) and comments it. The app talks to a mongo sidecar over `localhost` (isolated, ephemeral data); the revision is deactivated automatically when the PR is merged or closed.
+- **Preview** — once opted in, `pr-preview.yml` copies the production revision onto a new revision of the **same app** with the PR's image, at its own URL (`https://netviz--pr-<N>-<sha>…azurecontainerapps.io`) and comments it. It carries **0% of the traffic** (the workflow never touches the traffic split) and overrides `MONGODB_DB_NAME` so it runs on its own database in the production cluster — isolated data, nothing extra to provision. The revision is deactivated automatically when the PR is merged or closed.
 - **Review + merge** — the branch rule requires **1 approving review** and resolved conversations; direct pushes to `main` are blocked. Admins can still merge their own PRs (so a solo maintainer isn't locked out).
 
-### Release → production
+### Release -> production
 
 Only a published release ships to production. One image is tested, built, then promoted behind a manual gate:
 
 ```text
-Release v1.2.3 ─▶ test ─▶ package ─▶ [approval] ─▶ deploy: netviz (100% traffic)
+Release v1.2.3 -> test -> package -> [approval] -> deploy: netviz (100% traffic)
 ```
 
-Production is gated by the `production` environment's **required-reviewers** rule, so a maintainer approves the promotion. `deploy.yml` creates a new revision of `netviz` (single-revision mode routes 100% to it). All jobs run on Node 22 with npm caching, least-privilege tokens, and concurrency cancellation of superseded runs. The coverage badge at the top of this README is served by Codecov, which CI uploads the lcov report to on every build.
+Production is gated by the `production` environment's **required-reviewers** rule, so a maintainer approves the promotion. `deploy.yml` then copies a new revision of `netviz` from the one currently live, **waits for it to report healthy, and only then shifts the traffic** — a revision that fails to boot never gets users, and the revision it replaced stays active for a one-command rollback. All jobs run on Node 22 with npm caching, least-privilege tokens, and concurrency cancellation of superseded runs. The coverage badge at the top of this README is served by Codecov, which CI uploads the lcov report to on every build.
 
 ## Configuration
 
@@ -278,6 +286,7 @@ All backend configuration is read from the environment in `application/src/confi
 | `HOST` / `PORT`                                     | backend  | `0.0.0.0` / `8080`                 | Bind address and port                               |
 | `NODE_ENV`                                          | backend  | `development`                      | Enables production config validation                |
 | `MONGODB_CONNECTION_STRING`                         | backend  | `mongodb://localhost:27017/netviz` | MongoDB connection string                           |
+| `MONGODB_DB_NAME`                                   | backend  | — (db from the string)             | Override the database (PR previews get their own)   |
 | `DB_RECREATE`                                       | backend  | `false`                            | Drop & re-seed the database on startup              |
 | `CORS_ORIGINS`                                      | backend  | `localhost` / `127.0.0.1`          | Comma-separated CORS allow-list                     |
 | `JSON_BODY_LIMIT`                                   | backend  | `8mb`                              | Max JSON request body                               |

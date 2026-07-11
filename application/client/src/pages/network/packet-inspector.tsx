@@ -75,8 +75,9 @@ export default function PacketInspector({
       </div>
 
       {frozen && (
-        <div className="px-3 py-1 text-[10px] text-[var(--green)] bg-[rgba(63,185,80,0.08)] border-b border-[var(--green)]/30">
-          ● Frozen — every packet is stopped on the spot. Click any dot on the canvas to capture it.
+        <div className="flex items-center gap-1.5 px-3 py-1 text-[10px] text-[var(--green)] bg-[rgba(63,185,80,0.08)] border-b border-[var(--green)]/30">
+          <Pause size={10} className="shrink-0" />
+          Frozen — every packet is stopped on the spot. Click any dot on the canvas to capture it.
         </div>
       )}
 

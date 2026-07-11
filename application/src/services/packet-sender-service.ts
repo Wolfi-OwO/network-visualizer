@@ -8,7 +8,7 @@ function serviceBanner(svc: ServiceConfig, node: NetworkNode, dstIp: string): st
     case 'HTTP':
       return `HTTP/1.1 200 OK — ${host} served "${node.config.webPage?.title ?? 'It works!'}"`
     case 'HTTPS':
-      return `TLS 1.3 handshake OK → HTTP/1.1 200 OK — "${node.config.webPage?.title ?? 'It works!'}"`
+      return `TLS 1.3 handshake OK -> HTTP/1.1 200 OK — "${node.config.webPage?.title ?? 'It works!'}"`
     case 'SSH':
       return `SSH-2.0-OpenSSH_9.6 — secure shell session established with ${host}`
     case 'FTP':
@@ -22,7 +22,7 @@ function serviceBanner(svc: ServiceConfig, node: NetworkNode, dstIp: string): st
     case 'RDP':
       return `RDP connection negotiated with ${host}`
     default:
-      return `${svc.name} service on ${host} (${dstIp}:${svc.port}) responded ✓`
+      return `${svc.name} service on ${host} (${dstIp}:${svc.port}) responded`
   }
 }
 
@@ -119,8 +119,8 @@ function isPrivateIpAddr(ip: string): boolean {
 function fwDirection(srcIp: string, dstIp: string): 'in' | 'out' {
   const sp = isPrivateIpAddr(srcIp)
   const dp = isPrivateIpAddr(dstIp)
-  if (sp && !dp) return 'out'   // internal → Internet (egress)
-  if (!sp && dp) return 'in'    // Internet → internal (ingress)
+  if (sp && !dp) return 'out'   // internal -> Internet (egress)
+  if (!sp && dp) return 'in'    // Internet -> internal (ingress)
   return 'in'                   // lateral / east-west
 }
 
@@ -226,7 +226,7 @@ function getNodeIp(node: NetworkNode): string {
   return node.config.interfaces?.[0]?.ipAddress ?? ''   // '' = unnumbered (no fabricated/invalid IPs)
 }
 
-// Prefix length of a node's primary interface (cidr → mask → /24 default)
+// Prefix length of a node's primary interface (cidr -> mask -> /24 default)
 function ifacePrefix(node: NetworkNode): number {
   const iface = node.config.interfaces?.[0]
   if (iface?.cidr) { const p = parseInt(iface.cidr.replace('/', ''), 10); if (!isNaN(p)) return p }
@@ -318,7 +318,7 @@ export function tracePacket(
   if (vlanMismatch && !l3OnPath) {
     segBlock = `VLAN isolation: ${srcNode.config.hostname ?? srcNode.label} (VLAN ${sVlan}) and ${dstNode.config.hostname ?? dstNode.label} (VLAN ${dVlan}) are in different VLANs — inter-VLAN routing (a router / L3 switch) is required`
   } else if (crossSubnet && !l3OnPath) {
-    segBlock = `Different IP subnets (${srcIp}/${srcNet!.prefix} ↔ ${dstIp}/${dstNet!.prefix}) on a Layer-2-only path — a router is required to route between subnets`
+    segBlock = `Different IP subnets (${srcIp}/${srcNet!.prefix} <-> ${dstIp}/${dstNet!.prefix}) on a Layer-2-only path — a router is required to route between subnets`
   }
   // Block manifests at the first L2 device on the path (where the frame can't leave), else at the destination
   const segBlockIndex = (() => {
@@ -420,7 +420,7 @@ export function tracePacket(
         direction,
       )
 
-      // No matching rule → implicit deny-all (real firewalls deny by default)
+      // No matching rule -> implicit deny-all (real firewalls deny by default)
       const denied = !match || match.action !== 'allow'
       if (denied) {
         const action: HopAction = match?.action === 'drop' ? 'firewall_drop' : 'firewall_deny'
@@ -429,7 +429,7 @@ export function tracePacket(
           : 'Implicit deny (no matching rule)'
         hops.push({
           step: i, nodeId: node.id, nodeName, nodeType: node.type, action,
-          detail: `${reason} [${direction}] ${req.protocol.toUpperCase()} ${srcIp} → ${dstIp}${req.dstPort ? `:${req.dstPort}` : ''}`,
+          detail: `${reason} [${direction}] ${req.protocol.toUpperCase()} ${srcIp} -> ${dstIp}${req.dstPort ? `:${req.dstPort}` : ''}`,
           firewallRule: match?.rule,
           ingressInterface: node.config.interfaces?.[0]?.name,
           latencyMs: hopLatency, edgeId,
@@ -445,12 +445,12 @@ export function tracePacket(
       let fwNat = ''
       if (nextNodeF && isInternet(nextNodeF) && isPrivateIpAddr(srcIp) && !isPrivateIpAddr(dstIp)) {
         const pub = node.config.interfaces?.map(x => x.ipAddress).find(ip => ip && !isPrivateIpAddr(ip)) ?? '203.0.113.1'
-        fwNat = `  ·  NAT ${srcIp} → ${pub}`
+        fwNat = `  ·  NAT ${srcIp} -> ${pub}`
         srcIp = pub
       }
       hops.push({
         step: i, nodeId: node.id, nodeName, nodeType: node.type, action: 'firewall_allow',
-        detail: `Rule #${match.rule.priority} "${match.rule.description}" — ALLOW [${direction}] ${req.protocol.toUpperCase()} ${srcIp}→${dstIp}${fwNat}`,
+        detail: `Rule #${match.rule.priority} "${match.rule.description}" — ALLOW [${direction}] ${req.protocol.toUpperCase()} ${srcIp}->${dstIp}${fwNat}`,
         firewallRule: match.rule,
         latencyMs: hopLatency, edgeId,
       })
@@ -476,7 +476,7 @@ export function tracePacket(
       let natNote = ''
       if (!isDestination && nextNodeR && isInternet(nextNodeR) && isPrivateIpAddr(srcIp) && !isPrivateIpAddr(dstIp)) {
         const publicIp = node.config.interfaces?.map(x => x.ipAddress).find(ip => ip && !isPrivateIpAddr(ip)) ?? '203.0.113.1'
-        natNote = `  ·  NAT ${srcIp} → ${publicIp}`
+        natNote = `  ·  NAT ${srcIp} -> ${publicIp}`
         srcIp = publicIp   // translated for the remaining outbound hops
       }
 
@@ -490,8 +490,8 @@ export function tracePacket(
         detail: isDestination
           ? `Packet delivered to ${nodeName} (${dstIp})`
           : route
-            ? `Longest-prefix match: ${route.type} route ${route.destination}/${maskToCidr(route.mask)} → next hop ${nextHop} (iface ${route.interface ?? node.config.interfaces?.[0]?.name ?? 'eth0'})${natNote}`
-            : `Forwarding (directly connected — no routing table configured) → ${nextHop}${natNote}`,
+            ? `Longest-prefix match: ${route.type} route ${route.destination}/${maskToCidr(route.mask)} -> next hop ${nextHop} (iface ${route.interface ?? node.config.interfaces?.[0]?.name ?? 'eth0'})${natNote}`
+            : `Forwarding (directly connected — no routing table configured) -> ${nextHop}${natNote}`,
         latencyMs: hopLatency, edgeId,
       })
     }
@@ -504,7 +504,7 @@ export function tracePacket(
         nodeName,
         nodeType: node.type,
         action: 'switch_forward',
-        detail: `${l2} via ${nodeName} — MAC address lookup → forwarding frame`,
+        detail: `${l2} via ${nodeName} — MAC address lookup -> forwarding frame`,
         latencyMs: hopLatency,
         edgeId,
       })
@@ -582,7 +582,7 @@ export function tracePacket(
           ? (topology.nodes.find(n => n.id === nodePath[i + 1])?.config.hostname ?? nodePath[i + 1])
           : 'upstream'
         hops.push({ step: i, nodeId: node.id, nodeName, nodeType: node.type, action: 'route',
-          detail: `${role} ${nodeName}: forwarding (L7) → ${nextHop}`, latencyMs: hopLatency, edgeId })
+          detail: `${role} ${nodeName}: forwarding (L7) -> ${nextHop}`, latencyMs: hopLatency, edgeId })
       }
     }
     // ── Destination / other (PC, server, printer, phone…) ─────────────────────
@@ -615,7 +615,7 @@ export function tracePacket(
           hops.push({
             step: i, nodeId: node.id, nodeName, nodeType: node.type,
             action: 'delivered',
-            detail: `Packet delivered to ${nodeName} (${dstIp}) ✓`,
+            detail: `Packet delivered to ${nodeName} (${dstIp})`,
             latencyMs: hopLatency, edgeId,
           })
         }
@@ -627,7 +627,7 @@ export function tracePacket(
           nodeType: node.type,
           action: isDestination ? 'delivered' : 'switch_forward',
           detail: isDestination
-            ? `Packet delivered to ${nodeName} (${dstIp}) ✓`
+            ? `Packet delivered to ${nodeName} (${dstIp})`
             : `Forwarding through ${nodeName}`,
           latencyMs: hopLatency,
           edgeId,
@@ -641,7 +641,7 @@ export function tracePacket(
   // Zone advisory: delivered, but it crossed a security-zone boundary unfirewalled
   if (success && zoneCross) {
     const last = [...hops].reverse().find(h => h.action === 'delivered')
-    if (last) last.detail += `  ⚠ crosses ${sZone} → ${dZone} zone boundary with no firewall in the path`
+    if (last) last.detail += `  —  warning: crosses the ${sZone} -> ${dZone} zone boundary with no firewall in the path`
   }
 
   return {

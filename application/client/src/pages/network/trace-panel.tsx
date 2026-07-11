@@ -1,18 +1,22 @@
-import { X, CheckCircle, XCircle, AlertTriangle, ArrowRight, Clock } from 'lucide-react'
+import {
+  X, CheckCircle, XCircle, AlertTriangle, ArrowRight, Clock,
+  Play, MoveRight, Route, ShieldCheck, ShieldX, ShieldOff, TimerOff, RouteOff, Ban, HelpCircle,
+  type LucideIcon,
+} from 'lucide-react'
 import type { TraceResult, TraceHop } from '../../lib/api/index.ts'
 import { meta } from './device-catalog.tsx'
 
-const ACTION_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  start:           { label: 'Start',           color: '#58a6ff', bg: 'rgba(88,166,255,0.12)',  icon: '▶' },
-  switch_forward:  { label: 'L2 Forward',      color: '#3fb950', bg: 'rgba(63,185,80,0.10)',   icon: '⇒' },
-  route:           { label: 'L3 Route',        color: '#58a6ff', bg: 'rgba(88,166,255,0.10)',  icon: '↗' },
-  firewall_allow:  { label: 'FW Allow',        color: '#3fb950', bg: 'rgba(63,185,80,0.12)',   icon: '✓' },
-  firewall_deny:   { label: 'FW Deny',         color: '#f85149', bg: 'rgba(248,81,73,0.12)',   icon: '✗' },
-  firewall_drop:   { label: 'FW Drop',         color: '#d29922', bg: 'rgba(210,153,34,0.12)',  icon: '⊘' },
-  delivered:       { label: 'Delivered',       color: '#3fb950', bg: 'rgba(63,185,80,0.15)',   icon: '✓' },
-  ttl_exceeded:    { label: 'TTL Exceeded',    color: '#f85149', bg: 'rgba(248,81,73,0.12)',   icon: '⏱' },
-  no_route:        { label: 'No Route',        color: '#f85149', bg: 'rgba(248,81,73,0.12)',   icon: '✗' },
-  port_closed:     { label: 'Port Closed',     color: '#f85149', bg: 'rgba(248,81,73,0.12)',   icon: '⊘' },
+const ACTION_CONFIG: Record<string, { label: string; color: string; bg: string; Icon: LucideIcon }> = {
+  start:           { label: 'Start',           color: '#58a6ff', bg: 'rgba(88,166,255,0.12)',  Icon: Play },
+  switch_forward:  { label: 'L2 Forward',      color: '#3fb950', bg: 'rgba(63,185,80,0.10)',   Icon: MoveRight },
+  route:           { label: 'L3 Route',        color: '#58a6ff', bg: 'rgba(88,166,255,0.10)',  Icon: Route },
+  firewall_allow:  { label: 'FW Allow',        color: '#3fb950', bg: 'rgba(63,185,80,0.12)',   Icon: ShieldCheck },
+  firewall_deny:   { label: 'FW Deny',         color: '#f85149', bg: 'rgba(248,81,73,0.12)',   Icon: ShieldX },
+  firewall_drop:   { label: 'FW Drop',         color: '#d29922', bg: 'rgba(210,153,34,0.12)',  Icon: ShieldOff },
+  delivered:       { label: 'Delivered',       color: '#3fb950', bg: 'rgba(63,185,80,0.15)',   Icon: CheckCircle },
+  ttl_exceeded:    { label: 'TTL Exceeded',    color: '#f85149', bg: 'rgba(248,81,73,0.12)',   Icon: TimerOff },
+  no_route:        { label: 'No Route',        color: '#f85149', bg: 'rgba(248,81,73,0.12)',   Icon: RouteOff },
+  port_closed:     { label: 'Port Closed',     color: '#f85149', bg: 'rgba(248,81,73,0.12)',   Icon: Ban },
 }
 
 
@@ -23,9 +27,10 @@ interface TracePanelProps {
 }
 
 function HopRow({ hop, active, done }: { hop: TraceHop; active: boolean; done: boolean }) {
-  const cfg = ACTION_CONFIG[hop.action] ?? { label: hop.action, color: '#8b949e', bg: 'rgba(139,148,158,0.1)', icon: '?' }
+  const cfg = ACTION_CONFIG[hop.action] ?? { label: hop.action, color: '#8b949e', bg: 'rgba(139,148,158,0.1)', Icon: HelpCircle }
   const nm = meta(hop.nodeType)
   const NodeIcon = nm.Icon
+  const ActionIcon = cfg.Icon
   return (
     <div className={[
       'flex gap-2 p-2 rounded-md border transition-all duration-300',
@@ -48,10 +53,10 @@ function HopRow({ hop, active, done }: { hop: TraceHop; active: boolean; done: b
           <span className="text-[11px] font-semibold text-[var(--text-primary)]">{hop.nodeName}</span>
           <ArrowRight size={9} className="text-[var(--text-muted)]" />
           <span
-            className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
+            className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
             style={{ background: cfg.bg, color: cfg.color }}
           >
-            {cfg.icon} {cfg.label}
+            <ActionIcon size={10} strokeWidth={2.4} /> {cfg.label}
           </span>
           {hop.latencyMs > 0 && (
             <span className="text-[9px] font-mono text-[var(--text-muted)] flex items-center gap-0.5 ml-auto">

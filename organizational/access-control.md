@@ -54,9 +54,9 @@ Implemented in [`handlers/users.handlers.ts`](../application/src/handlers/users.
 and [`routes/users.routes.ts`](../application/src/routes/users.routes.ts):
 
 ```http
-GET    /api/users          → { users: [...], roles: ["admin","editor","viewer"] }
-PATCH  /api/users/:id       { role }   → updated user
-DELETE /api/users/:id                  → 204
+GET    /api/users          -> { users: [...], roles: ["admin","editor","viewer"] }
+PATCH  /api/users/:id       { role }   -> updated user
+DELETE /api/users/:id                  -> 204
 ```
 
 Service layer (`auth-service.ts`): `listUsers()`, `setUserRole(id, role)`,
@@ -67,8 +67,8 @@ remove the last admin** (`BadRequestError`).
 
 Every network query is scoped by `ownerOf(req)`:
 
-- signed in → `req.user.id` (your private workspace)
-- anonymous → `'local'` (shared workspace, disabled when `REQUIRE_AUTH=true`)
+- signed in -> `req.user.id` (your private workspace)
+- anonymous -> `'local'` (shared workspace, disabled when `REQUIRE_AUTH=true`)
 
 Roles do **not** widen this scope — an `admin` still queries against their own
 owner id. To add an "admin sees all networks" capability you would relax the

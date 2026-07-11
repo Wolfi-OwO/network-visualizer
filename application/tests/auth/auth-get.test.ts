@@ -9,7 +9,7 @@ describe('auth: GET', () => {
     assert.ok(Array.isArray(res.body.providers))
   })
 
-  it('GET /auth/me without a session → 401', async () => {
+  it('GET /auth/me without a session -> 401', async () => {
     assert.equal((await request(app).get('/auth/me')).status, 401)
   })
 

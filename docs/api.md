@@ -57,11 +57,11 @@ share the `local` workspace).
 | Method | Path                                            | Description                                             |
 | ------ | ----------------------------------------------- | ------------------------------------------------------- |
 | GET    | `/api/networks`                                 | List the caller's topologies                            |
-| POST   | `/api/networks`                                 | Create a topology → `201` + `Location`                  |
+| POST   | `/api/networks`                                 | Create a topology -> `201` + `Location`                 |
 | GET    | `/api/networks/default`                         | The seeded demo topology                                |
 | GET    | `/api/networks/:id`                             | Fetch one topology                                      |
 | PUT    | `/api/networks/:id`                             | Replace/update a topology                               |
-| DELETE | `/api/networks/:id`                             | Delete → `204`                                          |
+| DELETE | `/api/networks/:id`                             | Delete -> `204`                                         |
 | POST   | `/api/networks/:id/nodes`                       | Add a device                                            |
 | PUT    | `/api/networks/:id/nodes/:nodeId`               | Update a device                                         |
 | DELETE | `/api/networks/:id/nodes/:nodeId`               | Remove a device                                         |
@@ -105,6 +105,6 @@ share the `local` workspace).
 | ------ | ---------------- | ---------------------------------------------------- |
 | GET    | `/api/users`     | List accounts + valid roles                          |
 | PATCH  | `/api/users/:id` | `{ role }` — change a role (last admin is protected) |
-| DELETE | `/api/users/:id` | Remove an account → `204`                            |
+| DELETE | `/api/users/:id` | Remove an account -> `204`                           |
 | GET    | `/api/metrics`   | System metrics (uptime, memory, requests, DB counts) |
 | GET    | `/api/audit`     | Audit log of mutating actions                        |

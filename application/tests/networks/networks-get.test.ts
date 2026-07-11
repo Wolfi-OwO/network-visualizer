@@ -19,7 +19,7 @@ describe('networks: GET', () => {
     assert.ok(res.body._links.traces)
   })
 
-  it('missing topology → 404', async () => {
+  it('missing topology -> 404', async () => {
     assert.equal((await request(app).get('/api/networks/does-not-exist')).status, 404)
   })
 })

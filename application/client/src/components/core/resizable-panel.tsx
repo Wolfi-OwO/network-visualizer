@@ -36,7 +36,7 @@ export default function ResizablePanel({ children, onBackdropClick }: ResizableP
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       if (!dragging.current) return
-      // Panel is docked on the right → width grows as the pointer moves left
+      // Panel is docked on the right -> width grows as the pointer moves left
       const next = Math.min(MAX, Math.max(MIN, window.innerWidth - e.clientX))
       setWidth(next)
     }

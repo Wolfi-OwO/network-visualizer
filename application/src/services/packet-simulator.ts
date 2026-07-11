@@ -301,7 +301,7 @@ function randomPayload(len: number): number[] {
   return Array.from({ length: len }, () => randInt(0, 255));
 }
 
-// ── DNS lookup (query → response, matching transaction id) ───────────────────
+// ── DNS lookup (query -> response, matching transaction id) ───────────────────
 function emitDnsLookup(at: number, client: Host, resolver: Host, domain: string, resolvedIp: string): number {
   const txid = randInt(0, 0xffff);
   const sport = randInt(49152, 65535);
@@ -328,7 +328,7 @@ function emitDnsLookup(at: number, client: Host, resolver: Host, domain: string,
   return respAt;
 }
 
-// ── A full TCP web session: handshake → request/response(s) → teardown ───────
+// ── A full TCP web session: handshake -> request/response(s) -> teardown ───────
 function emitWebSession(startAt: number, client: Host, server: Host, secure: boolean): void {
   const sport = randInt(49152, 65535);
   const dport = secure ? 443 : 80;
@@ -338,13 +338,13 @@ function emitWebSession(startAt: number, client: Host, server: Host, secure: boo
   let t = startAt;
 
   // 3-way handshake (SYN consumes one sequence number on each side)
-  emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: 0, flags: { syn: true }, window: 64240, protocol: 'TCP', info: `${sport} → ${dport} [SYN] Seq=${cSeq} Win=64240 Len=0 MSS=1460` });
+  emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: 0, flags: { syn: true }, window: 64240, protocol: 'TCP', info: `${sport} -> ${dport} [SYN] Seq=${cSeq} Win=64240 Len=0 MSS=1460` });
   t += r / 2;
-  emitTcp({ at: t, src: server, dst: client, srcPort: dport, dstPort: sport, seq: sSeq, ack: (cSeq + 1) >>> 0, flags: { syn: true, ack: true }, window: 65160, protocol: 'TCP', info: `${dport} → ${sport} [SYN, ACK] Seq=${sSeq} Ack=${(cSeq + 1) >>> 0} Win=65160 Len=0 MSS=1460` });
+  emitTcp({ at: t, src: server, dst: client, srcPort: dport, dstPort: sport, seq: sSeq, ack: (cSeq + 1) >>> 0, flags: { syn: true, ack: true }, window: 65160, protocol: 'TCP', info: `${dport} -> ${sport} [SYN, ACK] Seq=${sSeq} Ack=${(cSeq + 1) >>> 0} Win=65160 Len=0 MSS=1460` });
   cSeq = (cSeq + 1) >>> 0;
   sSeq = (sSeq + 1) >>> 0;
   t += r / 2;
-  emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { ack: true }, protocol: 'TCP', info: `${sport} → ${dport} [ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
+  emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { ack: true }, protocol: 'TCP', info: `${sport} -> ${dport} [ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
 
   const rounds = randInt(1, 3);   // keep-alive request/response rounds
   for (let i = 0; i < rounds; i++) {
@@ -370,7 +370,7 @@ function emitWebSession(startAt: number, client: Host, server: Host, secure: boo
       });
       sSeq = (sSeq + shPayload.length) >>> 0;
       t += r / 2;
-      emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { ack: true }, protocol: 'TCP', info: `${sport} → ${dport} [ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
+      emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { ack: true }, protocol: 'TCP', info: `${sport} -> ${dport} [ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
       continue;
     }
 
@@ -389,7 +389,7 @@ function emitWebSession(startAt: number, client: Host, server: Host, secure: boo
 
     // server ACK of the request
     t += r;
-    emitTcp({ at: t, src: server, dst: client, srcPort: dport, dstPort: sport, seq: sSeq, ack: cSeq, flags: { ack: true }, protocol: 'TCP', info: `${dport} → ${sport} [ACK] Seq=${sSeq} Ack=${cSeq} Win=65160 Len=0` });
+    emitTcp({ at: t, src: server, dst: client, srcPort: dport, dstPort: sport, seq: sSeq, ack: cSeq, flags: { ack: true }, protocol: 'TCP', info: `${dport} -> ${sport} [ACK] Seq=${sSeq} Ack=${cSeq} Win=65160 Len=0` });
 
     // server response after some processing time
     t += randFloat(1, 25);
@@ -408,18 +408,18 @@ function emitWebSession(startAt: number, client: Host, server: Host, secure: boo
 
     // client ACK of the response
     t += r / 2;
-    emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { ack: true }, protocol: 'TCP', info: `${sport} → ${dport} [ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
+    emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { ack: true }, protocol: 'TCP', info: `${sport} -> ${dport} [ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
   }
 
   // graceful teardown (client-initiated FIN)
   t += randFloat(0.5, 6);
-  emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { fin: true, ack: true }, protocol: 'TCP', info: `${sport} → ${dport} [FIN, ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
+  emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { fin: true, ack: true }, protocol: 'TCP', info: `${sport} -> ${dport} [FIN, ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
   cSeq = (cSeq + 1) >>> 0;
   t += r / 2;
-  emitTcp({ at: t, src: server, dst: client, srcPort: dport, dstPort: sport, seq: sSeq, ack: cSeq, flags: { fin: true, ack: true }, protocol: 'TCP', info: `${dport} → ${sport} [FIN, ACK] Seq=${sSeq} Ack=${cSeq} Win=65160 Len=0` });
+  emitTcp({ at: t, src: server, dst: client, srcPort: dport, dstPort: sport, seq: sSeq, ack: cSeq, flags: { fin: true, ack: true }, protocol: 'TCP', info: `${dport} -> ${sport} [FIN, ACK] Seq=${sSeq} Ack=${cSeq} Win=65160 Len=0` });
   sSeq = (sSeq + 1) >>> 0;
   t += r / 2;
-  emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { ack: true }, protocol: 'TCP', info: `${sport} → ${dport} [ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
+  emitTcp({ at: t, src: client, dst: server, srcPort: sport, dstPort: dport, seq: cSeq, ack: sSeq, flags: { ack: true }, protocol: 'TCP', info: `${sport} -> ${dport} [ACK] Seq=${cSeq} Ack=${sSeq} Win=64240 Len=0` });
 }
 
 // ── ICMP echo session (request/reply pairs with matching id/seq) ─────────────
@@ -458,7 +458,7 @@ function emitIcmp(at: number, src: Host, dst: Host, reply: boolean, identifier: 
   });
 }
 
-// ── ARP request → reply ──────────────────────────────────────────────────────
+// ── ARP request -> reply ──────────────────────────────────────────────────────
 function emitArpExchange(at: number, asker: Host, target: Host): void {
   emitArp(at, asker, target, false);
   emitArp(at + rtt(asker, target), target, asker, true);

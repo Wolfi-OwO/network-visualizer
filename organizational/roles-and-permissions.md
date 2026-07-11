@@ -37,13 +37,13 @@ on to require a sign-in for any network data — anonymous access then disappear
 
 ## How each rule is enforced
 
-| Rule                       | Where                                                                                            |
-| -------------------------- | ------------------------------------------------------------------------------------------------ |
-| Who you are                | `authenticate` middleware reads the session JWT cookie (or `Authorization: Bearer`) → `req.user` |
-| Must be signed in          | `requireAuth`                                                                                    |
-| Must be an admin           | `requireRole('admin')` on `/api/users`, `/api/metrics`, `/api/audit`                             |
-| Viewers are read-only      | `requireWrite` rejects `POST/PUT/PATCH/DELETE` for the `viewer` role                             |
-| You only see your own data | `ownerOf(req)` scopes every network query to your account id (or `local`)                        |
+| Rule                       | Where                                                                                             |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| Who you are                | `authenticate` middleware reads the session JWT cookie (or `Authorization: Bearer`) -> `req.user` |
+| Must be signed in          | `requireAuth`                                                                                     |
+| Must be an admin           | `requireRole('admin')` on `/api/users`, `/api/metrics`, `/api/audit`                              |
+| Viewers are read-only      | `requireWrite` rejects `POST/PUT/PATCH/DELETE` for the `viewer` role                              |
+| You only see your own data | `ownerOf(req)` scopes every network query to your account id (or `local`)                         |
 
 All of the above live in [`application/src/middlewares/auth.ts`](../application/src/middlewares/auth.ts).
 The role list itself is defined once in

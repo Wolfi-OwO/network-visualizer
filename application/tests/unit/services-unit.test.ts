@@ -78,7 +78,7 @@ describe('config-export-service', () => {
 
 describe('packet-sender-service.tracePacket', () => {
   const topo = buildDemoTopology()
-  it('allowed LAN→server path', () => {
+  it('allowed LAN->server path', () => {
     assert.ok(tracePacket(topo, { srcNodeId: 'pc-1', dstNodeId: 'server-1', protocol: 'tcp', dstPort: 443 }).path.length >= 2)
   })
   it('to the internet (NAT edge)', () => {

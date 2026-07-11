@@ -7,7 +7,7 @@ describe('metrics: GET', () => {
   })
 
   it('returns runtime metrics for an admin', async () => {
-    const admin = await loginAgent('admin@netviz.local')   // first user → admin
+    const admin = await loginAgent('admin@netviz.local')   // first user -> admin
     const res = await admin.get('/api/metrics')
     assert.equal(res.status, 200)
     assert.equal(res.body.status, 'ok')

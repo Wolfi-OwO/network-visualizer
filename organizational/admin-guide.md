@@ -83,7 +83,7 @@ Only providers with both a client id and secret appear on the login page.
 
 | I want to…             | Do this                                                    |
 | ---------------------- | ---------------------------------------------------------- |
-| Make someone an admin  | Administration → Users & roles → set role to `admin`       |
+| Make someone an admin  | Administration -> Users & roles -> set role to `admin`     |
 | Make someone read-only | Set their role to `viewer`                                 |
 | Off-board someone      | Set to `viewer`, or remove them with the **Delete** button |
 | Step down as admin     | Promote another admin first, then lower your own role      |

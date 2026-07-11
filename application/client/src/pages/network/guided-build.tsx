@@ -61,7 +61,7 @@ function isConnected(nodes: NetworkNode[], edges: SimpleEdge[]) {
 function dnsHasEntry(nodes: NetworkNode[]) {
   return nodes.some(n => n.type === 'dns' && (n.config.dns?.records?.length ?? 0) >= 1)
 }
-// Number of links whose BOTH ends are the given type (e.g. router↔router backbone)
+// Number of links whose BOTH ends are the given type (e.g. router<->router backbone)
 function edgesAmongType(nodes: NetworkNode[], edges: SimpleEdge[], type: string) {
   const typeOf = (id: string) => nodes.find(n => n.id === id)?.type
   return edges.filter(e => typeOf(e.source) === type && typeOf(e.target) === type).length
@@ -83,8 +83,8 @@ export default function GuidedBuild({ active, nodes, edges, onClearCanvas, onClo
 
   // Build TechCorp HQ the way real enterprise networks are layered, from the
   // outside in:
-  //   Internet ↔ edge router ↔ perimeter firewall ↔ core switch ↔ access
-  //   switch ↔ endpoints — the router terminates the ISP uplink and routes,
+  //   Internet <-> edge router <-> perimeter firewall <-> core switch <-> access
+  //   switch <-> endpoints — the router terminates the ISP uplink and routes,
   //   the firewall behind it inspects everything entering the LAN, DHCP/DNS
   //   sit in the server segment, and the public web server gets its own
   //   firewall leg (the DMZ).
@@ -106,7 +106,7 @@ export default function GuidedBuild({ active, nodes, edges, onClearCanvas, onClo
       {
         id: 'perimeter',
         label: 'Add the perimeter firewall behind the router',
-        hint: 'Drag a Firewall and link it to the Router (its LAN side, not the Cloud). Everything entering or leaving your network flows router → firewall, so every packet is inspected before it can reach any internal device.',
+        hint: 'Drag a Firewall and link it to the Router (its LAN side, not the Cloud). Everything entering or leaving your network flows router -> firewall, so every packet is inspected before it can reach any internal device.',
         done: has(nodes, 'firewall') && edgeBetweenTypes(nodes, edges, 'firewall', 'router'),
       },
       {
@@ -145,13 +145,13 @@ export default function GuidedBuild({ active, nodes, edges, onClearCanvas, onClo
       {
         id: 'wire',
         label: 'One connected network — no islands',
-        hint: 'Check every device is reachable: endpoints → access switch → core switch → firewall → edge router → Internet, servers on the core, web server on the firewall.',
+        hint: 'Check every device is reachable: endpoints -> access switch -> core switch -> firewall -> edge router -> Internet, servers on the core, web server on the firewall.',
         done: nodes.length >= 11 && connected,
       },
       {
         id: 'config',
         label: 'Add a firewall rule & a DNS record',
-        hint: 'Click the Firewall → Firewall tab → add an allow rule for web traffic (TCP 443) to the DMZ server. Then click the DNS server → DNS tab → add an A record (e.g. www.techcorp.com → the web server’s IP).',
+        hint: 'Click the Firewall -> Firewall tab -> add an allow rule for web traffic (TCP 443) to the DMZ server. Then click the DNS server -> DNS tab -> add an A record (e.g. www.techcorp.com -> the web server’s IP).',
         done: dnsHasEntry(nodes) && firewallHasRule(nodes),
       },
       {
@@ -182,7 +182,7 @@ export default function GuidedBuild({ active, nodes, edges, onClearCanvas, onClo
         <div className="px-3 py-3 text-[12px] leading-relaxed text-[var(--text-secondary)] space-y-2">
           <p>Build <b>TechCorp HQ</b> exactly the way real enterprise sites are layered, from the Internet edge inward:</p>
           <p className="font-mono text-[10px] text-[var(--text-secondary)] leading-relaxed">
-            Internet ↔ Edge router ↔ Firewall ↔ Core switch ↔ Access switch ↔ Desks
+            {'Internet <-> Edge router <-> Firewall <-> Core switch <-> Access switch <-> Desks'}
           </p>
           <ul className="list-disc list-inside space-y-0.5 text-[var(--text-secondary)]">
             <li>An <b>edge router</b> on the ISP uplink handling the routing</li>

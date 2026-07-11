@@ -27,7 +27,7 @@ describe('control-plane: GET', () => {
     assert.ok(Array.isArray(res.body.arp))
   })
 
-  it('unknown node → 404', async () => {
+  it('unknown node -> 404', async () => {
     assert.equal((await request(app).get('/api/networks/default/nodes/nope/control-plane')).status, 404)
   })
 })

@@ -10,7 +10,7 @@ function fmtUptime(s: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m ${s % 60}s`
 }
 
-function Stat({ icon: Icon, label, value, sub }: { icon: typeof Cpu; label: string; value: string | number; sub?: string }) {
+function Stat({ icon: Icon, label, value, sub }: { icon: typeof Cpu; label: string; value: React.ReactNode; sub?: string }) {
   return (
     <div className="card card-hover flex items-center gap-3 p-4">
       <div
@@ -193,7 +193,15 @@ export default function AdminPage() {
           <div>
             <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">Packet capture</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <Stat icon={Activity} label="Capturing" value={m.capture.capturing ? 'Yes ●' : 'No'} />
+              <Stat
+                icon={Activity}
+                label="Capturing"
+                value={m.capture.capturing
+                  ? <span className="inline-flex items-center gap-1.5">
+                      Yes <span className="h-1.5 w-1.5 rounded-full bg-[var(--green)] animate-pulse" />
+                    </span>
+                  : 'No'}
+              />
               <Stat icon={Activity} label="Packets" value={m.capture.packets.toLocaleString()} />
               <Stat icon={Activity} label="Packets/s" value={m.capture.packetsPerSecond} />
               <Stat icon={Activity} label="Auth providers" value={m.auth.providers.join(', ') || 'local only'} />

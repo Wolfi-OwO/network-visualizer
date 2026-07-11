@@ -10,7 +10,7 @@ describe('capture: PATCH', () => {
     assert.equal(off.body.capturing, false)
   })
 
-  it('without a boolean body → 400', async () => {
+  it('without a boolean body -> 400', async () => {
     assert.equal((await request(app).patch('/api/capture').send({})).status, 400)
   })
 })

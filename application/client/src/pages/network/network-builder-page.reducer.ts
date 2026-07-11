@@ -1,6 +1,17 @@
 import type { NetworkTopology } from '../../types/index.ts'
 import type { TraceResult } from '../../lib/api/index.ts'
 
+/**
+ * Severity of a status-bar message. It picks the icon and the colour, so a
+ * failure can't be reported in "success" green.
+ */
+export type StatusKind = 'info' | 'success' | 'warn' | 'error'
+
+export interface StatusMessage {
+  text: string
+  kind: StatusKind
+}
+
 // Consolidated UI/animation state for the network builder page, with initial
 // values kept here (out of the component).
 export interface BuilderState {
@@ -13,7 +24,7 @@ export interface BuilderState {
   showTutorial: boolean
   guidedActive: boolean
   saving: boolean
-  status: string
+  status: StatusMessage | null
   traceResult: TraceResult | null
   traceStep: number
   isAnimating: boolean
@@ -33,7 +44,7 @@ export const initialBuilderState: BuilderState = {
   showTutorial: false,
   guidedActive: false,
   saving: false,
-  status: '',
+  status: null,
   traceResult: null,
   traceStep: -1,
   isAnimating: false,

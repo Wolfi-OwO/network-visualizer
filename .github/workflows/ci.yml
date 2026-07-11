@@ -127,7 +127,7 @@ jobs:
             const marker = '<!-- coverage-comment -->';
             const body = [
               marker,
-              '## 🧪 Coverage report',
+              '## Coverage report',
               '',
               '| Metric | % | Covered / Total |',
               '| --- | --: | --: |',
@@ -137,8 +137,8 @@ jobs:
               row('Branches', t.branches),
               '',
               ok
-                ? `✅ Line coverage **${lines.toFixed(1)}%** meets the ${gate}% gate.`
-                : `⚠️ Line coverage **${lines.toFixed(1)}%** is below the ${gate}% gate.`,
+                ? `Line coverage **${lines.toFixed(1)}%** meets the ${gate}% gate.`
+                : `Line coverage **${lines.toFixed(1)}%** is below the ${gate}% gate.`,
               '',
               `<sub>commit ${sha}</sub>`,
             ].join('\n');

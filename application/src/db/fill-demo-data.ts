@@ -5,7 +5,7 @@ import { logger } from '../lib/logger.js'
 import { setupDBConnection, closeDBConnection } from './connection.js'
 import { fillDemoData } from './seed.js'
 
-await setupDBConnection(config.mongoUri, config.dbRecreate)
+await setupDBConnection(config.mongoUri, config.dbRecreate, config.mongoDbName)
 await fillDemoData()
 await closeDBConnection()
 logger.info('DB - fill-demo-data finished')

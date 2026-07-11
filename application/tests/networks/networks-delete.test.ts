@@ -13,7 +13,7 @@ describe('networks: DELETE', () => {
     assert.equal((await request(app).get(`/api/networks/${id}`)).status, 404)
   })
 
-  it('deleting a missing topology → 404', async () => {
+  it('deleting a missing topology -> 404', async () => {
     assert.equal((await request(app).delete('/api/networks/ghost')).status, 404)
   })
 })

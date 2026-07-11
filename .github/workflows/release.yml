@@ -2,7 +2,7 @@ name: Release
 
 # Production release pipeline for a published GitHub Release (tag v1.2.3):
 #
-#   test  →  package  →  deploy (production, gated)
+#   test  ->  package  ->  deploy (production, gated)
 #
 # 1. test        — re-runs the full CI suite (lint/build/tests) on the tagged
 #                  commit, so nothing ships that hasn't passed.

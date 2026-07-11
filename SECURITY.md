@@ -5,7 +5,7 @@
 Please **do not open a public issue** for security problems.
 
 - Preferred: use GitHub's private vulnerability reporting —
-  **Security → Report a vulnerability** on this repository.
+  **Security -> Report a vulnerability** on this repository.
 - Alternatively, email the maintainer at <koflerphillip@gmail.com> with a
   description, reproduction steps, and the affected version/commit.
 

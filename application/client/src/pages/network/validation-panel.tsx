@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ShieldCheck, AlertTriangle, XCircle, Info, RefreshCw, X } from 'lucide-react'
+import { ShieldCheck, AlertTriangle, XCircle, CheckCircle, Info, RefreshCw, X } from 'lucide-react'
 import { network } from '../../lib/api/index.ts'
 import type { ValidationReport } from '../../lib/api/index.ts'
 
@@ -48,8 +48,10 @@ export default function ValidationPanel({ topologyId, onClose, onFocus }: {
 
       {report && (
         <div className="flex items-center gap-3 px-3 py-1.5 text-[11px] border-b border-[var(--border)]">
-          <span className={report.ok ? 'text-[var(--green)]' : 'text-red-400'}>
-            {report.ok ? '✓ No errors' : `⛔ ${report.counts.error} error${report.counts.error === 1 ? '' : 's'}`}
+          <span className={`inline-flex items-center gap-1 ${report.ok ? 'text-[var(--green)]' : 'text-red-400'}`}>
+            {report.ok
+              ? <><CheckCircle size={12} /> No errors</>
+              : <><XCircle size={12} /> {report.counts.error} error{report.counts.error === 1 ? '' : 's'}</>}
           </span>
           <span className="text-[var(--text-muted)]">{report.counts.warning} warn · {report.counts.info} info</span>
           <span className="text-[var(--text-muted)] ml-auto">{report.checks} checks</span>

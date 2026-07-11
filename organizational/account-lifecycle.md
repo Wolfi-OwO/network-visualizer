@@ -28,7 +28,7 @@ They **cannot** see other people's networks or reach any admin area.
 
 An **admin** assigns roles at any time:
 
-- **UI:** Administration → Users & roles → role dropdown.
+- **UI:** Administration -> Users & roles -> role dropdown.
 - **API:** `PATCH /api/users/:id { role }`.
 
 Promotions and demotions take effect on the account's **next request** (the role

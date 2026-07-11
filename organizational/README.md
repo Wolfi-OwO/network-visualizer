@@ -6,7 +6,7 @@ their corporate identity, and an **administrator** assigns each account a
 **role** that decides what they can do.
 
 > **TL;DR — yes, you can set roles per account.** Sign in as an administrator,
-> open **Administration → Users & roles**, and pick `admin`, `editor`, or
+> open **Administration -> Users & roles**, and pick `admin`, `editor`, or
 > `viewer` for any account. The very first person to sign in is the admin.
 
 ---

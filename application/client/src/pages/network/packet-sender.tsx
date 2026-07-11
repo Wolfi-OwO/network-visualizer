@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Send, ChevronDown, Zap, Gauge, Pause, Play } from 'lucide-react'
+import { Send, ChevronDown, Zap, Gauge, Pause, Play, ArrowRight } from 'lucide-react'
 import type { NetworkNode, NetworkEdge } from '../../types/index.ts'
 import type { Edge } from '@xyflow/react'
 import type { TraceResult } from '../../lib/api/index.ts'
@@ -106,7 +106,7 @@ export default function PacketSender({
 
   return (
     <div data-tour="sender" className="relative z-20 flex flex-wrap items-center gap-2 px-3 py-2 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)]">
-      {/* Field controls: label → source → destination → protocol → port → TTL → send, wrap as one unit */}
+      {/* Field controls: label -> source -> destination -> protocol -> port -> TTL -> send, wrap as one unit */}
       <div className="flex flex-wrap items-center gap-2">
         {/* Label */}
         <div className="flex items-center gap-1.5 shrink-0">
@@ -126,7 +126,7 @@ export default function PacketSender({
           />
         </div>
 
-        <span className="text-[var(--text-muted)] shrink-0">→</span>
+        <ArrowRight size={13} className="text-[var(--text-muted)] shrink-0" />
 
         {/* Destination */}
         <div className="flex items-center gap-1 min-w-0">
@@ -211,7 +211,7 @@ export default function PacketSender({
               className={[
                 'px-2 py-0.5 text-[10px] font-medium transition-colors border-r border-[var(--border)] last:border-r-0',
                 animSpeed === p.ms
-                  ? 'bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white'
+                  ? 'bg-[var(--accent)] text-[var(--bg-950)]'
                   : 'bg-[var(--bg-800)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-700)]',
               ].join(' ')}
             >

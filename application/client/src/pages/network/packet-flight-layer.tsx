@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import { ViewportPortal } from '@xyflow/react'
 import type { PacketInfo } from './packet-model.ts'
 
@@ -7,7 +8,7 @@ import type { PacketInfo } from './packet-model.ts'
 // changing speed/latency mid-flight is reflected smoothly (no remount, no reset).
 export interface Flight {
   id: string
-  path: string[]        // node ids, source → destination
+  path: string[]        // node ids, source -> destination
   edgePath: string[]    // edge ids between them
   hop: number           // index of the edge currently being crossed
   progress: number      // 0..1 along the current edge
@@ -46,9 +47,14 @@ function FlightLayer({ flights, enabled }: { flights: Flight[]; version: number;
           {f.label && (
             <span style={{
               position: 'absolute', left: '50%', top: -17, transform: 'translateX(-50%)',
+              display: 'inline-flex', alignItems: 'center', gap: 2,
               fontSize: 8, fontWeight: 700, color: f.color, fontFamily: 'monospace',
               whiteSpace: 'nowrap', textShadow: '0 0 2px #0d1117, 0 0 3px #0d1117',
-            }}>{f.label}</span>
+            }}>
+              {/* The reply leg of an exchange travels back to the sender. */}
+              {f.packet?.phase === 'reply' && <ArrowLeft size={7} strokeWidth={3} />}
+              {f.label}
+            </span>
           )}
           {/* invisible larger hit target so the small dot is easy to click */}
           {f.packet && <span style={{ position: 'absolute', left: -11, top: -11, width: 22, height: 22, borderRadius: '50%' }} />}

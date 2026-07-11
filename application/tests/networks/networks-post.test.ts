@@ -2,7 +2,7 @@
 import { app, request, assert, createTopology, addNode } from './common.ts'
 
 describe('networks: POST', () => {
-  it('create → 201 + Location + _links', async () => {
+  it('create -> 201 + Location + _links', async () => {
     const res = await request(app).post('/api/networks').send({ name: 'Test Net', description: 'd' })
     assert.equal(res.status, 201)
     assert.ok(res.headers.location)
@@ -10,7 +10,7 @@ describe('networks: POST', () => {
     assert.ok(res.body._links.self)
   })
 
-  it('without a name → 400', async () => {
+  it('without a name -> 400', async () => {
     assert.equal((await request(app).post('/api/networks').send({})).status, 400)
   })
 

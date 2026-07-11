@@ -39,7 +39,7 @@ az acr create -g netviz-rg -n netvizacr --sku Basic
 indexes, which the RU-based Cosmos Mongo API does not fully support). Two good options:
 
 - **Azure Cosmos DB for MongoDB *vCore*** — managed, full MongoDB compatibility.
-  Easiest to create in the Portal (*Create → Azure Cosmos DB → MongoDB → vCore*).
+  Easiest to create in the Portal (*Create -> Azure Cosmos DB -> MongoDB -> vCore*).
   CLI (flag names vary by CLI version — verify with `az cosmosdb mongocluster create --help`):
 
   ```bash
@@ -150,7 +150,7 @@ az containerapp env show -g netviz-rg -n netviz-env \
 az containerapp hostname add -g netviz-rg -n netviz --hostname example.com   # prints an asuid TXT token
 ```
 
-In **GoDaddy → DNS**, create:
+In **GoDaddy -> DNS**, create:
 
 | Host           | Type  | Value                             |
 | -------------- | ----- | --------------------------------- |
@@ -178,65 +178,39 @@ works automatically — the SPA detects the hostname and renders the status page
 
 ## Part 4 — Continuous delivery
 
-Two Container Apps: **`netviz`** (production) and **`netviz-preview`** (per-PR
-previews with a mongo sidecar).
+One Container App — **`netviz`** — in **multiple-revision mode**. Production and
+every PR preview are revisions of it. Nothing else is provisioned.
 
 - **Releases** ([`release.yml`](../.github/workflows/release.yml)) chain
   [`package.yml`](../.github/workflows/package.yml) (builds the image and
   **pushes it to ACR with the registry admin username/password**) then
   [`deploy.yml`](../.github/workflows/deploy.yml), which logs in with
-  **OpenID Connect** (federated credentials — no stored client secret) and rolls
-  a new revision of **`netviz`**. Production is single-revision, so the new
-  revision serves 100%. Dispatch `deploy.yml` with any older tag to roll back.
-- **Pull requests** ([`pr-preview.yml`](../.github/workflows/pr-preview.yml)) roll
-  the PR image onto a new revision of **`netviz-preview`**, reachable at its own
-  FQDN `https://netviz-preview--pr-<N>-<sha>.<region>.azurecontainerapps.io`.
-  Closing the PR deactivates it. Previews are fully isolated from production — own
-  database (sidecar), no production secrets.
+  **OpenID Connect** (federated credentials — no stored client secret), copies a
+  new revision from the current production revision, waits for it to report
+  healthy, and only then shifts 100% of the traffic to it. Dispatch `deploy.yml`
+  with any older tag to roll back.
+- **Pull requests** ([`pr-preview.yml`](../.github/workflows/pr-preview.yml)) copy
+  the PR image onto a new **zero-traffic** revision of the same app, reachable at
+  its own FQDN `https://netviz--pr-<N>-<sha>.<region>.azurecontainerapps.io`.
+  Closing the PR deactivates it.
 
-### Provision the preview app (`netviz-preview`)
+### Why a preview can't hurt production
 
-A dedicated multiple-revision app whose template holds the app container **plus a
-`mongo:7` sidecar**; the app connects to the sidecar over `localhost`.
+| Risk | What stops it |
+| ---- | ------------- |
+| Preview steals production traffic | A new revision in multiple-revision mode starts at weight 0, and `pr-preview.yml` never calls `az containerapp ingress traffic set`. It also asserts its own weight is 0 and deactivates itself otherwise. |
+| Preview reads/writes production data | The preview reuses production's Mongo secret but overrides `MONGODB_DB_NAME=netviz-pr-<N>` — same cluster, its own database. It seeds its own demo topology on first load. |
+| Preview settings leak into the next release | Both workflows copy from *the revision currently serving 100% of traffic*, never from `latest` — so a preview's env overrides are never inherited by production. |
+
+### Enable it (one-time)
+
+The app just needs to be in multiple-revision mode (both workflows enforce this,
+but you can do it by hand — traffic stays on the current revision):
 
 ```bash
-# Mirror mongo into ACR so the sidecar pulls from your registry (no Docker Hub limits)
-az acr import -n netvizacr --source docker.io/library/mongo:7 --image mongo:7
-
-# 1) Create the app (single container first — reliable identity + AcrPull path)
-az containerapp create -g netviz-rg -n netviz-preview \
-  --environment netviz-env \
-  --image netvizacr.azurecr.io/netviz:latest \
-  --registry-server netvizacr.azurecr.io --registry-identity system \
-  --ingress external --target-port 8080 \
-  --revisions-mode multiple --min-replicas 1 --max-replicas 1 \
-  --cpu 0.5 --memory 1.0Gi \
-  --secrets jwt-secret="$(openssl rand -base64 48)" \
-  --env-vars NODE_ENV=production PORT=8080 HOST=0.0.0.0 \
-             MONGODB_CONNECTION_STRING=mongodb://localhost:27017/netviz \
-             REQUIRE_AUTH=false ALLOW_DEV_LOGIN=true JWT_SECRET=secretref:jwt-secret
-
-# 2) Add the mongo sidecar to the template (multi-container needs a YAML patch).
-#    Fetch the app, append a second container, re-apply just the template:
-az containerapp show -g netviz-rg -n netviz-preview -o json > pv.json
-python3 - <<'PY'
-import json, yaml
-d = json.load(open('pv.json')); app = d['properties']['template']['containers'][0]
-app['resources'] = {'cpu': 0.5, 'memory': '1.0Gi'}
-mongo = {'name': 'mongo', 'image': 'netvizacr.azurecr.io/mongo:7',
-         'resources': {'cpu': 0.5, 'memory': '1.0Gi'}}
-yaml.safe_dump({'properties': {'template': {
-    'containers': [app, mongo],
-    'scale': {'minReplicas': 1, 'maxReplicas': 1}}}},
-    open('sidecar.yaml', 'w'), sort_keys=False)
-PY
-az containerapp update -g netviz-rg -n netviz-preview --yaml sidecar.yaml
+az containerapp revision set-mode -g netviz-rg -n netviz --mode multiple
+gh variable set PREVIEW_ENABLED -R <owner>/<repo> --body true
 ```
-
-Then `gh variable set PREVIEW_CONTAINERAPP_NAME -R <owner>/<repo> --body netviz-preview`
-and `gh variable set PREVIEW_ENABLED --body true`. The workflow thereafter only
-updates the **app** container per PR (`--container-name netviz-preview --image …`),
-so the sidecar is preserved automatically.
 
 1. Enable the ACR admin account and read its credentials (they become the
    `ACR_USERNAME` / `ACR_PASSWORD` repo secrets):
@@ -268,7 +242,7 @@ so the sidecar is preserved automatically.
      --scope "/subscriptions/${SUB_ID}/resourceGroups/${RG}"
    ```
 
-3. Add repo **Secrets** (Settings → Secrets and variables → Actions → *Secrets*):
+3. Add repo **Secrets** (Settings -> Secrets and variables -> Actions -> *Secrets*):
 
    | Secret                  | Value                                     |
    | ----------------------- | ----------------------------------------- |
@@ -278,7 +252,7 @@ so the sidecar is preserved automatically.
    | `ACR_USERNAME`          | admin username from step 1                |
    | `ACR_PASSWORD`          | admin password from step 1                |
 
-   …and repo **Variables** (same page → *Variables* — these are not secrets):
+   …and repo **Variables** (same page -> *Variables* — these are not secrets):
 
    | Variable            | Value       |
    | ------------------- | ----------- |
@@ -287,7 +261,7 @@ so the sidecar is preserved automatically.
    | `CONTAINERAPP_NAME` | `netviz`    |
    | `IMAGE_NAME`        | `netviz`    |
 
-4. Ship: cut a GitHub Release (`gh release create v1.0.0 --generate-notes`) →
+4. Ship: cut a GitHub Release (`gh release create v1.0.0 --generate-notes`) ->
    the image is built and pushed to ACR and the Container App rolls to it
    automatically.
 

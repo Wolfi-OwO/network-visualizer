@@ -74,7 +74,7 @@ export function deviceRunningConfig(topo: NetworkTopology, node: NetworkNode): s
   }
   if (routes.length) L.push('!')
 
-  // Firewall rules → extended ACL
+  // Firewall rules -> extended ACL
   if (c.firewallRules?.length) {
     L.push('ip access-list extended NETVIZ_ACL')
     for (const r of [...c.firewallRules].sort((a, b) => a.priority - b.priority)) {

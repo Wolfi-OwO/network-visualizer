@@ -13,6 +13,7 @@
     --text-secondary: #8b949e;
     --text-muted: #6e7681;
     --border: #30363d;
+    --border-strong: #444c56;
     --accent: #58a6ff;
     --green: #3fb950;
     --red: #f85149;
@@ -20,23 +21,20 @@
     --purple: #bc8cff;
     --orange: #ffa657;
     --accent-2: #a371f7;
-    /* Frosted "glass HUD" surface for chrome that floats over the ambient
-       backdrop (headers, sidebar, toolbars). Translucent enough that the aurora
-       tints it, opaque + blurred enough to stay legible over busy canvas/table
-       content underneath. */
-    --glass-bg: rgba(20, 26, 34, 0.72);
-    --glass-border: rgba(255, 255, 255, 0.10);
+    /* Chrome surface (headers, sidebar, toolbars). Solid and opaque — reads as
+       panels on an instrument, not frosted glass floating over an aurora. */
+    --glass-bg: #161b22;
+    --glass-border: #30363d;
     --glow-accent: rgba(88, 166, 255, 0.35);
     --glow-accent-2: rgba(163, 113, 247, 0.30);
 
-    /* Motion — Expo-out for entrances (fast settle), spring for playful presses. */
+    /* Motion — a single easing for the few transitions we keep. Restrained. */
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
-    /* Elevation — layered shadows read as depth rather than a flat drop. */
-    --shadow-card: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 10px 30px -14px rgba(0, 0, 0, 0.7);
-    --shadow-lift: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 18px 44px -18px rgba(0, 0, 0, 0.8);
-    --shadow-glow: 0 0 0 1px rgba(88, 166, 255, 0.35), 0 8px 30px -8px var(--glow-accent);
+    /* Elevation — quiet single-layer shadows. Depth, not drama. No glow. */
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-lift: 0 4px 12px -2px rgba(0, 0, 0, 0.5);
   }
 
   html {
@@ -69,37 +67,18 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Ambient "operations center" backdrop: slow-drifting aurora blobs in the
-     brand blue/violet (+ a whisper of teal) that the glass panels floating on
-     top pick up. Sits behind #root, which is transparent down to here. */
+  /* Static engineering grid — even, quiet graph paper. The honest backdrop for
+     a network tool: no drifting gradients, no glow, just a measured field that
+     sits still behind the panels. Sits behind #root, which is transparent. */
   body::before {
-    content: '';
-    position: fixed;
-    inset: -20%;
-    z-index: -2;
-    background:
-      radial-gradient(38% 42% at 12% 8%, rgba(88, 166, 255, 0.16), transparent 60%),
-      radial-gradient(40% 44% at 92% 4%, rgba(163, 113, 247, 0.16), transparent 60%),
-      radial-gradient(46% 48% at 78% 96%, rgba(45, 212, 191, 0.08), transparent 62%),
-      radial-gradient(40% 40% at 30% 88%, rgba(88, 166, 255, 0.08), transparent 60%);
-    filter: saturate(1.1);
-    animation: aurora-drift 26s var(--ease-out-expo) infinite alternate;
-    pointer-events: none;
-  }
-
-  /* Faint engineering grid, faded out toward the edges so it never boxes the
-     content in — reads as "graph paper under glass". */
-  body::after {
     content: '';
     position: fixed;
     inset: 0;
     z-index: -1;
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
-    background-size: 44px 44px;
-    -webkit-mask-image: radial-gradient(120% 90% at 50% 0%, #000 30%, transparent 78%);
-    mask-image: radial-gradient(120% 90% at 50% 0%, #000 30%, transparent 78%);
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
     pointer-events: none;
   }
 
@@ -117,7 +96,7 @@
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: linear-gradient(var(--bg-600), var(--bg-700));
+    background: var(--bg-600);
     border-radius: 8px;
     border: 2px solid transparent;
     background-clip: padding-box;
@@ -136,38 +115,36 @@
 
 @layer components {
   .btn {
-    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer select-none border disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97];
-    transition: transform 0.12s var(--ease-spring), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease, filter 0.2s ease, color 0.2s ease;
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer select-none border disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98];
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
   }
   .btn-primary {
-    @apply btn text-white border-transparent bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_6px_24px_-4px_var(--glow-accent)] hover:brightness-110;
+    @apply btn bg-[var(--accent)] text-[var(--bg-950)] font-semibold border-transparent hover:brightness-110;
   }
   .btn-ghost {
-    @apply btn backdrop-blur-md bg-white/5 text-[var(--text-secondary)] border-white/10 hover:bg-white/10 hover:border-white/20 hover:text-[var(--text-primary)];
+    @apply btn bg-[var(--bg-800)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-700)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)];
   }
   .btn-danger {
-    @apply btn bg-[var(--red)] text-white border-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] hover:brightness-110 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_6px_20px_-4px_rgba(248,81,73,0.5)];
+    @apply btn bg-[var(--red)] text-white border-transparent hover:brightness-110;
   }
   .btn-success {
-    @apply btn bg-[var(--green)] text-white border-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] hover:brightness-110 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_6px_20px_-4px_rgba(63,185,80,0.5)];
+    @apply btn bg-[var(--green)] text-white border-transparent hover:brightness-110;
   }
-  /* Frosted glass card: translucent surface + inner top highlight (the edge
-     "catching light") + a soft layered shadow for real depth. */
+  /* Solid panel: opaque surface, hairline border, one quiet shadow. Reads as a
+     physical card on the board rather than a pane of frosted glass. */
   .card {
-    @apply relative rounded-xl border border-white/[0.08] bg-[rgba(22,27,34,0.62)] backdrop-blur-xl;
+    @apply relative rounded-lg border border-[var(--border)] bg-[var(--bg-900)];
     box-shadow: var(--shadow-card);
   }
   .card-hover {
-    transition: transform 0.35s var(--ease-out-expo), box-shadow 0.35s var(--ease-out-expo), border-color 0.35s ease;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
   }
   .card-hover:hover {
-    transform: translateY(-3px);
-    border-color: rgba(88, 166, 255, 0.35);
-    box-shadow: var(--shadow-lift), 0 10px 40px -16px var(--glow-accent);
+    border-color: var(--border-strong);
+    background-color: #1a2029;
   }
   .glass {
-    @apply backdrop-blur-xl bg-[var(--glass-bg)] border border-[var(--glass-border)];
-    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05) inset;
+    @apply bg-[var(--glass-bg)] border border-[var(--glass-border)];
   }
   /* Solid, fully opaque surface for anything that MUST always be legible on
      top of arbitrary content (dropdown lists, popovers, menus) — no
@@ -178,11 +155,11 @@
     box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 24px 50px -20px rgba(0, 0, 0, 0.85);
   }
   .input {
-    @apply backdrop-blur-sm bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent)] focus:bg-white/[0.07] focus:shadow-[0_0_0_3px_rgba(88,166,255,0.15)] placeholder:text-[var(--text-muted)] w-full;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    @apply bg-[var(--bg-950)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent)] focus:shadow-[0_0_0_2px_rgba(88,166,255,0.15)] placeholder:text-[var(--text-muted)] w-full;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
   .select {
-    @apply backdrop-blur-sm bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent)] cursor-pointer transition-colors;
+    @apply bg-[var(--bg-950)] border border-[var(--border)] rounded-md px-2 py-1.5 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent)] cursor-pointer transition-colors;
   }
   .badge {
     @apply inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono font-medium;
@@ -200,13 +177,7 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-rise {
-  animation: rise 0.55s var(--ease-out-expo) both;
-}
-
-@keyframes aurora-drift {
-  0%   { transform: translate3d(0, 0, 0) scale(1); }
-  50%  { transform: translate3d(2%, 1.5%, 0) scale(1.06); }
-  100% { transform: translate3d(-1.5%, 2.5%, 0) scale(1.03); }
+  animation: rise 0.4s var(--ease-out-expo) both;
 }
 
 /* ReactFlow overrides */
@@ -214,11 +185,9 @@
 .react-flow__edge-path {
   stroke: #58a6ff !important;
   stroke-width: 2 !important;
-  filter: drop-shadow(0 0 3px rgba(88, 166, 255, 0.5));
 }
 .react-flow__edge.selected .react-flow__edge-path {
   stroke: var(--orange) !important;
-  filter: drop-shadow(0 0 4px rgba(255, 166, 87, 0.6));
 }
 .react-flow__controls {
   background: var(--glass-bg) !important;
@@ -266,7 +235,7 @@
 .proto-SSDP   { background: rgba(156,163,175,0.07);border-left: 2px solid #9ca3af; }
 .proto-SIP    { background: rgba(255,123,114,0.1); border-left: 2px solid #ff7b72; }
 .proto-default{ background: rgba(110,118,129,0.05);border-left: 2px solid #6e7681; }
-.row-selected { background: linear-gradient(90deg, rgba(88,166,255,0.22), rgba(163,113,247,0.12)) !important; }
+.row-selected { background: rgba(88,166,255,0.14) !important; box-shadow: inset 2px 0 0 var(--accent); }
 
 /* Hex dump */
 .hex-line { font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.7; white-space: pre; }

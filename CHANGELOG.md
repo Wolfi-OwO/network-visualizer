@@ -8,14 +8,25 @@ and the project aims to adhere to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **Continuous delivery split into two Container Apps.** Production (`netviz`)
-  runs single-revision (each release routes 100% to the new revision via
-  `deploy.yml`); pull requests deploy to a dedicated **`netviz-preview`** app.
-  `deploy.yml` doubles as the rollback tool (dispatch it with an older tag).
-- **Per-PR previews are fully isolated.** Each PR rolls its image onto a new
-  revision of `netviz-preview` — its own public URL and its **own throwaway
-  database** (a `mongo:7` sidecar reached over `localhost`), with **no production
-  data or secrets**. Revisions are deactivated when the PR is merged or closed.
+- **Continuous delivery now runs on a single Container App.** `netviz` is in
+  multiple-revision mode; production and every PR preview are revisions of that
+  one app. No second app, no extra infrastructure to pay for or provision.
+- **Production releases are health-gated.** `deploy.yml` copies a new revision
+  from the revision currently serving production, waits for it to report healthy,
+  and only then shifts 100% of the traffic to it — a revision that fails to boot
+  never receives users. The revision it replaces is kept active, so a rollback is
+  a single `az containerapp ingress traffic set`. `deploy.yml` still doubles as
+  the rollback tool (dispatch it with an older tag).
+- **Per-PR previews are zero-traffic revisions of the production app.** Each PR
+  gets its own public revision URL and its **own throwaway database** — the
+  preview reuses production's Mongo secret but overrides `MONGODB_DB_NAME`, so it
+  lands on a separate database in the same cluster and cannot see or change
+  production data. `pr-preview.yml` never touches the ingress traffic split, so a
+  preview cannot take production traffic. Revisions are deactivated when the PR is
+  merged or closed.
+- Both workflows copy from *the revision serving 100% of traffic*, never from
+  `latest` — otherwise a preview's env overrides would be inherited by the next
+  production release and point production at a throwaway PR database.
 - `deploy.yml` sets `MONGODB_CONNECTION_STRING` explicitly, fixing production
   drift left when the app was renamed off the old `MONGO_URI` variable.
 - Release workflow permissions widened to `contents: write` + `id-token: write`
@@ -23,16 +34,29 @@ and the project aims to adhere to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `MONGODB_DB_NAME` — optional override for the database named in the connection
+  string. Lets a deployment share a Mongo cluster (and its connection secret)
+  while keeping its own data; this is what makes per-PR preview databases
+  possible without a second cluster or a second secret.
 - `pr-preview.yml` — opt-in per-PR preview (repo variable `PREVIEW_ENABLED`) that
-  builds the PR image, updates the app container on `netviz-preview` (preserving
-  the mongo sidecar), comments the live URL, and tears it down on close.
+  builds the PR image, copies it onto a zero-traffic revision of the production
+  app, comments the live URL, and tears it down on close.
 - `ci.yml` posts a **coverage-report comment** on every pull request (sticky,
   updated in place on each push).
 
+### Fixed
+
+- `dropCurrentDatabase()` now honours `MONGODB_DB_NAME`. Without this,
+  `DB_RECREATE=true` on a preview would have dropped **production's** database,
+  since the preview shares production's connection string.
+- The Mongo connection string (credentials included) is no longer written to the
+  application log on startup.
+
 ### Removed
 
-- `pr-staging.yml` and the dedicated staging Container App — replaced by the
-  isolated preview revisions in `pr-preview.yml`.
+- `pr-staging.yml`, the dedicated staging Container App, and the `netviz-preview`
+  app with its `mongo:7` sidecar — all replaced by preview revisions on the
+  production app. The `PREVIEW_CONTAINERAPP_NAME` repo variable is no longer used.
 
 ## [2.2.0] - 2026-07-05
 
@@ -53,7 +77,7 @@ and the project aims to adhere to [Semantic Versioning](https://semver.org/).
   glowing accents and smooth entrance / hover / focus transitions across the
   layouts, toasts and every page (reduced-motion respected).
 - **Staged delivery:** a published GitHub Release runs
-  **test → package → deploy staging → deploy production**, with production gated
+  **test -> package -> deploy staging -> deploy production**, with production gated
   behind the environment's required-reviewers approval.
 
 ### Fixed

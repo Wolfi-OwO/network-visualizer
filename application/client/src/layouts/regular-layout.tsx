@@ -12,7 +12,7 @@ export default function RegularLayout() {
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden">
-      <header className="flex md:hidden items-center gap-2.5 px-3 h-12 shrink-0 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)]">
+      <header className="flex md:hidden items-center gap-2.5 px-3 h-12 shrink-0 bg-[var(--glass-bg)] border-b border-[var(--glass-border)]">
         <button
           onClick={() => setSidebarOpen(true)}
           aria-label="Open menu"
@@ -20,8 +20,8 @@ export default function RegularLayout() {
         >
           <Menu size={18} />
         </button>
-        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)]">
-          <Radio size={12} className="text-white" />
+        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-[var(--bg-800)] border border-[var(--border-strong)]">
+          <Radio size={12} className="text-[var(--accent)]" />
         </div>
         <span className="text-sm font-bold text-[var(--text-primary)]">{appConfig.name}</span>
       </header>
