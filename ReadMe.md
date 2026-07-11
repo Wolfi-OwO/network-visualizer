@@ -9,7 +9,7 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 [![CI](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Wolfi-OwO/network-visualizer?label=release&color=blue)](https://github.com/Wolfi-OwO/network-visualizer/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Coverage](https://codecov.io/gh/Wolfi-OwO/network-visualizer/branch/main/graph/badge.svg)](https://codecov.io/gh/Wolfi-OwO/network-visualizer)
+[![codecov](https://codecov.io/gh/Wolfi-OwO/network-visualizer/graph/badge.svg?token=7YTR0GKYJI)](https://codecov.io/gh/Wolfi-OwO/network-visualizer)
 
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
