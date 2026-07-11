@@ -27,13 +27,13 @@ Conventions: lowercase kebab-case filenames, explicit import extensions
 
 ## Scripts
 
-| Script              | Description                                         |
-| ------------------- | --------------------------------------------------- |
-| `npm run dev`       | Vite dev server on :5173 with HMR                   |
-| `npm run build`     | Type-check (`tsc -b`) + production bundle → `dist/` |
-| `npm run preview`   | Preview the production bundle locally               |
-| `npm run lint`      | Run ESLint                                          |
-| `npm run typecheck` | Type-check without emitting                         |
+| Script              | Description                                          |
+| ------------------- | ---------------------------------------------------- |
+| `npm run dev`       | Vite dev server on :5173 with HMR                    |
+| `npm run build`     | Type-check (`tsc -b`) + production bundle -> `dist/` |
+| `npm run preview`   | Preview the production bundle locally                |
+| `npm run lint`      | Run ESLint                                           |
+| `npm run typecheck` | Type-check without emitting                          |
 
 ## Development
 

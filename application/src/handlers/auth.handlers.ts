@@ -94,7 +94,7 @@ export async function microsoftCallback(req: Request, res: Response): Promise<vo
   await handleCallback(req, res, 'microsoft', microsoftProfile)
 }
 
-// Shared OAuth callback: exchange code → profile → session, and on ANY failure
+// Shared OAuth callback: exchange code -> profile -> session, and on ANY failure
 // redirect to the login page with an error (instead of dumping a 500 page).
 async function handleCallback(
   req: Request, res: Response, provider: 'google' | 'microsoft',

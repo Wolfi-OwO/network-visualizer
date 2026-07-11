@@ -133,7 +133,7 @@ export function isWireless(type: string): boolean {
   return WIRELESS_TYPES.has(type as NodeType)
 }
 
-// Palette grouping (categories → subcategory rows are just ordering here)
+// Palette grouping (categories -> subcategory rows are just ordering here)
 export const PALETTE_CATEGORIES: { category: string; types: NodeType[] }[] = [
   { category: 'Routing & Switching', types: ['router', 'l3switch', 'switch', 'hub'] },
   { category: 'Security',            types: ['firewall', 'ids_ips', 'vpn_gateway'] },

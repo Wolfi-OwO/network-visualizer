@@ -109,7 +109,7 @@ branch to your GitHub account, not to the original project.
 GitHub compares your new branch against `main` and offers to open a pull
 request. You can get there from the banner GitHub shows right after a push,
 from the **Pull requests** tab, or by browsing to `.../compare` on the
-upstream repo (`base: main` ← `compare: <your-branch>`):
+upstream repo (`base: main` <- `compare: <your-branch>`):
 
 ![The Compare changes page with base and compare branch selectors and a Create pull request button](docs/screenshots/contributing/05-compare-page.png)
 
@@ -148,7 +148,6 @@ automatically. You can watch every run (yours and everyone else's) under the
 If a check fails, click into it to see the log, fix the issue locally, and
 push again — the PR updates automatically. Once CI is green and a maintainer
 approves, your branch gets merged into `main` and your contribution is live.
-🎉
 
 ## Getting set up
 
@@ -169,7 +168,7 @@ the [root README](ReadMe.md#run-in-development).
   `application/client/` (frontend). Run scripts inside the package you change.
 - **Filenames** are lowercase kebab-case; imports carry explicit extensions
   (`./foo.ts`) so the project builds on case-sensitive filesystems.
-- **Layers**: routes → handlers → services → db on the server; pages /
+- **Layers**: routes -> handlers -> services -> db on the server; pages /
   components / layouts / lib on the client. New endpoints get a route file, a
   handler, HATEOAS `_links`, and tests.
 - **Configuration** goes through `src/config/index.ts` — never read

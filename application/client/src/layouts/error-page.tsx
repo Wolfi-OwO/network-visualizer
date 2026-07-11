@@ -6,7 +6,7 @@ import ErrorPage from '../pages/error/error-page.tsx'
 // call; anything else shows the same page's neutral fallback.
 export default function RouteErrorPage() {
   const error = useRouteError()
-  // 401/403/404 → the matching page; any other route error → neutral fallback (0).
+  // 401/403/404 -> the matching page; any other route error -> neutral fallback (0).
   const code = isRouteErrorResponse(error) ? error.status : 0
   return <ErrorPage code={code} />
 }

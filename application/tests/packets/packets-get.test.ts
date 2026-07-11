@@ -9,11 +9,11 @@ describe('packets: GET', () => {
     assert.ok(res.body._links.self)
   })
 
-  it('non-numeric id → 400', async () => {
+  it('non-numeric id -> 400', async () => {
     assert.equal((await request(app).get('/api/packets/abc')).status, 400)
   })
 
-  it('missing id → 404', async () => {
+  it('missing id -> 404', async () => {
     assert.equal((await request(app).get('/api/packets/999999')).status, 404)
   })
 })

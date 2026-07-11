@@ -12,7 +12,7 @@ validateConfig();
 // cause of "fetch failed" when calling OAuth endpoints (e.g. login.microsoftonline.com).
 setDefaultResultOrder('ipv4first');
 
-await setupDBConnection(config.mongoUri, config.dbRecreate);
+await setupDBConnection(config.mongoUri, config.dbRecreate, config.mongoDbName);
 
 const server = app.listen(config.port, config.host, () => {
   logger.info(`NetViz backend running on http://${config.host}:${config.port} (${config.nodeEnv})`);

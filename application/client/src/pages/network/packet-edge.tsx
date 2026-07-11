@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { X } from 'lucide-react'
 import { getBezierPath, EdgeLabelRenderer, useInternalNode, Position } from '@xyflow/react'
 import type { EdgeProps, InternalNode } from '@xyflow/react'
 
@@ -7,7 +8,7 @@ export type PacketEdgeState = 'idle' | 'dimmed' | 'path' | 'active' | 'done' | '
 export interface PacketEdgeData extends Record<string, unknown> {
   packetState?: PacketEdgeState
   edgeLabel?: string
-  packetReversed?: boolean  // dot travels target→source when true
+  packetReversed?: boolean  // dot travels target->source when true
   animDuration?: number     // ms — must match the step interval
   animVersion?: number      // increment to force-restart the dot animation
   // Link metadata (editable via the edge properties panel)
@@ -76,13 +77,13 @@ export function PacketEdge({
     tx = t.x; ty = t.y; tp = t.pos
   }
 
-  // Visual path always source→target
+  // Visual path always source->target
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX: sx, sourceY: sy, sourcePosition: sp,
     targetX: tx, targetY: ty, targetPosition: tp,
   })
 
-  // Forward (source→target) and reversed motion paths — dots pick one by direction
+  // Forward (source->target) and reversed motion paths — dots pick one by direction
   const [fwdPath] = getBezierPath({ sourceX: sx, sourceY: sy, sourcePosition: sp, targetX: tx, targetY: ty, targetPosition: tp })
   const [revPath] = getBezierPath({
     sourceX: tx, sourceY: ty, sourcePosition: tp,
@@ -157,14 +158,14 @@ export function PacketEdge({
               <mpath href={`#${motionPathId}`} />
             </animateMotion>
           </circle>
-          <text key={`btxt-${animVersion}`} fontSize={9} fontWeight={700} fill="#f85149"
-            textAnchor="middle" dy="-8"
-            style={{ fontFamily: 'monospace', filter: 'drop-shadow(0 0 3px #f85149)' }}>
+          {/* The X rides just above the blocked dot. animateMotion drives the <g>,
+              so the nested icon travels with it. */}
+          <g key={`bicon-${animVersion}`} style={{ filter: 'drop-shadow(0 0 3px #f85149)' }}>
             <animateMotion ref={beginMotion} dur={dur} begin="indefinite" repeatCount="1" fill="freeze" rotate="auto">
               <mpath href={`#${motionPathId}`} />
             </animateMotion>
-            ✗
-          </text>
+            <X x={-5} y={-13} size={10} color="#f85149" strokeWidth={3} />
+          </g>
         </>
       )}
 

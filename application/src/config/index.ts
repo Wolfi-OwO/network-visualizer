@@ -11,6 +11,13 @@ export const config = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   /** MongoDB connection string */
   mongoUri: process.env.MONGODB_CONNECTION_STRING || 'mongodb://localhost:27017/netviz',
+  /**
+   * Database to use, overriding the one embedded in the connection string.
+   * Lets a deployment share a Mongo cluster (and therefore the same connection
+   * secret) while staying on its own database — that is how a PR preview gets an
+   * isolated, throwaway database without a second cluster or a second secret.
+   */
+  mongoDbName: process.env.MONGODB_DB_NAME || undefined,
   /** Drop & recreate the database on startup (for a clean demo) */
   dbRecreate: process.env.DB_RECREATE === 'true',
   /** Default origins allowed by CORS (localhost/127.0.0.1 on any port) */

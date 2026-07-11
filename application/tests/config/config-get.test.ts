@@ -18,7 +18,7 @@ describe('config: GET', () => {
     assert.ok((res.text.match(/hostname /g) ?? []).length >= 5)
   })
 
-  it('missing node config → 404', async () => {
+  it('missing node config -> 404', async () => {
     assert.equal((await request(app).get('/api/networks/default/nodes/ghost/config')).status, 404)
   })
 })

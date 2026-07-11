@@ -3,10 +3,36 @@ import { useNavigate } from 'react-router-dom'
 import { Activity, Network, Calculator, Server, Shield, Wifi, ArrowRight } from 'lucide-react'
 import type { PacketStats, NetworkTopology } from '../../types/index.ts'
 import { capture as captureApi, network as networkApi } from '../../lib/api/index.ts'
+import { meta as deviceMeta } from '../network/device-catalog.tsx'
 
 const PROTO_COLORS: Record<string, string> = {
   HTTP: '#3fb950', DNS: '#58a6ff', TCP: '#8b949e',
   UDP: '#d29922', ICMP: '#f85149', ARP: '#bc8cff', TLS: '#ffa657',
+}
+
+// A small tinted chip for an icon — flat fill + hairline border in the accent
+// color. No glow: it should read as a printed label, not a light source.
+function IconChip({ color, children, size = 9 }: { color: string; children: React.ReactNode; size?: number }) {
+  const dim = size * 4 // tailwind unit -> px, kept in sync with w-/h- below
+  return (
+    <div
+      className="flex items-center justify-center rounded-md shrink-0"
+      style={{ width: dim, height: dim, background: color + '14', border: `1px solid ${color}33`, color }}
+    >
+      {children}
+    </div>
+  )
+}
+
+// Section heading — a short accent tick + label. The tick is the only structural
+// flourish, and it encodes "new section" rather than decorating one.
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <span className="h-3.5 w-0.5 rounded-full bg-[var(--accent)]" />
+      <span className="text-[11px] font-semibold text-[var(--text-secondary)]">{children}</span>
+    </div>
+  )
 }
 
 function StatCard({ label, value, sub, icon, color }: {
@@ -14,18 +40,15 @@ function StatCard({ label, value, sub, icon, color }: {
   icon: React.ReactNode; color: string
 }) {
   return (
-    <div className="card card-hover p-4 flex items-start gap-3">
-      <div
-        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-        style={{ background: color + '1f', boxShadow: `inset 0 0 0 1px ${color}44, 0 0 18px -6px ${color}` }}
-      >
-        <div style={{ color }}>{icon}</div>
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[11px] text-[var(--text-secondary)]">{label}</span>
+        <IconChip color={color} size={7}>{icon}</IconChip>
       </div>
-      <div className="min-w-0">
-        <div className="text-xl font-bold text-[var(--text-primary)] leading-none">{value}</div>
-        <div className="text-xs text-[var(--text-secondary)] mt-0.5">{label}</div>
-        {sub && <div className="text-[10px] text-[var(--text-muted)] mt-0.5 truncate">{sub}</div>}
+      <div className="font-mono text-3xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)] leading-none">
+        {value}
       </div>
+      {sub && <div className="text-[11px] text-[var(--text-muted)] mt-1.5 truncate">{sub}</div>}
     </div>
   )
 }
@@ -36,19 +59,14 @@ function QuickAction({ label, desc, icon, color, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="card card-hover p-4 flex items-center gap-3 text-left w-full group active:scale-[0.99]"
+      className="card card-hover p-3 flex items-center gap-3 text-left w-full group active:scale-[0.99]"
     >
-      <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105"
-        style={{ background: color + '1f', boxShadow: `inset 0 0 0 1px ${color}44, 0 0 18px -6px ${color}` }}
-      >
-        <div style={{ color }}>{icon}</div>
-      </div>
+      <IconChip color={color} size={9}>{icon}</IconChip>
       <div className="flex-1 min-w-0">
         <div className="text-xs font-semibold text-[var(--text-primary)]">{label}</div>
-        <div className="text-[10px] text-[var(--text-muted)] mt-0.5">{desc}</div>
+        <div className="text-[11px] text-[var(--text-muted)] mt-0.5">{desc}</div>
       </div>
-      <ArrowRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition-all shrink-0" />
+      <ArrowRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors shrink-0" />
     </button>
   )
 }
@@ -74,118 +92,119 @@ export default function DashboardPage() {
     ? Object.entries(stats.byProtocol).sort((a, b) => b[1] - a[1]).slice(0, 6)
     : []
 
-  return (
-    <div className="relative flex flex-col h-full overflow-y-auto p-4 sm:p-5 space-y-5">
-      {/* Ambient glow behind the header */}
-      <div
-        className="pointer-events-none absolute -top-24 left-0 w-[36rem] h-72 opacity-50"
-        style={{ background: 'radial-gradient(closest-side, var(--glow-accent), transparent)' }}
-      />
-      <div
-        className="pointer-events-none absolute -top-16 right-0 w-[30rem] h-64 opacity-35"
-        style={{ background: 'radial-gradient(closest-side, var(--glow-accent-2), transparent)' }}
-      />
+  const features = [
+    {
+      icon: <Activity size={15} />, color: '#58a6ff', title: 'Packet Capture',
+      items: ['Live SSE packet stream', 'Wireshark-style packet table', 'Protocol tree / hex dump', 'Filter by IP, protocol, port', 'Export as JSON'],
+    },
+    {
+      icon: <Network size={15} />, color: '#3fb950', title: 'Network Builder',
+      items: ['Drag-and-drop topology', 'Routers, switches, firewalls', 'VLAN configuration', 'Routing table editor', 'Firewall rule manager'],
+    },
+    {
+      icon: <Calculator size={15} />, color: '#d29922', title: 'CIDR Calculator',
+      items: ['Network / broadcast / hosts', 'Binary representation', 'Subnet splitter', 'Supernet calculator', 'Private range detection'],
+    },
+  ]
 
-      {/* Welcome */}
-      <div className="animate-rise relative flex flex-wrap items-center justify-between gap-2">
+  return (
+    <div className="flex flex-col h-full overflow-y-auto p-4 sm:p-5 space-y-5">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">NetViz Dashboard</h1>
+          <h1 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">Dashboard</h1>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
-            Network visualization, packet analysis & subnet tools
+            Network visualization, packet analysis and subnet tools
           </p>
         </div>
-        <div className="glass flex items-center gap-2 px-3 py-1.5 rounded-full">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-[var(--green)] opacity-70 animate-ping" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--green)]" />
-          </span>
+        <div className="glass flex items-center gap-2 px-2.5 py-1.5 rounded-md">
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--green)]" />
           <span className="text-[11px] text-[var(--text-secondary)]">Backend connected</span>
         </div>
       </div>
 
       {/* Stats row */}
-      <div className="animate-rise relative grid grid-cols-2 lg:grid-cols-4 gap-3" style={{ animationDelay: '80ms' }}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
-          label="Packets Captured"
+          label="Packets captured"
           value={stats?.total.toLocaleString() ?? '—'}
-          sub={stats ? `${stats.packetsPerSecond.toFixed(1)} pkt/s` : 'start capture to begin'}
-          icon={<Activity size={18} />}
+          sub={stats ? `${stats.packetsPerSecond.toFixed(1)} pkt/s` : 'Start capture to begin'}
+          icon={<Activity size={13} />}
           color="#58a6ff"
         />
         <StatCard
-          label="Network Nodes"
+          label="Network nodes"
           value={topology?.nodes.length ?? '—'}
-          sub={topology ? `${topology.edges.length} connections` : undefined}
-          icon={<Server size={18} />}
+          sub={topology ? `${topology.edges.length} connections` : 'No topology loaded'}
+          icon={<Server size={13} />}
           color="#3fb950"
         />
         <StatCard
-          label="Network Links"
+          label="Network links"
           value={topology?.edges.length ?? '—'}
-          sub="active connections"
-          icon={<Wifi size={18} />}
+          sub="Active connections"
+          icon={<Wifi size={13} />}
           color="#d29922"
         />
         <StatCard
-          label="Firewall Rules"
+          label="Firewall rules"
           value={topology?.nodes.reduce((s, n) => s + (n.config.firewallRules?.length ?? 0), 0) ?? '—'}
-          sub="across all devices"
-          icon={<Shield size={18} />}
+          sub="Across all devices"
+          icon={<Shield size={13} />}
           color="#f85149"
         />
       </div>
 
-      <div className="animate-rise grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ animationDelay: '160ms' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Quick actions */}
-        <div className="lg:col-span-1 space-y-2">
-          <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">Quick Access</div>
-          <QuickAction
-            label="Packet Capture"
-            desc="Wireshark-like live capture"
-            icon={<Activity size={18} />}
-            color="#58a6ff"
-            onClick={() => navigate('/packets')}
-          />
-          <QuickAction
-            label="Network Builder"
-            desc="Design & configure topologies"
-            icon={<Network size={18} />}
-            color="#3fb950"
-            onClick={() => navigate('/network')}
-          />
-          <QuickAction
-            label="CIDR Calculator"
-            desc="Subnet & supernet calculator"
-            icon={<Calculator size={18} />}
-            color="#d29922"
-            onClick={() => navigate('/cidr')}
-          />
+        <div className="lg:col-span-1">
+          <SectionLabel>Quick access</SectionLabel>
+          <div className="space-y-2">
+            <QuickAction
+              label="Packet Capture"
+              desc="Wireshark-like live capture"
+              icon={<Activity size={16} />}
+              color="#58a6ff"
+              onClick={() => navigate('/packets')}
+            />
+            <QuickAction
+              label="Network Builder"
+              desc="Design and configure topologies"
+              icon={<Network size={16} />}
+              color="#3fb950"
+              onClick={() => navigate('/network')}
+            />
+            <QuickAction
+              label="CIDR Calculator"
+              desc="Subnet and supernet calculator"
+              icon={<Calculator size={16} />}
+              color="#d29922"
+              onClick={() => navigate('/cidr')}
+            />
+          </div>
         </div>
 
         {/* Protocol distribution */}
         <div className="card p-4">
-          <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">Protocol Distribution</div>
+          <SectionLabel>Protocol distribution</SectionLabel>
           {protoData.length === 0 ? (
             <div className="flex items-center justify-center h-24 text-xs text-[var(--text-muted)]">
-              Start packet capture to see stats
+              Start packet capture to see protocol stats
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {protoData.map(([proto, count]) => {
                 const pct = stats ? (count / stats.total) * 100 : 0
                 return (
                   <div key={proto}>
-                    <div className="flex items-center justify-between mb-0.5">
+                    <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-mono text-[var(--text-secondary)]">{proto}</span>
-                      <span className="text-[11px] font-mono text-[var(--text-muted)]">{count} ({pct.toFixed(1)}%)</span>
+                      <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)]">{count} ({pct.toFixed(1)}%)</span>
                     </div>
-                    <div className="h-1.5 bg-[var(--bg-700)] rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-[var(--bg-800)] rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${pct}%`,
-                          background: `linear-gradient(90deg, ${PROTO_COLORS[proto] ?? '#484f58'}, ${PROTO_COLORS[proto] ?? '#484f58'}99)`,
-                        }}
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, background: PROTO_COLORS[proto] ?? '#6e7681' }}
                       />
                     </div>
                   </div>
@@ -197,63 +216,47 @@ export default function DashboardPage() {
 
         {/* Topology summary */}
         <div className="card p-4">
-          <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
-            {topology?.name ?? 'Network Topology'}
-          </div>
+          <SectionLabel>{topology?.name ?? 'Network topology'}</SectionLabel>
           {topology ? (
             <div className="space-y-2">
-              {Object.entries(nodeTypes).map(([type, count]) => (
-                <div key={type} className="flex items-center gap-2">
-                  <span className="text-sm">
-                    {{ router: '🔀', switch: '🔌', firewall: '🛡️', pc: '💻', server: '🖥️',
-                       hub: '⭕', cloud: '☁️', wifiap: '📡', phone: '📱', printer: '🖨️' }[type] ?? '📦'}
-                  </span>
-                  <span className="text-[11px] text-[var(--text-secondary)] flex-1 capitalize">{type}</span>
-                  <span className="text-[11px] font-mono text-[var(--text-primary)]">{count}</span>
-                </div>
-              ))}
+              {Object.entries(nodeTypes).map(([type, count]) => {
+                const { Icon, color, label } = deviceMeta(type)
+                return (
+                  <div key={type} className="flex items-center gap-2">
+                    <IconChip color={color} size={5}><Icon size={12} /></IconChip>
+                    <span className="text-[11px] text-[var(--text-secondary)] flex-1">{label}</span>
+                    <span className="text-[11px] font-mono tabular-nums text-[var(--text-primary)]">{count}</span>
+                  </div>
+                )
+              })}
               {topology.description && (
-                <p className="text-[10px] text-[var(--text-muted)] pt-2 border-t border-[var(--border)] mt-2">
+                <p className="text-[11px] text-[var(--text-muted)] pt-2 border-t border-[var(--border)] mt-2">
                   {topology.description}
                 </p>
               )}
             </div>
           ) : (
-            <div className="text-xs text-[var(--text-muted)]">Loading topology…</div>
+            <div className="flex items-center justify-center h-24 text-xs text-[var(--text-muted)]">
+              No topology loaded
+            </div>
           )}
         </div>
       </div>
 
       {/* Feature overview */}
-      <div className="animate-rise card p-5" style={{ animationDelay: '240ms' }}>
-        <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-4">Features</div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            {
-              icon: '🦈',
-              title: 'Packet Capture',
-              items: ['Live SSE packet stream', 'Wireshark-style packet table', 'Protocol tree / hex dump', 'Filter by IP, protocol, port', 'Export as JSON'],
-            },
-            {
-              icon: '🗺️',
-              title: 'Network Builder',
-              items: ['Drag-and-drop topology', 'Routers, switches, firewalls', 'VLAN configuration', 'Routing table editor', 'Firewall rule manager'],
-            },
-            {
-              icon: '🧮',
-              title: 'CIDR Calculator',
-              items: ['Network / broadcast / hosts', 'Binary representation', 'Subnet splitter', 'Supernet calculator', 'Private range detection'],
-            },
-          ].map(({ icon, title, items }) => (
+      <div className="card p-5">
+        <SectionLabel>What you can do</SectionLabel>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-5">
+          {features.map(({ icon, color, title, items }) => (
             <div key={title}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">{icon}</span>
+              <div className="flex items-center gap-2 mb-2.5">
+                <IconChip color={color} size={7}>{icon}</IconChip>
                 <span className="text-xs font-semibold text-[var(--text-primary)]">{title}</span>
               </div>
-              <ul className="space-y-1">
+              <ul className="space-y-1.5">
                 {items.map(item => (
-                  <li key={item} className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
-                    <span className="text-[var(--green)] text-[10px]">✓</span> {item}
+                  <li key={item} className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+                    <span className="h-1 w-1 rounded-full bg-[var(--text-muted)] shrink-0" /> {item}
                   </li>
                 ))}
               </ul>

@@ -3,7 +3,7 @@ import { UserModel } from '../db/models/user.model.js'
 import { config } from '../config/index.js'
 import { BadRequestError, NotFoundError } from '../lib/errors.js'
 
-// The role hierarchy (highest → lowest privilege). Like a Google Workspace /
+// The role hierarchy (highest -> lowest privilege). Like a Google Workspace /
 // Microsoft 365 admin console, only an `admin` may assign roles to accounts.
 export const ROLES = ['admin', 'editor', 'viewer'] as const
 export type Role = (typeof ROLES)[number]
@@ -84,7 +84,7 @@ export async function deleteUser(id: string): Promise<void> {
   await UserModel.deleteOne({ id })
 }
 
-// ── OAuth authorization-code → profile ───────────────────────────────────────
+// ── OAuth authorization-code -> profile ───────────────────────────────────────
 export function googleAuthUrl(redirectUri: string, state: string): string {
   const params = new URLSearchParams({
     client_id: config.oauth.google.clientId,

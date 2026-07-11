@@ -20,8 +20,9 @@ export interface PacketInfo {
   dstPort?: number
   length: number              // total frame length (bytes)
   info: string                // the Wireshark "Info" column
-  layers: PacketLayer[]       // Frame ▸ Ethernet ▸ IP ▸ TCP/UDP ▸ App
+  layers: PacketLayer[]       // Frame -> Ethernet -> IP -> TCP/UDP -> App
   payloadHex: string          // formatted hex dump
+  phase?: 'request' | 'reply' // which leg of the exchange this is
 }
 
 export type AppProto = 'DNS' | 'HTTPS' | 'HTTP' | 'SQL' | 'DHCP' | 'MQTT' | 'SMB' | 'IMAP' | 'IPP' | 'ICMP'
@@ -95,7 +96,7 @@ export function appFromLabel(label: string): AppProto {
   return 'HTTPS'
 }
 
-// Build a fully-decoded packet from src → dst for the given app protocol.
+// Build a fully-decoded packet from src -> dst for the given app protocol.
 export function buildPacket(
   srcName: string, srcIp: string, srcId: string,
   dstName: string, dstIp: string, dstId: string,
@@ -119,7 +120,7 @@ export function buildPacket(
   const seq = hash(srcId + (opts.reqId ?? '')) % 4000000000
   const ipv4: PacketLayer = {
     name: 'Internet Protocol Version 4',
-    summary: `${srcIp} → ${dstIp}`,
+    summary: `${srcIp} -> ${dstIp}`,
     fields: [
       { label: 'Version', value: '4' },
       { label: 'Header Length', value: '20 bytes (5)' },
@@ -148,7 +149,7 @@ export function buildPacket(
   } else if (wk.l4 === 'UDP') {
     transport = {
       name: 'User Datagram Protocol',
-      summary: `${srcPort} → ${dstPort}`,
+      summary: `${srcPort} -> ${dstPort}`,
       fields: [
         { label: 'Source Port', value: String(srcPort) },
         { label: 'Destination Port', value: String(dstPort) },
@@ -159,7 +160,7 @@ export function buildPacket(
   } else {
     transport = {
       name: 'Transmission Control Protocol',
-      summary: `${srcPort} → ${dstPort} [${reply ? 'ACK, PSH' : 'PSH, ACK'}] Seq=${seq % 100000} Win=64240`,
+      summary: `${srcPort} -> ${dstPort} [${reply ? 'ACK, PSH' : 'PSH, ACK'}] Seq=${seq % 100000} Win=64240`,
       fields: [
         { label: 'Source Port', value: String(srcPort) },
         { label: 'Destination Port', value: String(dstPort) },
@@ -285,7 +286,7 @@ export function buildPacket(
 
   const ethernet: PacketLayer = {
     name: 'Ethernet II',
-    summary: `${srcMac} → ${dstMac}`,
+    summary: `${srcMac} -> ${dstMac}`,
     fields: [
       { label: 'Destination', value: dstMac },
       { label: 'Source', value: srcMac },
@@ -307,6 +308,7 @@ export function buildPacket(
   return {
     id: `pkt-${hash(srcId + dstId + (opts.reqId ?? '') + protoLabel + (reply ? 'r' : 'q'))}-${Date.now() % 100000}`,
     ts: Date.now(),
+    phase: reply ? 'reply' : 'request',
     protocol: protoLabel,
     srcName, dstName, srcIp, dstIp, srcMac, dstMac,
     l4: wk.l4, srcPort, dstPort,
@@ -327,11 +329,12 @@ export function buildArp(
   const length = 42
   return {
     id: `arp-${hash(srcId + dstId + (request ? 'q' : 'r'))}-${Date.now() % 100000}`,
+    phase: request ? 'request' : 'reply',
     ts: Date.now(), protocol: 'ARP', srcName, dstName, srcIp, dstIp, srcMac, dstMac,
     l4: 'TCP', length, info,
     layers: [
       { name: `Frame: ${length} bytes`, summary: `${length} bytes on wire`, fields: [{ label: 'Protocols in frame', value: 'eth:arp' }] },
-      { name: 'Ethernet II', summary: `${srcMac} → ${request ? 'Broadcast' : dstMac}`, fields: [
+      { name: 'Ethernet II', summary: `${srcMac} -> ${request ? 'Broadcast' : dstMac}`, fields: [
         { label: 'Destination', value: request ? 'Broadcast (ff:ff:ff:ff:ff:ff)' : dstMac },
         { label: 'Source', value: srcMac }, { label: 'Type', value: 'ARP (0x0806)' } ] },
       { name: 'Address Resolution Protocol', summary: info, fields: [
@@ -355,17 +358,18 @@ export function buildTcp(
   const dstPort = synAck ? ephemeralPort(dstId) : wk.port
   const srcMac = macFor(srcId), dstMac = macFor(dstId)
   const seq = hash(srcId + flags) % 100000
-  const info = `${srcPort} → ${dstPort} [${flags}] Seq=${flags === 'ACK' ? 1 : 0}${flags.includes('ACK') ? ' Ack=1' : ''} Win=64240 Len=0 MSS=1460`
+  const info = `${srcPort} -> ${dstPort} [${flags}] Seq=${flags === 'ACK' ? 1 : 0}${flags.includes('ACK') ? ' Ack=1' : ''} Win=64240 Len=0 MSS=1460`
   const length = 66
   return {
     id: `tcp-${hash(srcId + dstId + flags)}-${Date.now() % 100000}`,
+    phase: synAck ? 'reply' : 'request',
     ts: Date.now(), protocol: 'TCP', srcName, dstName, srcIp, dstIp, srcMac, dstMac,
     l4: 'TCP', srcPort, dstPort, length, info,
     layers: [
       { name: `Frame: ${length} bytes`, summary: `${length} bytes on wire`, fields: [{ label: 'Protocols in frame', value: 'eth:ethertype:ip:tcp' }] },
-      { name: 'Ethernet II', summary: `${srcMac} → ${dstMac}`, fields: [
+      { name: 'Ethernet II', summary: `${srcMac} -> ${dstMac}`, fields: [
         { label: 'Destination', value: dstMac }, { label: 'Source', value: srcMac }, { label: 'Type', value: 'IPv4 (0x0800)' } ] },
-      { name: 'Internet Protocol Version 4', summary: `${srcIp} → ${dstIp}`, fields: [
+      { name: 'Internet Protocol Version 4', summary: `${srcIp} -> ${dstIp}`, fields: [
         { label: 'Time to Live', value: '64' }, { label: 'Protocol', value: 'TCP (6)' },
         { label: 'Source Address', value: srcIp }, { label: 'Destination Address', value: dstIp } ] },
       { name: 'Transmission Control Protocol', summary: info, fields: [

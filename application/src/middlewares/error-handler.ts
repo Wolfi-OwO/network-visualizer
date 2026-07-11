@@ -3,7 +3,7 @@ import { logger } from '../lib/logger.js'
 import { isProduction } from '../config/index.js'
 import { AppError, NotFoundError } from '../lib/errors.js'
 
-// Catch-all for unmatched routes → forwards a 404 to the error handler.
+// Catch-all for unmatched routes -> forwards a 404 to the error handler.
 export function notFound(req: Request, _res: Response, next: NextFunction): void {
   next(new NotFoundError(`Cannot ${req.method} ${req.originalUrl}`))
 }
@@ -22,7 +22,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return
   }
 
-  // Anything unexpected → 500
+  // Anything unexpected -> 500
   logger.error('Unhandled error', err)
   const message = err instanceof Error ? err.message : 'Internal server error'
   res.status(500).json({

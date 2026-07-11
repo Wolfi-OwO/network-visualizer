@@ -3,7 +3,7 @@
 
 export interface Link {
   href: string
-  /** HTTP method for non-GET affordances (omitted ⇒ GET) */
+  /** HTTP method for non-GET affordances (omitted => GET) */
   method?: string
 }
 export type Links = Record<string, Link>

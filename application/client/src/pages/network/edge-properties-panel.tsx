@@ -1,4 +1,4 @@
-import { X, Cable, Trash2, Network } from 'lucide-react'
+import { X, Cable, Trash2, Network, ArrowLeftRight } from 'lucide-react'
 import type { Edge } from '@xyflow/react'
 import type { PacketEdgeData } from './packet-edge.tsx'
 
@@ -38,7 +38,9 @@ export default function EdgePropertiesPanel({
             <div className="text-xs font-semibold text-[var(--text-primary)]">
               {d.edgeLabel || 'Connection'}
             </div>
-            <div className="text-[10px] text-[var(--text-muted)] font-mono">{sourceName} ↔ {targetName}</div>
+            <div className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] font-mono">
+              {sourceName} <ArrowLeftRight size={10} className="shrink-0" /> {targetName}
+            </div>
           </div>
         </div>
         <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1">

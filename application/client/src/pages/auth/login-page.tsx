@@ -37,18 +37,10 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex items-center justify-center h-full w-full p-4 sm:p-6 overflow-hidden">
-      <div
-        className="pointer-events-none absolute top-[18%] left-[38%] -translate-x-1/2 w-[38rem] h-[38rem] opacity-40 blur-[2px]"
-        style={{ background: 'radial-gradient(closest-side, var(--glow-accent), transparent)' }}
-      />
-      <div
-        className="pointer-events-none absolute bottom-[10%] right-[30%] w-[34rem] h-[34rem] opacity-35 blur-[2px]"
-        style={{ background: 'radial-gradient(closest-side, var(--glow-accent-2), transparent)' }}
-      />
-      <div className="animate-rise relative w-full max-w-sm rounded-2xl glass p-6 shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset,0_40px_80px_-24px_rgba(0,0,0,0.85)]">
+      <div className="animate-rise relative w-full max-w-sm rounded-xl glass p-6 shadow-[var(--shadow-lift)]">
         <div className="flex items-center gap-2.5 mb-5">
-          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] ring-1 ring-white/15 shadow-[0_0_22px_-2px_var(--glow-accent)]">
-            <Radio size={17} className="text-white" />
+          <div className="flex items-center justify-center w-9 h-9 rounded-md bg-[var(--bg-800)] border border-[var(--border-strong)]">
+            <Radio size={17} className="text-[var(--accent)]" />
           </div>
           <div>
             <div className="text-sm font-bold text-[var(--text-primary)] leading-none">{appConfig.name}</div>

@@ -1,11 +1,6 @@
 services:
   mongo:
     image: mongo
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-netviz}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-change-me-in-production}
-    volumes:
-      - mongo-data:/data/db          # persist data across restarts
     ports:
       - "27017:27017"
     attach: false

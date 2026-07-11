@@ -1,3 +1,4 @@
+import { Power } from 'lucide-react'
 import type { NodeType } from '../../types/index.ts'
 import { PALETTE_CATEGORIES, meta } from './device-catalog.tsx'
 
@@ -41,7 +42,9 @@ export default function NodePalette({ onDragStart }: NodePaletteProps) {
       </div>
       <div className="p-2 border-t border-[var(--glass-border)]">
         <p className="text-[10px] text-[var(--text-muted)] text-center leading-relaxed">
-          Drag devices onto the canvas. Connect handles to wire them. Use the ⏻ button to power a device on.
+          Drag devices onto the canvas. Connect handles to wire them. Use the
+          {' '}<Power size={10} className="inline -mt-0.5" />{' '}
+          button to power a device on.
         </p>
       </div>
     </div>

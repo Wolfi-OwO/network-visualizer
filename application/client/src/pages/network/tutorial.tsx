@@ -24,13 +24,13 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '1 · How a real network is layered',
+    title: 'How a real network is layered',
     target: '[data-tour="canvas"]',
     body: (
       <>
         <p>Almost every real enterprise site follows the same chain, from the outside in:</p>
         <p className="mt-2 font-mono text-[11px] text-[var(--text-secondary)] leading-relaxed">
-          Internet ↔ Edge router ↔ Firewall ↔ Core switch ↔ Access switch ↔ Devices
+          {'Internet <-> Edge router <-> Firewall <-> Core switch <-> Access switch <-> Devices'}
         </p>
         <ul className="mt-2 space-y-1 list-disc list-inside text-[var(--text-secondary)]">
           <li>The <b>edge router</b> terminates the ISP uplink and does the routing (NAT, BGP, multi-WAN)</li>
@@ -43,7 +43,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '2 · The Device Palette',
+    title: 'The Device Palette',
     target: '[data-tour="palette"]',
     body: (
       <>
@@ -60,7 +60,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '3 · Add a device',
+    title: 'Add a device',
     target: '[data-tour="palette"]',
     body: (
       <>
@@ -71,7 +71,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '4 · Connect two devices',
+    title: 'Connect two devices',
     target: '[data-tour="canvas"]',
     body: (
       <>
@@ -82,19 +82,19 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '5 · Power on → automatic DHCP',
+    title: 'Power on -> automatic DHCP',
     target: '[data-tour="canvas"]',
     body: (
       <>
         <p>Every device has a <b>power button</b> (top-left corner, and in its panel).</p>
         <p className="mt-2">Power a client on and — if it's wired to a network with a <b>DHCP server</b> — it automatically broadcasts a real <b>DORA</b> exchange:</p>
-        <p className="mt-1 font-mono text-[11px] text-[var(--text-secondary)]">Discover → Offer → Request → ACK</p>
+        <p className="mt-1 font-mono text-[11px] text-[var(--text-secondary)]">{'Discover -> Offer -> Request -> ACK'}</p>
         <p className="mt-2">…and receives its IP, gateway and DNS. Power on several at once — they all request <b>in parallel</b>. A device without an IP never sends application traffic.</p>
       </>
     ),
   },
   {
-    title: '6 · Name & configure a link',
+    title: 'Name & configure a link',
     target: '[data-tour="canvas"]',
     body: (
       <>
@@ -108,7 +108,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '7 · Configure a device',
+    title: 'Configure a device',
     target: '[data-tour="canvas"]',
     body: (
       <>
@@ -124,11 +124,11 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '8 · Open ports & host services',
+    title: 'Open ports & host services',
     target: '[data-tour="canvas"]',
     body: (
       <>
-        <p>Select a <b>server</b> → <b>Services</b> tab to control it like the real thing:</p>
+        <p>Select a <b>server</b> -&gt; <b>Services</b> tab to control it like the real thing:</p>
         <ul className="mt-2 space-y-1 list-disc list-inside text-[var(--text-secondary)]">
           <li><b>Quick-add</b> common services, or <b>add a custom service</b> on any port</li>
           <li>Edit each service's <b>name, port, protocol, version, description</b></li>
@@ -139,7 +139,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '9 · Infrastructure services',
+    title: 'Infrastructure services',
     target: '[data-tour="palette"]',
     body: (
       <>
@@ -155,7 +155,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '10 · Send a packet',
+    title: 'Send a packet',
     target: '[data-tour="sender"]',
     body: (
       <>
@@ -165,7 +165,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '11 · Slow it down or pause',
+    title: 'Slow it down or pause',
     target: '[data-tour="speed"]',
     body: (
       <>
@@ -175,7 +175,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '12 · Read the result',
+    title: 'Read the result',
     target: '[data-tour="canvas"]',
     body: (
       <>
@@ -185,7 +185,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '13 · Live network traffic',
+    title: 'Live network traffic',
     target: '[data-tour="speed"]',
     body: (
       <>
@@ -195,7 +195,7 @@ const STEPS: Step[] = [
     ),
   },
   {
-    title: '14 · Save your work',
+    title: 'Save your work',
     target: '[data-tour="toolbar"]',
     body: (
       <>
@@ -343,15 +343,19 @@ export default function Tutorial({ open, onClose, onStartBuild }: { open: boolea
 
         {/* Footer */}
         <div className="flex items-center gap-2 px-4 py-3 border-t border-[var(--border)]">
-          {/* progress dots */}
-          <div className="flex items-center gap-1 flex-1">
+          {/* Progress dots. The controls are shrink-0, and each dot compresses
+              into whatever room they leave over (capped at its natural size), so
+              the strip can never push a button outside the card — however many
+              steps the tour grows to. */}
+          <div className="flex items-center gap-0.5 flex-1 min-w-0">
             {STEPS.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setI(idx)}
                 className="rounded-full transition-all"
                 style={{
-                  width: idx === i ? 16 : 6, height: 6,
+                  flex: idx === i ? '0 0 16px' : '1 1 0',
+                  minWidth: 0, maxWidth: 6, height: 6,
                   background: idx === i ? 'var(--accent)' : 'var(--bg-600)',
                 }}
                 aria-label={`Step ${idx + 1}`}
@@ -359,17 +363,17 @@ export default function Tutorial({ open, onClose, onStartBuild }: { open: boolea
             ))}
           </div>
 
-          <span className="text-[10px] text-[var(--text-muted)] font-mono mr-1">{i + 1}/{STEPS.length}</span>
+          <span className="shrink-0 text-[10px] text-[var(--text-muted)] font-mono">{i + 1}/{STEPS.length}</span>
 
           {!isFirst && (
-            <button onClick={() => setI(v => v - 1)} className="btn-ghost text-[11px] h-7 px-2.5">
+            <button onClick={() => setI(v => v - 1)} className="btn-ghost shrink-0 text-[11px] h-7 px-2.5">
               <ChevronLeft size={12} /> Back
             </button>
           )}
           {isLast ? (
-            <button onClick={finish} className="btn-primary text-[11px] h-7 px-3">Got it</button>
+            <button onClick={finish} className="btn-primary shrink-0 text-[11px] h-7 px-3">Got it</button>
           ) : (
-            <button onClick={() => setI(v => v + 1)} className="btn-primary text-[11px] h-7 px-3">
+            <button onClick={() => setI(v => v + 1)} className="btn-primary shrink-0 text-[11px] h-7 px-3">
               Next <ChevronRight size={12} />
             </button>
           )}

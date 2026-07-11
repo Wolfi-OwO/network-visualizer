@@ -1,6 +1,6 @@
 import { Handle, Position } from '@xyflow/react'
 import type { NodeProps } from '@xyflow/react'
-import { Power } from 'lucide-react'
+import { Power, PowerOff, Check, X } from 'lucide-react'
 import type { NetworkNodeConfig, NodeType } from '../../types/index.ts'
 import { DEVICE_META, meta, isDhcpClient } from './device-catalog.tsx'
 
@@ -13,12 +13,26 @@ export interface NetworkNodeData extends Record<string, unknown> {
   highlight?: NodeHighlight
 }
 
-const HIGHLIGHT_STYLES: Record<NodeHighlight, { border: string; shadow: string; badge?: string }> = {
+const HIGHLIGHT_STYLES: Record<NodeHighlight, { border: string; shadow: string; badge?: boolean }> = {
   none:      { border: '',        shadow: '' },
   path:      { border: '#58a6ff', shadow: '0 0 16px #58a6ff55' },
   active:    { border: '#3fb950', shadow: '0 0 20px #3fb95088, 0 0 40px #3fb95044' },
   delivered: { border: '#3fb950', shadow: '0 0 24px #3fb950aa, 0 0 50px #3fb95066' },
-  blocked:   { border: '#f85149', shadow: '0 0 24px #f8514999, 0 0 50px #f8514966', badge: '✗' },
+  blocked:   { border: '#f85149', shadow: '0 0 24px #f8514999, 0 0 50px #f8514966', badge: true },
+}
+
+// Round corner badge the trace drops on a node when a packet stops (or lands) there.
+function TraceBadge({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <div style={{
+      position: 'absolute', top: -8, right: -10,
+      background: color, color: '#fff', width: 16, height: 16, borderRadius: '50%',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: `0 0 8px ${color}`,
+    }}>
+      {children}
+    </div>
+  )
 }
 
 function getIpLabel(config: NetworkNodeConfig): string {
@@ -106,14 +120,10 @@ function NetworkNodeComponent({ data, id }: NodeProps) {
       <div className="flex flex-col items-center gap-1 relative">
         {/* Trace status badge */}
         {hlStyle.badge && powered && (
-          <div style={{ position: 'absolute', top: -8, right: -10, background: '#f85149', color: '#fff', width: 16, height: 16, borderRadius: '50%', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px #f85149' }}>
-            {hlStyle.badge}
-          </div>
+          <TraceBadge color="#f85149"><X size={11} strokeWidth={3} /></TraceBadge>
         )}
         {hl === 'delivered' && powered && (
-          <div style={{ position: 'absolute', top: -8, right: -10, background: '#3fb950', color: '#fff', width: 16, height: 16, borderRadius: '50%', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px #3fb950' }}>
-            ✓
-          </div>
+          <TraceBadge color="#3fb950"><Check size={11} strokeWidth={3} /></TraceBadge>
         )}
 
         <Icon size={24} color={powered ? m.color : '#6e7681'} strokeWidth={1.75} />
@@ -122,7 +132,9 @@ function NetworkNodeComponent({ data, id }: NodeProps) {
         </div>
 
         {!powered ? (
-          <div className="text-[9px] font-mono text-[var(--text-muted)]">⏻ powered off</div>
+          <div className="flex items-center gap-1 text-[9px] font-mono text-[var(--text-muted)]">
+            <PowerOff size={9} /> powered off
+          </div>
         ) : ip ? (
           <div className="text-[9px] font-mono text-center" style={{ color: hl !== 'none' ? borderColor : 'var(--text-muted)' }}>{ip}</div>
         ) : isDhcpClient(type) ? (

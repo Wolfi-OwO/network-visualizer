@@ -11,10 +11,10 @@ interface TopNavItem {
 // Horizontal navigation bar (used by the admin layout).
 export default function TopNav({ items }: { items: TopNavItem[] }) {
   return (
-    <header className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 sm:px-4 py-1.5 sm:h-12 shrink-0 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)]">
+    <header className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 sm:px-4 py-1.5 sm:h-12 shrink-0 bg-[var(--glass-bg)] border-b border-[var(--glass-border)]">
       <div className="flex items-center gap-2">
-        <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] ring-1 ring-white/15 shadow-[0_0_16px_-3px_var(--glow-accent)]">
-          <Radio size={12} className="text-white" />
+        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-[var(--bg-800)] border border-[var(--border-strong)]">
+          <Radio size={12} className="text-[var(--accent)]" />
         </div>
         <span className="text-sm font-bold text-[var(--text-primary)]">{appConfig.name}</span>
       </div>
@@ -26,10 +26,10 @@ export default function TopNav({ items }: { items: TopNavItem[] }) {
             end={end}
             className={({ isActive }) =>
               [
-                'px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 active:scale-[0.97]',
+                'px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-150',
                 isActive
-                  ? 'bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white shadow-[0_4px_16px_-6px_var(--glow-accent)] ring-1 ring-white/10'
-                  : 'text-[var(--text-secondary)] hover:bg-white/[0.06] hover:text-[var(--text-primary)]',
+                  ? 'bg-[var(--bg-800)] text-[var(--text-primary)] shadow-[inset_0_-2px_0_var(--accent)]'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-800)]/60 hover:text-[var(--text-primary)]',
               ].join(' ')
             }
           >
