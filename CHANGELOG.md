@@ -11,6 +11,13 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 > message (or PR title, since merges are squashed). See
 > [docs/releasing.md](docs/releasing.md).
 
+## [2.4.0](https://github.com/Wolfi-OwO/network-visualizer/compare/v2.3.0...v2.4.0) (2026-07-12)
+
+
+### Added
+
+* automate releases with release-please and fix version drift ([#5](https://github.com/Wolfi-OwO/network-visualizer/issues/5)) ([b1291c9](https://github.com/Wolfi-OwO/network-visualizer/commit/b1291c929ab1681b4243bfe4dbfea5de0dd0d773))
+
 ## [2.3.0] - 2026-07-11
 
 ### Changed
