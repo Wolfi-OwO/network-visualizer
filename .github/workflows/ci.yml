@@ -1,0 +1,165 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  # Lets the release pipeline reuse this exact suite as its test stage, so a
+  # release ships only what already passed lint/build/test on the tagged commit.
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The released tag and the version inside package.json used to drift (v2.3.0
+  # shipped with package.json still saying 1.0.0). release-please now writes both
+  # in one commit; this job fails the build if they ever disagree again.
+  version:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check every version file matches the release manifest
+        run: node scripts/check-version-sync.mjs
+
+  server:
+    name: Server (build + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: application
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: application/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check & build
+        run: npm run build
+
+      - name: Test (in-memory DB)
+        env:
+          NODE_ENV: test
+        run: npm test
+
+      - name: Upload coverage summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          path: application/coverage/coverage-summary.json
+          if-no-files-found: error
+
+      # Codecov hosts the coverage number and generates the README badge itself —
+      # no branch/gist of our own to maintain. fail_ci_if_error is false so a
+      # Codecov hiccup can't fail the required "Server (build + test)" check.
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: application/coverage/lcov.info
+          fail_ci_if_error: false
+
+  client:
+    name: Client (build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: application/client
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: application/client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check & build
+        run: npm run build
+
+      - name: Upload client build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-dist
+          path: application/client/dist
+          if-no-files-found: error
+
+  # Posts the server test coverage as a sticky PR comment (created once, updated
+  # in place on every push). PR-only — skipped when ci.yml is reused as the
+  # release test stage (workflow_call) and for fork PRs, whose read-only token
+  # can't comment.
+  coverage-comment:
+    name: Coverage report (PR comment)
+    runs-on: ubuntu-latest
+    needs: server
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Download coverage summary
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-summary
+
+      - name: Build & post coverage comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const t = JSON.parse(fs.readFileSync('coverage-summary.json', 'utf8')).total;
+            const gate = 90;
+            const lines = t.lines.pct;
+            const ok = lines >= gate;
+            const row = (name, m) => `| ${name} | ${m.pct.toFixed(1)}% | ${m.covered}/${m.total} |`;
+            const sha = context.payload.pull_request.head.sha.slice(0, 7);
+            const marker = '<!-- coverage-comment -->';
+            const body = [
+              marker,
+              '## Coverage report',
+              '',
+              '| Metric | % | Covered / Total |',
+              '| --- | --: | --: |',
+              row('Lines', t.lines),
+              row('Statements', t.statements),
+              row('Functions', t.functions),
+              row('Branches', t.branches),
+              '',
+              ok
+                ? `Line coverage **${lines.toFixed(1)}%** meets the ${gate}% gate.`
+                : `Line coverage **${lines.toFixed(1)}%** is below the ${gate}% gate.`,
+              '',
+              `<sub>commit ${sha}</sub>`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
