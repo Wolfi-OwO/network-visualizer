@@ -173,9 +173,28 @@ the [root README](ReadMe.md#run-in-development).
   handler, HATEOAS `_links`, and tests.
 - **Configuration** goes through `src/config/index.ts` — never read
   `process.env` elsewhere. Document new variables in `.env.example`.
-- **Commit messages** follow the conventional style used in the history:
-  `feat: …`, `fix: …`, `docs: …`, `refactor: …`, `test: …`. Branch names
-  follow the same `type/short-description` shape, e.g. `feat/packet-filters`.
+- **Commit messages are [Conventional Commits](https://www.conventionalcommits.org/)**, and
+  they are **load-bearing** — the release automation reads them to decide the next
+  version number and to write the changelog. Getting the prefix right matters:
+
+  | Prefix | Goes in the changelog as | Version effect (from `2.3.0`) |
+  | --- | --- | --- |
+  | `fix:` | Fixed | patch — `2.3.1` |
+  | `feat:` | Added | minor — `2.4.0` |
+  | `feat!:` / `BREAKING CHANGE:` in the body | Added + breaking notice | major — `3.0.0` |
+  | `perf:` | Performance | patch |
+  | `refactor:` | Changed | patch |
+  | `docs:`, `ci:`, `build:` | Documentation / CI / Build | none |
+  | `test:`, `style:`, `chore:` | hidden | none |
+
+  Squash-merge titles become the commit on `main`, so **the PR title is what gets
+  read** — make it a valid Conventional Commit. Branch names follow the same
+  `type/short-description` shape, e.g. `feat/packet-filters`. See
+  [docs/releasing.md](docs/releasing.md).
+- **Never hand-edit a version number.** `package.json`, `package-lock.json`,
+  `version.txt` and `.release-please-manifest.json` are all written by the release
+  automation in a single commit. CI fails the build if they disagree
+  (`node scripts/check-version-sync.mjs`).
 
 ## Quality gates
 

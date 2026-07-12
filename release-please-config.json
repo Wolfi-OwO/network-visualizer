@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "netviz",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": false,
+      "bump-minor-pre-major": false,
+      "draft": false,
+      "prerelease": false,
+      "extra-files": [
+        { "type": "json", "path": "application/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "application/package-lock.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "application/package-lock.json", "jsonpath": "$.packages[''].version" },
+        { "type": "json", "path": "application/client/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "application/client/package-lock.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "application/client/package-lock.json", "jsonpath": "$.packages[''].version" }
+      ]
+    }
+  },
+  "changelog-sections": [
+    { "type": "feat", "section": "Added" },
+    { "type": "fix", "section": "Fixed" },
+    { "type": "perf", "section": "Performance" },
+    { "type": "refactor", "section": "Changed" },
+    { "type": "revert", "section": "Reverted" },
+    { "type": "docs", "section": "Documentation" },
+    { "type": "build", "section": "Build" },
+    { "type": "ci", "section": "CI/CD" },
+    { "type": "test", "section": "Tests", "hidden": true },
+    { "type": "style", "section": "Styling", "hidden": true },
+    { "type": "chore", "section": "Chores", "hidden": true }
+  ]
+}
