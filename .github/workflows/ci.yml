@@ -17,6 +17,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The released tag and the version inside package.json used to drift (v2.3.0
+  # shipped with package.json still saying 1.0.0). release-please now writes both
+  # in one commit; this job fails the build if they ever disagree again.
+  version:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check every version file matches the release manifest
+        run: node scripts/check-version-sync.mjs
+
   server:
     name: Server (build + test)
     runs-on: ubuntu-latest

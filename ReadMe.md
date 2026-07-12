@@ -111,11 +111,16 @@ routing-visualizer/
 │     │  ├─ config/ · styles/ · types/
 │     ├─ vite.config.ts         # dev proxy  /api and /auth -> http://localhost:8080
 │     └─ README.md
-├─ docs/                        # API reference, screenshots
-├─ deploy/                      # production deployment runbook (Azure Container Apps)
+├─ docs/                        # API reference, architecture, releasing, troubleshooting, ADRs, use cases, screenshots
+│  ├─ adr/                      # architecture decision records (why things are the way they are)
+│  └─ use-cases/                # use-case diagrams & requirements (UML)
 ├─ organizational/              # roles, admin guide, access control, account lifecycle
-├─ .github/workflows/           # lint.yml · ci.yml (build + test) · package.yml · deploy.yml · release.yml
-├─ CONTRIBUTING.md · SECURITY.md · CHANGELOG.md · LICENSE
+│  └─ deploy/                   # production deployment runbook (Azure Container Apps)
+├─ todo/                        # the backlog: roadmap, features, tech debt, docs gaps
+├─ scripts/                     # repo tooling (check-version-sync.mjs)
+├─ .github/workflows/           # lint.yml · ci.yml (build + test) · package.yml · deploy.yml · pr-preview.yml · release.yml
+├─ release-please-config.json · .release-please-manifest.json · version.txt   # release automation
+├─ CONTRIBUTING.md · SECURITY.md · SUPPORT.md · CODE_OF_CONDUCT.md · CHANGELOG.md · LICENSE
 └─ ReadMe.md
 ```
 
@@ -215,7 +220,7 @@ Alternatively serve `application/client/dist/` from any static host (Caddy, a CD
 
 > **Production note:** the SPA talks to the backend at `/api` (and `/auth` for sign-in), and the backend serves the SPA from `<cwd>/client/dist`, so a single origin works out of the box. The backend's CORS allowlist accepts `localhost` / `127.0.0.1` — set `CORS_ORIGINS` (comma-separated) for your production domain(s). All configuration is environment-driven (see `application/.env.example`).
 
-For a full production deployment (Azure Container Apps, managed MongoDB, custom domains, CD on release) follow the [deployment runbook](deploy/README.md).
+For a full production deployment (Azure Container Apps, managed MongoDB, custom domains, CD on release) follow the [deployment runbook](organizational/deploy/README.md).
 
 ## Testing & quality
 
@@ -253,7 +258,7 @@ The pipeline is split into atomic workflows, each runnable on its own:
 | [`pr-preview.yml`](.github/workflows/pr-preview.yml) | PR to `main` (opened/updated/closed) | Builds the PR image and copies it onto a new **zero-traffic revision of the production app**, with its own public URL and its own throwaway database — then comments the link. Deactivates it when the PR closes. Opt-in (repo variable `PREVIEW_ENABLED=true`); skipped for fork PRs |
 | [`package.yml`](.github/workflows/package.yml) | release / PR preview / manual | Builds the client + Docker image, pushes it to ACR |
 | [`deploy.yml`](.github/workflows/deploy.yml) | release (via `release.yml`) or manual | Copies a new revision from the live production revision, waits for it to be healthy, then shifts 100% of traffic to it — also your rollback tool |
-| [`release.yml`](.github/workflows/release.yml) | GitHub Release published | Staged pipeline: **test -> package -> deploy production (gated)** — see [deploy/](deploy/README.md) |
+| [`release.yml`](.github/workflows/release.yml) | push to `main` | **The whole release, automatically.** release-please keeps a release PR open; merging it bumps every version file, writes the changelog, tags `vX.Y.Z` and publishes the GitHub Release — then runs **test -> package -> deploy production (gated)**. See [docs/releasing.md](docs/releasing.md) |
 
 ### Pull-request lifecycle
 
@@ -269,13 +274,26 @@ open PR -> test + coverage comment -> isolated preview (public URL comment) -> r
 
 ### Release -> production
 
-Only a published release ships to production. One image is tested, built, then promoted behind a manual gate:
+**Releases are fully automatic — nobody types a version number and nobody creates a tag by hand.**
+
+Every commit that lands on `main` is a [Conventional Commit](https://www.conventionalcommits.org/), and [release-please](https://github.com/googleapis/release-please) reads the ones added since the last tag to work out the next semver — `fix:` bumps the patch, `feat:` the minor, `BREAKING CHANGE:` the major. It keeps a **release PR** permanently open showing the version it would cut and the changelog it would write. Merging that PR *is* the release:
 
 ```text
-Release v1.2.3 -> test -> package -> [approval] -> deploy: netviz (100% traffic)
+merge PRs to main -> release-please opens "chore(main): release 2.4.0"
+                                    |
+                       (maintainer merges the release PR)
+                                    v
+       bump versions + CHANGELOG -> tag v2.4.0 -> publish GitHub Release
+                                    |
+                                    v
+                     test -> package -> [approval] -> deploy: netviz (100% traffic)
 ```
 
-Production is gated by the `production` environment's **required-reviewers** rule, so a maintainer approves the promotion. `deploy.yml` then copies a new revision of `netviz` from the one currently live, **waits for it to report healthy, and only then shifts the traffic** — a revision that fails to boot never gets users, and the revision it replaced stays active for a one-command rollback. All jobs run on Node 22 with npm caching, least-privilege tokens, and concurrency cancellation of superseded runs. The coverage badge at the top of this README is served by Codecov, which CI uploads the lcov report to on every build.
+The release commit rewrites **every** file that records the version — `.release-please-manifest.json`, `version.txt`, both `package.json`s and both `package-lock.json`s — so the tag and the manifests can never disagree. CI enforces that with a **Version consistency** check ([`scripts/check-version-sync.mjs`](scripts/check-version-sync.mjs)).
+
+Production is still gated by the `production` environment's **required-reviewers** rule, so a maintainer approves the promotion. `deploy.yml` then copies a new revision of `netviz` from the one currently live, **waits for it to report healthy, and only then shifts the traffic** — a revision that fails to boot never gets users, and the revision it replaced stays active for a one-command rollback (dispatch `deploy.yml` with an older tag). All jobs run on Node 22 with npm caching, least-privilege tokens, and concurrency cancellation of superseded runs. The coverage badge at the top of this README is served by Codecov, which CI uploads the lcov report to on every build.
+
+The full process — including how to force a major bump, how to release without a code change, and how to roll back — is in **[docs/releasing.md](docs/releasing.md)**.
 
 ## Configuration
 
@@ -303,18 +321,24 @@ All backend configuration is read from the environment in `application/src/confi
 
 ## Documentation
 
-| Document                                                     | What it covers                                                       |
-| ------------------------------------------------------------ | -------------------------------------------------------------------- |
-| [docs/api.md](docs/api.md)                                   | Full HTTP API reference (`/api/*` resources and `/auth/*` endpoints) |
-| [docs/use-cases/](docs/use-cases/README.md)                  | Use-case diagrams & descriptions (actors, flows, UML) + requirements |
-| [application/README.md](application/README.md)               | Backend package: layout, scripts, configuration                      |
-| [application/client/README.md](application/client/README.md) | Frontend package: layout, scripts, dev proxy                         |
-| [deploy/README.md](deploy/README.md)                         | Production deployment (Azure Container Apps runbook, CD)             |
-| [organizational/README.md](organizational/README.md)         | Identity, roles & permissions, admin guide, account lifecycle        |
-| [SECURITY.md](SECURITY.md)                                   | Security model and how to report a vulnerability                     |
-| [CONTRIBUTING.md](CONTRIBUTING.md)                           | Development workflow, quality gates, PR conventions                  |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)                     | Community standards for participating in this project                |
-| [CHANGELOG.md](CHANGELOG.md)                                 | Notable changes per release                                          |
+| Document                                                          | What it covers                                                             |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [docs/architecture.md](docs/architecture.md)                      | How the system fits together: layers, request lifecycle, the simulation engine, data model |
+| [docs/api.md](docs/api.md)                                        | Full HTTP API reference (`/api/*` resources and `/auth/*` endpoints)       |
+| [docs/releasing.md](docs/releasing.md)                            | How a release happens (automatic), how versions are decided, how to roll back |
+| [docs/troubleshooting.md](docs/troubleshooting.md)                | Common failures in dev, CI and production — and their fixes                |
+| [docs/adr/](docs/adr/README.md)                                   | Architecture decision records — *why* the big choices were made            |
+| [docs/use-cases/](docs/use-cases/README.md)                       | Use-case diagrams & descriptions (actors, flows, UML) + requirements       |
+| [application/README.md](application/README.md)                    | Backend package: layout, scripts, configuration                            |
+| [application/client/README.md](application/client/README.md)      | Frontend package: layout, scripts, dev proxy                               |
+| [organizational/deploy/README.md](organizational/deploy/README.md) | Production deployment (Azure Container Apps runbook, CD)                   |
+| [organizational/README.md](organizational/README.md)              | Identity, roles & permissions, admin guide, account lifecycle              |
+| [todo/](todo/README.md)                                           | The backlog — roadmap, planned features, known tech debt                   |
+| [SECURITY.md](SECURITY.md)                                        | Security model and how to report a vulnerability                           |
+| [SUPPORT.md](SUPPORT.md)                                          | Where to ask questions and how to get help                                 |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                                | Development workflow, quality gates, PR conventions                        |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)                          | Community standards for participating in this project                      |
+| [CHANGELOG.md](CHANGELOG.md)                                      | Notable changes per release (generated by release-please)                  |
 
 ## Contributing
 

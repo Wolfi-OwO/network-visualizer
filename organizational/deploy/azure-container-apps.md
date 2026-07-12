@@ -181,15 +181,15 @@ works automatically — the SPA detects the hostname and renders the status page
 One Container App — **`netviz`** — in **multiple-revision mode**. Production and
 every PR preview are revisions of it. Nothing else is provisioned.
 
-- **Releases** ([`release.yml`](../.github/workflows/release.yml)) chain
-  [`package.yml`](../.github/workflows/package.yml) (builds the image and
+- **Releases** ([`release.yml`](../../.github/workflows/release.yml)) chain
+  [`package.yml`](../../.github/workflows/package.yml) (builds the image and
   **pushes it to ACR with the registry admin username/password**) then
-  [`deploy.yml`](../.github/workflows/deploy.yml), which logs in with
+  [`deploy.yml`](../../.github/workflows/deploy.yml), which logs in with
   **OpenID Connect** (federated credentials — no stored client secret), copies a
   new revision from the current production revision, waits for it to report
   healthy, and only then shifts 100% of the traffic to it. Dispatch `deploy.yml`
   with any older tag to roll back.
-- **Pull requests** ([`pr-preview.yml`](../.github/workflows/pr-preview.yml)) copy
+- **Pull requests** ([`pr-preview.yml`](../../.github/workflows/pr-preview.yml)) copy
   the PR image onto a new **zero-traffic** revision of the same app, reachable at
   its own FQDN `https://netviz--pr-<N>-<sha>.<region>.azurecontainerapps.io`.
   Closing the PR deactivates it.

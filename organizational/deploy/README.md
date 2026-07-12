@@ -39,9 +39,9 @@ flowchart LR
 Every pull request gets an isolated preview **on the production app itself**, as
 an extra revision:
 
-1. **test -> coverage comment** — [`ci.yml`](../.github/workflows/ci.yml) runs
+1. **test -> coverage comment** — [`ci.yml`](../../.github/workflows/ci.yml) runs
    lint/build/tests and posts the server coverage as a sticky PR comment.
-2. **preview -> URL comment** — [`pr-preview.yml`](../.github/workflows/pr-preview.yml)
+2. **preview -> URL comment** — [`pr-preview.yml`](../../.github/workflows/pr-preview.yml)
    builds the PR image and copies a new revision **from the production revision**,
    overriding only the image and a couple of env vars. It lands with a traffic
    weight of 0 and is reachable at its own FQDN
@@ -83,21 +83,32 @@ approval and never touch production.
 
 ## Releases -> production (release.yml)
 
-Publishing a GitHub Release (`v1.2.3`) is the **only** thing that moves
-production traffic. [`release.yml`](../.github/workflows/release.yml) runs three
-jobs on the tagged commit:
+A release is the **only** thing that moves production traffic — and releases are
+**fully automatic**. Nobody creates a tag or publishes a Release by hand.
 
-1. **test** — reuses [`ci.yml`](../.github/workflows/ci.yml) so nothing ships
+[`release.yml`](../../.github/workflows/release.yml) runs on every push to `main`.
+[release-please](https://github.com/googleapis/release-please) reads the
+Conventional Commit messages since the last tag, works out the next semver, and
+keeps a `chore(main): release X.Y.Z` PR open. **Merging that PR is the release**:
+it bumps every version file, writes `CHANGELOG.md`, tags `vX.Y.Z` and publishes the
+GitHub Release — and then, in the same workflow run, ships it with three jobs:
+
+1. **test** — reuses [`ci.yml`](../../.github/workflows/ci.yml) so nothing ships
    that hasn't passed lint/build/tests.
-2. **package** — [`package.yml`](../.github/workflows/package.yml) builds the
+2. **package** — [`package.yml`](../../.github/workflows/package.yml) builds the
    client + Docker image and pushes it to ACR with the admin credentials.
-3. **deploy -> production** — [`deploy.yml`](../.github/workflows/deploy.yml)
+3. **deploy -> production** — [`deploy.yml`](../../.github/workflows/deploy.yml)
    copies a new revision of `netviz` from the current production revision with
    that image, **waits for it to report healthy**, and only then shifts 100% of
    the traffic onto it. If the revision never becomes healthy the traffic is never
    moved and production keeps serving the old one. Give the `production`
    environment a **Required reviewers** rule so this job pauses for a maintainer's
    approval — the manual go-live gate.
+
+> The version number itself is derived from the commit messages, and the release
+> commit rewrites every file that records it — see
+> [docs/releasing.md](../../docs/releasing.md) for the full process, including how
+> to force a major bump and how to release without a code change.
 
 `deploy.yml` also runs standalone (`workflow_dispatch` with a `tag`), so it
 doubles as the rollback tool: dispatch it with any older tag to cut production
@@ -133,6 +144,6 @@ Container App.
 ## Related
 
 - Image / app metadata (OCI labels, footer version) — see
-  [`application/Dockerfile`](../application/Dockerfile) and
-  [`application/client/.env.example`](../application/client/.env.example).
-- Roles & administration — see [`organizational/`](../organizational/README.md).
+  [`application/Dockerfile`](../../application/Dockerfile) and
+  [`application/client/.env.example`](../../application/client/.env.example).
+- Roles & administration — see [`organizational/`](../README.md).

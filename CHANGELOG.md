@@ -2,9 +2,16 @@
 
 All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and the project aims to adhere to [Semantic Versioning](https://semver.org/).
+and the project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+> **This file is generated.** Since v2.3.0, entries are written by
+> [release-please](https://github.com/googleapis/release-please) from the
+> Conventional Commit messages on `main` — do not add an `Unreleased` section or
+> edit released entries by hand. To change what appears here, write a better commit
+> message (or PR title, since merges are squashed). See
+> [docs/releasing.md](docs/releasing.md).
+
+## [2.3.0] - 2026-07-11
 
 ### Changed
 
@@ -191,7 +198,7 @@ visualize and *simulate* enterprise networks in the browser.
   Docker image with OCI metadata, an initial CI workflow, ESLint, and a
   Mocha + Supertest + c8 test suite running against an in-memory MongoDB.
 
-[Unreleased]: https://github.com/Wolfi-OwO/network-visualizer/compare/v2.2.0...HEAD
+[2.3.0]: https://github.com/Wolfi-OwO/network-visualizer/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/Wolfi-OwO/network-visualizer/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/Wolfi-OwO/network-visualizer/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/Wolfi-OwO/network-visualizer/compare/v2.0.0...v2.0.1
