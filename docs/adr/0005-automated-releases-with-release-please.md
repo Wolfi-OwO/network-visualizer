@@ -62,9 +62,25 @@ Two supporting decisions:
 workflow. This is not a style choice. A Release published with the default
 `GITHUB_TOKEN` **does not trigger other workflows** (GitHub's recursion guard), so
 the old `release.yml` trigger would have silently never fired: tag created, release
-published, nothing shipped. The alternative is a personal access token or a GitHub
-App — a long-lived credential to store and rotate — to buy back a workflow
-separation that has no independent value.
+published, nothing shipped.
+
+**release-please authenticates with a PAT (`RELEASE_PLEASE_TOKEN`), falling back to
+`GITHUB_TOKEN`.** This ADR originally rejected a PAT as a long-lived credential that
+bought back "a workflow separation that has no independent value." That reasoning
+was incomplete, and shipping v2.4.0 exposed why: the recursion guard also means **a
+PR opened by `GITHUB_TOKEN` does not trigger `pull_request` workflows.** Combined
+with branch protection, that is a deadlock — the release PR requires CI, Lint and
+the version check, but those workflows never start, so the PR can never merge.
+v2.4.0 had to be unblocked by hand, by closing and reopening the PR so a human event
+would start the checks. The token additionally decides the release commit's *author*:
+`GITHUB_TOKEN` makes it `github-actions[bot]`, which adds the bot to the contributor
+list and puts a bot `Co-authored-by` trailer on the squash commit.
+
+Keeping the ship stages in one run (above) solves the *publish* half of the guard; it
+does not solve the *pull request* half. Only a PAT or a GitHub App does. A PAT is the
+cheaper of the two here: one secret, no app to install or maintain. The cost is real —
+it expires and must be rotated — so the workflow falls back to `GITHUB_TOKEN` rather
+than failing the release outright, degrading to the old manual behaviour instead.
 
 **`scripts/check-version-sync.mjs` runs in CI on every push and PR.** release-please
 makes the files agree *by construction*, so this guard should never fire. It exists

@@ -125,8 +125,33 @@ the Release appear, but a separate `on: release: published` workflow never fires
 and the release is never actually shipped.
 
 Gating the stages on release-please's `release_created` output *inside the same
-run* sidesteps it entirely — no personal access token, no GitHub App, no secret
-to rotate. That is why `release.yml` triggers on `push` rather than on `release`.
+run* sidesteps it entirely. That is why `release.yml` triggers on `push` rather
+than on `release`.
+
+### Why release-please needs a PAT (`RELEASE_PLEASE_TOKEN`)
+
+The same recursion guard has a second edge that the design above does *not* cover:
+**a pull request opened by `GITHUB_TOKEN` does not trigger `pull_request` workflows
+either.**
+
+Under branch protection that is a deadlock. The release PR requires `CI`, `Lint`
+and the version check to pass before it can merge — but those workflows never
+start, so the required checks sit at `action_required` forever and the PR is
+permanently unmergeable. v2.4.0 had to be unblocked by hand (closing and reopening
+the PR, so that a *human* event started the checks).
+
+The token also decides the **author** of the release commit. With `GITHUB_TOKEN`,
+release commits are authored by `github-actions[bot]`, which lands the bot in the
+repository's contributor list and adds a bot `Co-authored-by` trailer to the squash
+commit.
+
+`RELEASE_PLEASE_TOKEN` — a PAT owned by a maintainer, with `repo` and `workflow`
+scopes — fixes both. The release PR becomes an ordinary PR that runs its own
+checks, and the release commit is authored by a human.
+
+If the secret is missing or expired, `release.yml` falls back to `GITHUB_TOKEN`, so
+releases still work — they just revert to needing the manual close/reopen. Rotate
+the PAT before it expires to avoid that.
 
 ---
 
