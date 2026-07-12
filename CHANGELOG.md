@@ -11,6 +11,13 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 > message (or PR title, since merges are squashed). See
 > [docs/releasing.md](docs/releasing.md).
 
+## [2.4.1](https://github.com/Wolfi-OwO/network-visualizer/compare/v2.4.0...v2.4.1) (2026-07-12)
+
+
+### CI/CD
+
+* restore .github workflows and templates ([#7](https://github.com/Wolfi-OwO/network-visualizer/issues/7)) ([64051a4](https://github.com/Wolfi-OwO/network-visualizer/commit/64051a44f9335510217a5bb92bd83570f0f9368e))
+
 ## [2.4.0](https://github.com/Wolfi-OwO/network-visualizer/compare/v2.3.0...v2.4.0) (2026-07-12)
 
 
