@@ -1,0 +1,284 @@
+name: PR · preview
+
+# Per-PR preview on the SAME Container App as production (vars.CONTAINERAPP_NAME,
+# e.g. netviz) — no second app, no extra infrastructure.
+#
+# How a preview stays harmless despite sharing the app:
+#
+#   * Traffic — the app runs in multiple-revision mode and this workflow NEVER
+#     calls `ingress traffic set`. A preview revision is therefore created with a
+#     traffic weight of 0 and is reachable only through its own revision FQDN
+#     (https://<app>--pr-<n>-<sha>.<region>.azurecontainerapps.io). Production
+#     keeps 100% of the traffic on the app's main URL throughout.
+#
+#   * Data — the revision is copied from the production revision, so it inherits
+#     the registry, secrets and OAuth config, but MONGODB_DB_NAME is overridden to
+#     a per-PR database. Same Mongo cluster and same connection secret, different
+#     database: the preview cannot see or touch production data, and it seeds its
+#     own demo topology on first load.
+#
+#   * Sign-in — the preview's URL is not a registered OAuth redirect URI, so
+#     ALLOW_DEV_LOGIN is switched on for previews to keep them reviewable. That is
+#     safe precisely because the preview database is a throwaway.
+#
+# Production releases are copied from the production revision too (deploy.yml), so
+# these overrides can never leak back into production.
+#
+# Inert until you set the repo variable PREVIEW_ENABLED=true, and never runs for
+# fork PRs (their token can't read secrets).
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  id-token: write        # OIDC login to Azure
+  pull-requests: write   # sticky preview comment
+
+concurrency:
+  group: pr-preview-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Compute a stable, DNS-safe tag/suffix for this commit ──────────────────
+  prep:
+    name: Prepare
+    if: >-
+      github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.PREVIEW_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.o.outputs.tag }}
+    steps:
+      - id: o
+        run: |
+          SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
+          echo "tag=pr-${{ github.event.number }}-$SHA" >> "$GITHUB_OUTPUT"
+
+  # ── Build the PR image (unique tag per commit; never moves :latest) ────────
+  package:
+    name: Build preview image
+    needs: prep
+    uses: ./.github/workflows/package.yml
+    with:
+      tag: ${{ needs.prep.outputs.tag }}
+      push_latest: false
+    secrets: inherit
+
+  # ── Roll the PR image onto a new zero-traffic revision of the production app ─
+  preview:
+    name: Deploy preview revision
+    needs: [prep, package]
+    runs-on: ubuntu-latest
+    # The `staging` GitHub environment supplies the OIDC identity (no approval
+    # gate). Its service principal is Contributor on the resource group.
+    environment: staging
+    steps:
+      - name: Check Azure config
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+        run: |
+          miss=0
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP ACR_NAME CONTAINERAPP_NAME IMAGE_NAME; do
+            [ -z "${!v}" ] && { echo "::error::missing: $v"; miss=1; }
+          done
+          [ "$miss" = 0 ] || { echo "Set the Azure IDs as SECRETS and RESOURCE_GROUP/ACR_NAME/CONTAINERAPP_NAME/IMAGE_NAME as VARIABLES."; exit 1; }
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create the preview revision
+        id: rev
+        env:
+          RG: ${{ vars.RESOURCE_GROUP }}
+          APP: ${{ vars.CONTAINERAPP_NAME }}
+          ACR: ${{ vars.ACR_NAME }}
+          IMAGE: ${{ vars.IMAGE_NAME }}
+          TAG: ${{ needs.prep.outputs.tag }}
+          PR: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+
+          # Previews only work as extra revisions, which requires multiple-revision
+          # mode. In this mode a new revision starts at weight 0 — it does NOT take
+          # traffic — and this workflow never touches the traffic block.
+          az containerapp revision set-mode -g "$RG" -n "$APP" --mode multiple -o none
+
+          # Copy from the revision serving production, so the preview inherits the
+          # registry, secrets and OAuth config — but NOT another PR's overrides
+          # (which is what copying from `latest` would give us).
+          FROM=$(az containerapp show -g "$RG" -n "$APP" \
+            --query "properties.configuration.ingress.traffic[?weight==\`100\`].revisionName | [0]" -o tsv)
+          if [ -z "$FROM" ] || [ "$FROM" = "null" ]; then
+            echo "::error::No revision is serving 100% of traffic — cannot determine the production baseline."
+            exit 1
+          fi
+
+          REV="${APP}--${TAG}"
+
+          # Re-running the same commit must not fail on a duplicate revision name.
+          if az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" -o none 2>/dev/null; then
+            echo "Revision $REV already exists — reusing it."
+          else
+            # MONGODB_DB_NAME is the isolation boundary: same cluster and secret as
+            # production, its own database. ALLOW_DEV_LOGIN keeps the preview usable
+            # without registering its URL as an OAuth redirect URI.
+            az containerapp revision copy -g "$RG" -n "$APP" \
+              --from-revision "$FROM" \
+              --image "${ACR}.azurecr.io/${IMAGE}:${TAG}" \
+              --revision-suffix "$TAG" \
+              --set-env-vars \
+                  MONGODB_CONNECTION_STRING=secretref:mongo-uri \
+                  "MONGODB_DB_NAME=netviz-pr-${PR}" \
+                  ALLOW_DEV_LOGIN=true \
+              --min-replicas 0 --max-replicas 1 -o none
+          fi
+
+          # Retire this PR's superseded revisions so we don't leave replicas around.
+          for OLD in $(az containerapp revision list -g "$RG" -n "$APP" \
+              --query "[?properties.active && starts_with(name, '${APP}--pr-${PR}-') && name != '${REV}'].name" -o tsv); do
+            echo "Deactivating superseded preview revision $OLD"
+            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$OLD" -o none || true
+          done
+
+          FQDN=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" \
+            --query properties.fqdn -o tsv)
+
+          # Belt and braces: prove we never stole production's traffic.
+          WEIGHT=$(az containerapp show -g "$RG" -n "$APP" \
+            --query "properties.configuration.ingress.traffic[?revisionName=='${REV}'].weight | [0]" -o tsv)
+          if [ -n "$WEIGHT" ] && [ "$WEIGHT" != "0" ] && [ "$WEIGHT" != "null" ]; then
+            echo "::error::Preview revision $REV somehow holds ${WEIGHT}% of production traffic — deactivating it."
+            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$REV" -o none || true
+            exit 1
+          fi
+
+          echo "rev=$REV" >> "$GITHUB_OUTPUT"
+          echo "url=https://$FQDN" >> "$GITHUB_OUTPUT"
+          echo "Preview: https://$FQDN (0% of production traffic)"
+
+      - name: Comment the preview URL on the PR
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.rev.outputs.url }}
+          PREVIEW_REV: ${{ steps.rev.outputs.rev }}
+          PREVIEW_DB: netviz-pr-${{ github.event.number }}
+        with:
+          script: |
+            const url = process.env.PREVIEW_URL;
+            const rev = process.env.PREVIEW_REV;
+            const db  = process.env.PREVIEW_DB;
+            const sha = context.payload.pull_request.head.sha.slice(0, 7);
+            const marker = '<!-- pr-preview -->';
+            const body = [
+              marker,
+              '## Preview deployment',
+              '',
+              `**${url}**`,
+              '',
+              'A zero-traffic revision of the production Container App, on its own',
+              `throwaway database (\`${db}\`) — it cannot see or change production data,`,
+              'and production keeps serving 100% of traffic on its own URL.',
+              '',
+              'Dev login is enabled here (the preview URL is not a registered OAuth redirect).',
+              '',
+              `<sub>revision \`${rev}\` · commit ${sha} · scales to zero when idle · torn down when this PR closes</sub>`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+  # ── On PR close/merge: deactivate the PR's preview revisions ────────────────
+  teardown:
+    name: Tear down preview
+    if: >-
+      github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.PREVIEW_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Check Azure config
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
+        run: |
+          miss=0
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP CONTAINERAPP_NAME; do
+            [ -z "${!v}" ] && { echo "::error::missing: $v"; miss=1; }
+          done
+          [ "$miss" = 0 ] || { echo "Missing Azure config for teardown."; exit 1; }
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deactivate this PR's preview revisions
+        env:
+          RG: ${{ vars.RESOURCE_GROUP }}
+          APP: ${{ vars.CONTAINERAPP_NAME }}
+          PR: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          # The name filter (<app>--pr-<n>-*) can only ever match this PR's preview
+          # revisions, never the production one.
+          REVS=$(az containerapp revision list -g "$RG" -n "$APP" \
+            --query "[?properties.active && starts_with(name, '${APP}--pr-${PR}-')].name" -o tsv)
+          if [ -z "$REVS" ]; then
+            echo "No active preview revisions for PR #$PR."
+          fi
+          for r in $REVS; do
+            echo "Deactivating $r"
+            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$r" -o none || true
+          done
+
+      - name: Comment the teardown on the PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const merged = context.payload.pull_request.merged;
+            const marker = '<!-- pr-preview -->';
+            const body = [
+              marker,
+              '## Preview torn down',
+              '',
+              merged
+                ? 'This PR was merged — its preview revision has been deactivated.'
+                : 'This PR was closed — its preview revision has been deactivated.',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

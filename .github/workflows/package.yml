@@ -1,0 +1,99 @@
+name: Package
+
+# Builds the production image (client bundle baked in) and pushes it to ACR
+# using the registry admin credentials. Called by release.yml on every
+# published release, or run manually for a one-off build.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Image tag (e.g. v1.0.0)"
+        required: true
+        type: string
+      push_latest:
+        description: "Also tag/push :latest (off for PR preview builds)"
+        required: false
+        default: true
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag (e.g. v1.0.0)"
+        required: true
+        type: string
+      push_latest:
+        description: "Also tag/push :latest"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Build & push image
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fail fast with a clear message when config is missing
+      - name: Check config
+        env:
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+        run: |
+          miss=0
+          for v in ACR_USERNAME ACR_PASSWORD ACR_NAME IMAGE_NAME; do
+            if [ -z "${!v}" ]; then echo "::error::missing: $v"; miss=1; else echo "ok: $v"; fi
+          done
+          [ "$miss" = 0 ] || { echo "ACR_USERNAME/ACR_PASSWORD must be SECRETS; ACR_NAME/IMAGE_NAME must be VARIABLES."; exit 1; }
+
+      - name: Build metadata
+        id: meta
+        run: |
+          TAG="${{ inputs.tag }}"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: application/client/package-lock.json
+
+      - name: Build client
+        working-directory: application/client
+        env:
+          VITE_APP_VERSION: ${{ steps.meta.outputs.version }}
+          VITE_APP_REVISION: ${{ github.sha }}
+          VITE_APP_CREATED: ${{ steps.meta.outputs.date }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Log in to ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.ACR_NAME }}.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build & push image
+        env:
+          PUSH_LATEST: ${{ inputs.push_latest }}
+        run: |
+          IMAGE="${{ vars.ACR_NAME }}.azurecr.io/${{ vars.IMAGE_NAME }}"
+          TAGS=(-t "$IMAGE:${{ inputs.tag }}")
+          [ "$PUSH_LATEST" = "true" ] && TAGS+=(-t "$IMAGE:latest")
+          docker build ./application \
+            --build-arg APP_VERSION=${{ steps.meta.outputs.version }} \
+            --build-arg VCS_REF=${{ github.sha }} \
+            --build-arg BUILD_DATE=${{ steps.meta.outputs.date }} \
+            "${TAGS[@]}"
+          docker push "$IMAGE:${{ inputs.tag }}"
+          [ "$PUSH_LATEST" = "true" ] && docker push "$IMAGE:latest" || true
