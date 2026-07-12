@@ -34,8 +34,26 @@ name: Release
 # workflows — it is GitHub's recursion guard. A separate `on: release: published`
 # workflow would therefore never fire, and the release would sit there un-shipped.
 # Keeping test/package/deploy in the same run, gated on release-please's
-# `release_created` output, makes the chain work with GITHUB_TOKEN alone: no
-# personal access token, no GitHub App, no secret to rotate.
+# `release_created` output, makes the chain work regardless of which token is used.
+#
+# WHY RELEASE-PLEASE USES A PAT (RELEASE_PLEASE_TOKEN)
+# The same recursion guard applies to the release PR itself: a pull request opened
+# by GITHUB_TOKEN does not trigger `pull_request` workflows. Under branch
+# protection that is a deadlock — the release PR requires CI, Lint and the version
+# check to pass, but those workflows never start, so the PR can never be merged.
+# (v2.4.0 had to be unblocked by hand: close and reopen the PR so a human event
+# would start the checks.)
+#
+# The same token also decides the *author* of the release commit. With
+# GITHUB_TOKEN, release commits are authored by github-actions[bot], which puts the
+# bot in the repository's contributor list and adds a bot Co-authored-by trailer to
+# the squash commit.
+#
+# A PAT belonging to a maintainer fixes both: the release PR is an ordinary PR that
+# runs its own checks, and the release commit is authored by a human. The cost is a
+# secret that has to be rotated when it expires — hence the GITHUB_TOKEN fallback
+# below, which degrades to the old (still-working, still-manual) behaviour rather
+# than breaking the release outright.
 on:
   push:
     branches: [main]
@@ -66,6 +84,11 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          # RELEASE_PLEASE_TOKEN is a PAT owned by a human maintainer. It is what
+          # makes the release PR behave like an ordinary PR; see the note above.
+          # The fallback keeps this workflow working (with the GITHUB_TOKEN caveats)
+          # if the secret is absent or expires, rather than failing the release.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
   # Every stage below runs ONLY on the release commit. On an ordinary push to
   # main they are skipped, so day-to-day merges stay cheap.
