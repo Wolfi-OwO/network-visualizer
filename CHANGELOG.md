@@ -1,3 +1,14 @@
+## [v2.4.2](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.4.2) — 2026-07-13
+
+## Changes
+
+- ci: authenticate release-please with a PAT (#9)
+- ci: delete a PR's preview images from ACR on teardown (#11)
+- feat: cut releases by publishing a GitHub Release (#12)
+- docs: update ReadMe, deploy runbook and tech-debt for the new release flow (#14)
+
+First release cut with the new flow: publishing this Release is what ships it.
+
 # Changelog
 
 All notable changes to this project are documented in this file.
