@@ -38,4 +38,5 @@ the discussion on that PR is part of the record.
 | [0002](0002-jwt-cookie-sessions.md) | Sessions are signed JWTs in an httpOnly cookie, with no server-side store | Accepted |
 | [0003](0003-server-sent-events-for-live-packets.md) | Live packets stream over Server-Sent Events, not WebSockets | Accepted |
 | [0004](0004-previews-as-zero-traffic-revisions.md) | PR previews are zero-traffic revisions of the production app | Accepted |
-| [0005](0005-automated-releases-with-release-please.md) | Versions and releases are derived from commits by release-please | Accepted |
+| [0005](0005-automated-releases-with-release-please.md) | Versions and releases are derived from commits by release-please | Superseded by [0006](0006-releases-are-cut-by-publishing-a-github-release.md) |
+| [0006](0006-releases-are-cut-by-publishing-a-github-release.md) | Releases are cut by publishing a GitHub Release | Accepted |

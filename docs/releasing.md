@@ -1,157 +1,117 @@
 # Releasing
 
-Releases are **fully automatic**. Nobody types a version number, edits a
-`package.json`, writes a changelog entry, or creates a git tag by hand. The only
-human actions in the whole process are *merging a pull request* and *approving
-the production deploy*.
+**Publishing a GitHub Release is the release.** That is the only thing that ships.
 
-This document explains what happens, why it is built this way, and what to do
-when it misbehaves.
+You pick the version, you pick the moment. The pipeline then writes that version
+into every file that records it, commits that under your name, moves the tag onto
+that commit, rebuilds, and waits for you to approve production.
+
+Nobody edits a `package.json` by hand. Nobody types a version number twice.
 
 ---
 
 ## TL;DR
 
-1. You merge normal PRs into `main`. Their titles are Conventional Commits
-   (`feat: …`, `fix: …`).
-2. A bot PR titled **`chore(main): release X.Y.Z`** appears and keeps itself up
-   to date. It shows exactly what the next version will be and what the changelog
-   will say.
-3. When you want to ship, **merge that PR**. That is the release.
-4. The pipeline tags `vX.Y.Z`, publishes the GitHub Release, rebuilds, and waits
-   for a maintainer to approve the production deploy.
+1. Merge normal PRs into `main`. Nothing ships. No bot PR appears.
+2. When you want to release: **Releases → Draft a new release → create tag `vX.Y.Z` → Publish.**
+3. The pipeline sets all 7 version files to `X.Y.Z`, lands that on `main`, and
+   re-points `vX.Y.Z` at it.
+4. It re-runs the full test suite, builds the image, and waits for your approval
+   to deploy production.
+
+Creating a **tag** on its own does nothing — a tag is just a pointer. Only
+**Publish** starts a release.
 
 ---
 
-## How the version number is decided
+## The thing that makes this non-obvious
 
-The version comes from the commits, not from a person. Every commit that lands on
-`main` is a [Conventional Commit](https://www.conventionalcommits.org/), and
-[release-please](https://github.com/googleapis/release-please) reads the ones
-added since the last tag:
+A tag points at a commit. When you publish `v2.5.0`, the commit it points at
+still says `2.4.1` in `application/package.json` — nothing has bumped it yet.
 
-| Commit prefix | Next version, starting from `2.3.0` |
-| --- | --- |
-| `fix:`, `perf:`, `refactor:` | `2.3.1` (patch) |
-| `feat:` | `2.4.0` (minor) |
-| `feat!:`, or any commit with `BREAKING CHANGE:` in its body | `3.0.0` (major) |
-| `docs:`, `ci:`, `build:`, `test:`, `style:`, `chore:` | no release on their own |
+Shipping that as-is is exactly the bug this repo already had: the tag said
+`v2.3.0` while `application/package.json` said `1.0.0` and the client said
+`0.0.0`. It was invisible from the outside, because the build injects the
+displayed version from the **tag**. The app looked right; the source lied.
 
-The **highest** bump among the pending commits wins: one `feat:` among ten
-`fix:`es produces a minor bump.
+So the release **cannot simply trust the tag**. It does this instead:
 
-> **Squash merges matter.** The repo squash-merges PRs, so the **PR title**
-> becomes the commit message on `main` — that is the string release-please
-> actually reads. A PR titled "fixed the thing" contributes nothing to the
-> version or the changelog. Title it `fix: correct off-by-one in CIDR host count`.
+```text
+You publish v2.5.0  ─▶ tag points at commit A (package.json still says 2.4.1)
+                          │
+   sync-version           │  writes 2.5.0 into all 7 files
+                          │  prepends your release notes to CHANGELOG.md
+                          │  commits it as YOU, merges it to main  ─▶ commit B
+                          │  moves tag v2.5.0 from A to B
+                          ▼
+                     tag v2.5.0 ─▶ commit B (package.json says 2.5.0)  ✅
+                          │
+        test ──▶ package ──▶ [your approval] ──▶ deploy production
+              (all three build from B, via the moved tag)
+```
 
-## What the release commit rewrites
+After `sync-version`, the tag and the files it points at agree **by
+construction** — and every later stage builds from the moved tag, so the image
+really does contain the version on its label.
 
-This is the part that used to be broken. Before this automation, the git tag said
-`v2.3.0` while `application/package.json` still said `1.0.0` and the client said
-`0.0.0`, because *nothing in the pipeline ever wrote them*. The deployed app only
-looked correct because `package.yml` injects `VITE_APP_VERSION` from the git tag
-at build time — the repo's own source of truth had silently drifted three minor
-versions.
-
-Now a single release commit rewrites **every** file that records a version:
+## What a release rewrites
 
 | File | Why it exists |
 | --- | --- |
-| `.release-please-manifest.json` | The source of truth. release-please reads this to know where it left off. |
-| `version.txt` | Plain-text version, trivially readable by any script or Dockerfile. |
-| `CHANGELOG.md` | Generated from the commit messages. |
+| `version.txt` | **The source of truth.** Plain-text version, trivially readable by any script. |
+| `CHANGELOG.md` | Your release notes, prepended. One source — they cannot disagree. |
 | `application/package.json` | Backend package version. |
-| `application/package-lock.json` (`.version` **and** `.packages[""].version`) | npm records the version in two places; both must move. |
+| `application/package-lock.json` (`.version` **and** `.packages[""].version`) | npm records the version twice; both must move. |
 | `application/client/package.json` | Frontend package version. |
 | `application/client/package-lock.json` (both fields) | Same. |
 
-That list lives in [`release-please-config.json`](../release-please-config.json)
-under `extra-files`. Because the tag and these files come from the same commit,
-they cannot disagree.
-
-**And if they ever do**, CI catches it. Every push and PR runs a **Version
-consistency** job:
+All of it is written by [`scripts/set-version.mjs`](../scripts/set-version.mjs).
+You can run it yourself:
 
 ```bash
-node scripts/check-version-sync.mjs
+node scripts/set-version.mjs 2.5.0
 ```
 
-It compares all seven version fields against the manifest and fails the build on
-any mismatch. Adding a new file that records the version means adding it to
-*both* `release-please-config.json` and that script.
+**And if they ever drift**, CI catches it. Every push and PR runs a **Version
+consistency** job ([`scripts/check-version-sync.mjs`](../scripts/check-version-sync.mjs))
+that compares all seven fields against `version.txt` and fails the build on any
+mismatch. Adding a new file that records the version means adding it to *both*
+scripts.
 
-## The pipeline
+## Why the version bump can touch a protected branch
 
-Everything lives in one workflow,
-[`.github/workflows/release.yml`](../.github/workflows/release.yml), triggered on
-every push to `main`:
+It doesn't push to `main` directly — the ruleset forbids that, and we are not
+weakening it.
 
-```text
-push to main
-     |
-     v
-release-please ──▶ opens/updates "chore(main): release X.Y.Z"  ──▶ (waits)
-     |
-     |  (that PR is merged — this is the release)
-     v
-release-please ──▶ bumps versions, writes CHANGELOG,
-     |             tags vX.Y.Z, publishes the GitHub Release
-     |
-     |  release_created == true
-     v
-   test ──▶ package ──▶ [maintainer approval] ──▶ deploy production (100% traffic)
-```
+`sync-version` opens a **real pull request** and merges it with `gh pr merge
+--admin`. Your repository-admin role is explicitly granted a *pull-request*
+bypass in the `main-protection` ruleset, which is precisely the permission to
+merge a PR without waiting on its checks. Nothing else is bypassed, and branch
+protection stays on throughout.
 
-- **test** reuses `ci.yml` — the exact same lint/build/test suite that gates PRs,
-  re-run on the tagged commit. Nothing ships that hasn't passed.
-- **package** builds the client and the Docker image and pushes it to ACR tagged
-  `vX.Y.Z`, injecting the version, the git SHA and the build timestamp into the
-  bundle.
-- **deploy production** is gated by the `production` GitHub environment's
-  **required-reviewers** rule. `deploy.yml` copies a new Container App revision
-  from the one currently serving traffic, waits for it to report healthy, and only
-  then shifts 100% of the traffic across.
+Skipping the bump PR's checks is safe because the **`test` stage re-runs the
+entire suite on the merged commit** before anything is packaged or deployed. The
+code is tested; it is just tested one step later.
 
-On an ordinary push to `main` (not a release-PR merge), the last three jobs are
-skipped — `release_created` is `false` — so day-to-day merges stay cheap.
+## Why the token is a PAT (`RELEASE_PLEASE_TOKEN`)
 
-### Why the ship stages are in the same workflow
+> The name is historical — it dates from when this repo used release-please. It
+> is now just "the release token". Renaming it would mean re-creating the secret,
+> so it kept its name.
 
-A GitHub Release published with the default `GITHUB_TOKEN` **does not trigger
-other workflows.** That is GitHub's deliberate recursion guard, and it is the
-single most common way a release-please setup silently half-works: the tag and
-the Release appear, but a separate `on: release: published` workflow never fires
-and the release is never actually shipped.
+It needs the **`repo`** and **`workflow`** scopes, and it exists for two reasons:
 
-Gating the stages on release-please's `release_created` output *inside the same
-run* sidesteps it entirely. That is why `release.yml` triggers on `push` rather
-than on `release`.
+**GitHub's recursion guard.** Anything done with the default `GITHUB_TOKEN` does
+not trigger further workflows. A release published by `GITHUB_TOKEN` would never
+start this pipeline at all.
 
-### Why release-please needs a PAT (`RELEASE_PLEASE_TOKEN`)
+**Attribution.** Commits authored with `GITHUB_TOKEN` are attributed to
+`github-actions[bot]`, which lands the bot in the repository's contributor list.
+With a maintainer's PAT, the version-bump commit is authored by a human and shows
+up under their profile — which is the whole point of "commit under my name".
 
-The same recursion guard has a second edge that the design above does *not* cover:
-**a pull request opened by `GITHUB_TOKEN` does not trigger `pull_request` workflows
-either.**
-
-Under branch protection that is a deadlock. The release PR requires `CI`, `Lint`
-and the version check to pass before it can merge — but those workflows never
-start, so the required checks sit at `action_required` forever and the PR is
-permanently unmergeable. v2.4.0 had to be unblocked by hand (closing and reopening
-the PR, so that a *human* event started the checks).
-
-The token also decides the **author** of the release commit. With `GITHUB_TOKEN`,
-release commits are authored by `github-actions[bot]`, which lands the bot in the
-repository's contributor list and adds a bot `Co-authored-by` trailer to the squash
-commit.
-
-`RELEASE_PLEASE_TOKEN` — a PAT owned by a maintainer, with `repo` and `workflow`
-scopes — fixes both. The release PR becomes an ordinary PR that runs its own
-checks, and the release commit is authored by a human.
-
-If the secret is missing or expired, `release.yml` falls back to `GITHUB_TOKEN`, so
-releases still work — they just revert to needing the manual close/reopen. Rotate
-the PAT before it expires to avoid that.
+If the PAT expires, releases fail loudly (`sync-version` cannot check out or
+push). Rotate it before it expires.
 
 ---
 
@@ -159,35 +119,22 @@ the PAT before it expires to avoid that.
 
 ### Ship a release
 
-Merge the open `chore(main): release X.Y.Z` PR. Then approve the
-`Deploy · production` job when it asks. That's it.
+Releases → **Draft a new release** → **Choose a tag** → type `v2.5.0` → **Create
+new tag on publish** → write (or auto-generate) the notes → **Publish release**.
 
-### See what the next release *would* be
+Then approve the `Deploy · production` job when it asks. That's it.
 
-Look at the open release PR. It is regenerated on every push to `main` and always
-reflects the pending commits.
+### Pick the version
 
-### Force a major version bump
+You already did — it's the tag you typed. There is no bot deciding for you.
+Follow [semver](https://semver.org/): breaking change → major, new feature →
+minor, bug fix → patch.
 
-Put a breaking-change footer in the commit body (or the squash-merge PR body):
+### Write the changelog
 
-```text
-feat: replace the topology export format
-
-BREAKING CHANGE: exports are now JSON Schema 2020-12; v1 files must be re-saved.
-```
-
-Or use the shorthand prefix: `feat!: replace the topology export format`.
-
-### Release something that has no `feat:` or `fix:`
-
-A docs-only or CI-only change won't trigger a release on its own. To cut one
-anyway, land an empty commit:
-
-```bash
-git commit --allow-empty -m "fix: re-release with updated deployment config"
-git push
-```
+Whatever you put in the Release notes becomes the `CHANGELOG.md` entry. GitHub's
+**Generate release notes** button fills it from the merged PRs, which is usually
+what you want.
 
 ### Roll back production
 
@@ -201,49 +148,48 @@ gh workflow run deploy.yml -f tag=v2.2.0 -f environment=production
 The revision that was serving traffic is left active, so this is a traffic shift
 rather than a rebuild. It takes seconds.
 
-### Skip the release PR for a hotfix
+### Re-ship a version that is already tagged
 
-Don't. Land the `fix:` on `main`, merge the release PR it produces, and approve
-the deploy — the whole path is a few minutes and it keeps the version files, the
-tag and the changelog honest. If production is actively broken, roll back first
-(above), *then* fix forward.
+Publish the release again from the Releases page. `sync-version` is idempotent —
+if the files already say that version, it lands nothing and just re-runs the ship
+stages.
 
 ---
 
 ## Troubleshooting
 
-**No release PR appeared after I merged something.**
-Check the commit message that actually landed on `main` (`git log --oneline -1`).
-If it isn't a Conventional Commit, or it's a `chore:`/`docs:`/`test:`, then
-release-please correctly decided there is nothing to release. Land an empty
-`fix:` commit (above) if you need one anyway.
+**I created a tag and nothing happened.**
+Correct. A tag is only a pointer. Publish a *Release* on it.
 
-**The release PR shows the wrong version.**
-It is derived from the pending commit prefixes. A `feat:` you expected to bump the
-minor may have been squash-merged under a different title — check `git log`, not
-the PR list.
+**The release failed at `Set version …` with "not a vX.Y.Z tag".**
+The tag must look like `v2.5.0`. Delete the release and re-publish with a valid
+tag.
 
 **CI fails with "Version drift".**
-Something hand-edited a version. Do not patch the one file the error names; set
-*all* of them to the version in `.release-please-manifest.json` in a single
-commit, then let release-please take it from there.
+Something hand-edited a version file. Don't patch the one file the error names:
+
+```bash
+node scripts/set-version.mjs "$(cat version.txt)"
+```
+
+**The tag moved after I published. Is that a bug?**
+No — that is the design. The tag is re-pointed onto the commit that actually
+contains the version you released. See the diagram above.
 
 **The tag and Release exist but nothing deployed.**
-Look at the `release.yml` run for that commit. The `Deploy · production` job is
-probably sitting in the required-reviewers gate waiting for an approval.
+Look at the `release.yml` run for that tag. The `Deploy · production` job is
+probably sitting in the required-reviewers gate waiting for your approval.
 
-**release-please can't push / open a PR.**
-The repo needs *Settings → Actions → General → Workflow permissions* set to
-**Read and write permissions**, with **Allow GitHub Actions to create and approve
-pull requests** enabled.
+**`sync-version` can't push or open a PR.**
+`RELEASE_PLEASE_TOKEN` is missing or expired. Re-create it at
+https://github.com/settings/tokens with the `repo` and `workflow` scopes.
 
 ## Files involved
 
 | File | Role |
 | --- | --- |
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | The whole pipeline |
-| [`release-please-config.json`](../release-please-config.json) | Which files to bump, how to group the changelog |
-| [`.release-please-manifest.json`](../.release-please-manifest.json) | Current version — the source of truth |
-| [`version.txt`](../version.txt) | Plain-text mirror of the current version |
+| [`scripts/set-version.mjs`](../scripts/set-version.mjs) | Writes the version into every file |
 | [`scripts/check-version-sync.mjs`](../scripts/check-version-sync.mjs) | The CI guard against drift |
+| [`version.txt`](../version.txt) | The source of truth |
 | [`organizational/deploy/README.md`](../organizational/deploy/README.md) | What the deploy step actually does to Azure |

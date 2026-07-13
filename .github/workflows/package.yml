@@ -15,6 +15,13 @@ on:
         required: false
         default: true
         type: boolean
+      ref:
+        description: "Commit/tag to build. Defaults to the triggering commit. A release
+          passes its tag, because the tag is moved onto the version-bump commit and the
+          triggering SHA still has the old version in package.json."
+        required: false
+        default: ""
+        type: string
   workflow_dispatch:
     inputs:
       tag:
@@ -37,6 +44,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       # Fail fast with a clear message when config is missing
       - name: Check config

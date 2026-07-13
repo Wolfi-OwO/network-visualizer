@@ -70,13 +70,13 @@ exactly which lines are uncovered.
 
 ### CI fails with "Version drift"
 
-The `Version consistency` job found a `package.json` / `package-lock.json` /
-`version.txt` that disagrees with `.release-please-manifest.json`.
+The `Version consistency` job found a `package.json` / `package-lock.json` that
+disagrees with `version.txt` (the source of truth).
 
-**Do not fix this by hand-editing the one file the error names.** Version numbers
-are written by release-please; if they have drifted, something bypassed it. Set
-*all* of them to the manifest's version in a single commit, then let the automation
-take over again. Run the check locally:
+**Do not fix this by hand-editing the one file the error names.** Version numbers are
+written from the tag when a release is published; if they have drifted, something
+bypassed that. Set *all* of them at once with `node scripts/set-version.mjs $(cat
+version.txt)`, in a single commit. Run the check locally:
 
 ```bash
 node scripts/check-version-sync.mjs
@@ -103,25 +103,18 @@ CI does this for you (the `client-dist` artifact); a local `docker build` does n
 Check what actually landed on `main`:
 
 ```bash
-git log --oneline -1
+gh release list
 ```
 
-If the message isn't a Conventional Commit, or it's a `docs:` / `chore:` / `test:`,
-release-please correctly decided there is nothing to release. Remember that
-**squash-merge uses the PR title** as the commit message — that's the string being
-read, not the individual commits on the branch.
+Publishing a **Release** is what ships. Creating a bare *tag* does nothing — a tag is
+only a pointer. Go to Releases → **Draft a new release**, pick the tag, and **Publish**.
 
-To cut a release anyway, land an empty commit:
+### I published a release and the tag moved
 
-```bash
-git commit --allow-empty -m "fix: re-release with updated deploy config"
-```
-
-### The release PR shows the wrong version
-
-The bump comes from the pending commit prefixes. A `feat:` you expected to bump the
-minor was probably squash-merged under a title that didn't say `feat:`. Check
-`git log`, not the PR list.
+That is the design, not a bug. At publish time the tag points at a commit whose
+`package.json` still holds the *old* version. `sync-version` writes the released
+version into every file, lands it on `main`, and re-points the tag at that commit — so
+the tag and the files it points at agree. See [releasing.md](releasing.md).
 
 ### The tag and GitHub Release exist, but nothing deployed
 
@@ -129,9 +122,12 @@ Open the `release.yml` run for that commit. `Deploy · production` is almost
 certainly parked in the **required-reviewers gate**, waiting for a maintainer to
 approve the promotion. That gate is deliberate.
 
-### release-please can't push or open a PR
+### `sync-version` can't push or open a PR
 
-*Settings → Actions → General → Workflow permissions* must be **Read and write
+The `RELEASE_PLEASE_TOKEN` secret (a maintainer's PAT, `repo` + `workflow` scopes) is
+missing or expired — re-create it at <https://github.com/settings/tokens>.
+
+Also check *Settings → Actions → General → Workflow permissions*: **Read and write
 permissions**, with **Allow GitHub Actions to create and approve pull requests**
 enabled.
 

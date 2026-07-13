@@ -1,141 +1,215 @@
 name: Release
 
-# Fully automatic release pipeline. Nothing here is triggered by hand.
+# Publishing a GitHub Release is the release. Nothing else ships.
 #
-#   push to main
+#   You: Releases -> "Draft a new release" -> choose/create tag vX.Y.Z -> Publish
 #        |
 #        v
-#   release-please  --(opens/updates a "chore(main): release X.Y.Z" PR)-->  waits
-#        |
-#        | (a maintainer merges that PR)
+#   sync-version   set every version file to X.Y.Z, commit it under YOUR name,
+#        |         merge it to main, and move the tag onto that commit
 #        v
-#   release-please  --(bumps every version file, writes CHANGELOG.md,
-#        |             tags vX.Y.Z, publishes the GitHub Release)
-#        v
-#     test  ->  package  ->  deploy production (gated)
+#   test  ->  package  ->  deploy production (gated on your approval)
 #
-# HOW THE VERSION NUMBER IS DECIDED
-# Commits on main are Conventional Commits. release-please reads the ones added
-# since the last tag and derives the next semver:
-#   fix:              -> patch   (2.3.0 -> 2.3.1)
-#   feat:             -> minor   (2.3.0 -> 2.4.0)
-#   BREAKING CHANGE:  -> major   (2.3.0 -> 3.0.0)
-# It then writes that version into EVERY file that records it, in one commit:
-#   .release-please-manifest.json, version.txt, CHANGELOG.md,
-#   application/package.json         + application/package-lock.json,
-#   application/client/package.json  + application/client/package-lock.json
-# (that file list lives in release-please-config.json under "extra-files").
-# The tag and the version files therefore come from the same commit and cannot
-# drift apart. ci.yml re-checks this with a "Version consistency" job.
-# See docs/releasing.md for the full walkthrough.
+# Ordinary pushes and merges to main do nothing here. Creating a *tag* on its own
+# does nothing either — a tag is just a pointer. Only Publish starts a release.
 #
-# WHY THE SHIP STAGES LIVE IN THIS FILE
-# A GitHub Release published with the default GITHUB_TOKEN does NOT trigger other
-# workflows — it is GitHub's recursion guard. A separate `on: release: published`
-# workflow would therefore never fire, and the release would sit there un-shipped.
-# Keeping test/package/deploy in the same run, gated on release-please's
-# `release_created` output, makes the chain work regardless of which token is used.
+# WHY sync-version EXISTS (and why it moves the tag)
+# A tag points at a commit. When you publish vX.Y.Z, the commit it points at still
+# has the OLD version in package.json — nothing has bumped it yet. Shipping that as-is
+# is exactly the bug this repo already had: the tag said v2.3.0 while
+# application/package.json said 1.0.0, invisible from outside because the build injects
+# the version from the *tag*.
 #
-# WHY RELEASE-PLEASE USES A PAT (RELEASE_PLEASE_TOKEN)
-# The same recursion guard applies to the release PR itself: a pull request opened
-# by GITHUB_TOKEN does not trigger `pull_request` workflows. Under branch
-# protection that is a deadlock — the release PR requires CI, Lint and the version
-# check to pass, but those workflows never start, so the PR can never be merged.
-# (v2.4.0 had to be unblocked by hand: close and reopen the PR so a human event
-# would start the checks.)
+# So the release cannot simply trust the tag. sync-version writes the version you
+# released into all seven files, lands that commit on main, and then re-points the tag
+# at it. After this job, the tag and the files it points at agree by construction —
+# and every later stage builds from the moved tag, so the image really does contain
+# the version on its label.
 #
-# The same token also decides the *author* of the release commit. With
-# GITHUB_TOKEN, release commits are authored by github-actions[bot], which puts the
-# bot in the repository's contributor list and adds a bot Co-authored-by trailer to
-# the squash commit.
+# WHY IT CAN PUSH TO A PROTECTED BRANCH
+# It does NOT push directly to main — the ruleset forbids that and we are not weakening
+# it. It opens a real PR and merges it with `--admin`, which your repository-admin role
+# is explicitly allowed to do (the ruleset's bypass for admins is "for pull requests").
+# The bump skips the required checks, which is safe because `test` below re-runs the
+# full suite on the merged commit before anything is packaged or deployed.
 #
-# A PAT belonging to a maintainer fixes both: the release PR is an ordinary PR that
-# runs its own checks, and the release commit is authored by a human. The cost is a
-# secret that has to be rotated when it expires — hence the GITHUB_TOKEN fallback
-# below, which degrades to the old (still-working, still-manual) behaviour rather
-# than breaking the release outright.
+# WHY THE TOKEN IS A PAT
+# GitHub's recursion guard: anything done with the default GITHUB_TOKEN does not trigger
+# further workflows, and commits it authors are attributed to github-actions[bot] — which
+# is how the bot ended up in this repo's contributor list. RELEASE_PLEASE_TOKEN is a PAT
+# owned by a maintainer, so the bump commit is authored by a human and shows up under
+# their profile.
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
 
 permissions:
-  contents: write        # release-please: push the release commit and the tag
-  pull-requests: write   # release-please: open/update the release PR
+  contents: write        # move the tag, land the version bump
+  pull-requests: write   # open + merge the version-bump PR
   id-token: write        # deploy.yml: OIDC login to Azure
 
 concurrency:
-  group: release
+  # Two different releases may proceed independently; re-publishing the same tag
+  # queues behind itself rather than racing.
+  group: release-${{ github.event.release.tag_name }}
   cancel-in-progress: false
 
 jobs:
-  # Stage 0 — maintain the release PR. On the run where that PR lands, tag the
-  # commit and publish the GitHub Release.
-  release-please:
-    name: Release PR / tag
+  # ---------------------------------------------------------------------------
+  # Stage 0 — make the repo actually say what the tag claims.
+  # ---------------------------------------------------------------------------
+  sync-version:
+    name: Set version ${{ github.event.release.tag_name }}
     runs-on: ubuntu-latest
     outputs:
-      # 'true' only on the run where the release PR was merged and the tag pushed.
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
+      version: ${{ steps.v.outputs.version }}
     steps:
-      - uses: googleapis/release-please-action@v4
-        id: release
+      - name: Parse and validate the tag
+        id: v
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error title=Bad release tag::'$TAG' is not a vX.Y.Z tag. Delete this release, then re-publish with a tag like v2.5.0."
+            exit 1
+          fi
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
         with:
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-          # RELEASE_PLEASE_TOKEN is a PAT owned by a human maintainer. It is what
-          # makes the release PR behave like an ordinary PR; see the note above.
-          # The fallback keeps this workflow working (with the GITHUB_TOKEN caveats)
-          # if the secret is absent or expires, rather than failing the release.
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          ref: main
+          fetch-depth: 0
+          # A PAT, so the bump commit is authored by a human rather than
+          # github-actions[bot], and so the push is allowed to open a PR.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
-  # Every stage below runs ONLY on the release commit. On an ordinary push to
-  # main they are skipped, so day-to-day merges stay cheap.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-  # Stage 1 — re-run the full suite on the exact tagged commit, so nothing ships
-  # that hasn't passed lint/build/test.
+      - name: Write the version into every file that records it
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: node scripts/set-version.mjs "$VERSION"
+
+      - name: Prepend the release notes to CHANGELOG.md
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          NOTES: ${{ github.event.release.body }}
+          URL: ${{ github.event.release.html_url }}
+        run: |
+          set -euo pipefail
+          # The changelog entry IS the release notes you wrote (or GitHub generated)
+          # — one source, so they cannot disagree.
+          {
+            printf '## [%s](%s) — %s\n\n' "$TAG" "$URL" "$(date -u +%Y-%m-%d)"
+            if [ -n "${NOTES//[[:space:]]/}" ]; then printf '%s\n\n' "$NOTES"; else printf '_No release notes._\n\n'; fi
+            [ -f CHANGELOG.md ] && cat CHANGELOG.md
+          } > CHANGELOG.new
+          mv CHANGELOG.new CHANGELOG.md
+
+      - name: Land the bump on main and move the tag onto it
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+          VERSION: ${{ steps.v.outputs.version }}
+          ACTOR: ${{ github.event.release.author.login }}
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet; then
+            echo "Version files already say ${VERSION} and the changelog is written — nothing to land."
+          else
+            # Attribute the commit to the person who published the release.
+            EMAIL="$(gh api users/"$ACTOR" --jq '.email // empty')"
+            [ -n "$EMAIL" ] || EMAIL="$(gh api user --jq '.id')+${ACTOR}@users.noreply.github.com"
+            git config user.name "$ACTOR"
+            git config user.email "$EMAIL"
+
+            BRANCH="chore/release-${TAG}"
+            git switch -c "$BRANCH"
+            git add -A
+            git commit -m "chore(release): ${VERSION}" -m "Set every version file to ${VERSION} and record the release notes for ${TAG}."
+            git push -u origin "$BRANCH"
+
+            gh pr create --base main --head "$BRANCH" \
+              --title "chore(release): ${VERSION}" \
+              --body "Sets all version files to \`${VERSION}\` and prepends the ${TAG} release notes to the changelog. Opened automatically by the release of ${TAG}; the tag is moved onto this commit once it lands."
+
+            # --admin merges without waiting on the required checks. Permitted: the
+            # ruleset grants repository admins a pull-request bypass. Safe: the `test`
+            # stage below re-runs the entire suite on the merged commit before anything
+            # is built or deployed.
+            gh pr merge "$BRANCH" --squash --admin --delete-branch
+          fi
+
+          git fetch origin main
+          SHA="$(git rev-parse origin/main)"
+
+          # Re-point the tag (and the Release) at the commit that actually contains
+          # this version. Tags are not covered by the branch ruleset, so no protection
+          # is bypassed here.
+          git tag -f "$TAG" "$SHA"
+          git push --force origin "refs/tags/${TAG}"
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq .id)" \
+            -f target_commitish="$SHA" --silent
+
+          echo "$TAG now points at $SHA, which says $VERSION."
+
+      - name: Verify the tag and the files finally agree
+        run: |
+          set -euo pipefail
+          git fetch --force origin "refs/tags/${{ github.event.release.tag_name }}:refs/tags/${{ github.event.release.tag_name }}"
+          git checkout --force "${{ github.event.release.tag_name }}"
+          node scripts/check-version-sync.mjs
+
+  # ---------------------------------------------------------------------------
+  # Everything below builds from the MOVED tag, i.e. the commit that carries this
+  # version — never from whatever main happened to look like when you clicked Publish.
+  # ---------------------------------------------------------------------------
+
+  # Stage 1 — full lint/build/test on the exact commit being shipped.
   test:
     name: Test
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: sync-version
     uses: ./.github/workflows/ci.yml
+    with:
+      # The moved tag — NOT github.sha, which still points at the pre-bump commit.
+      ref: ${{ github.event.release.tag_name }}
     secrets: inherit
     permissions:
       contents: read
       # ci.yml declares a coverage-comment job that requests pull-requests: write.
-      # GitHub validates a reusable workflow's job permissions against the caller
-      # even when the job is skipped by its `if`, so the caller must grant it —
-      # it goes unused during a release.
+      # GitHub validates a reusable workflow's job permissions against the caller even
+      # when the job is skipped by its `if`, so the caller must grant it — unused here.
       pull-requests: write
 
   # Stage 2 — build the client + Docker image and push it to ACR as vX.Y.Z.
   package:
     name: Package
-    needs: [release-please, test]
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: [sync-version, test]
     uses: ./.github/workflows/package.yml
     with:
-      tag: ${{ needs.release-please.outputs.tag_name }}
+      tag: ${{ github.event.release.tag_name }}
+      ref: ${{ github.event.release.tag_name }}
     secrets: inherit
     permissions:
       contents: read
 
-  # Stage 3 — the go-live gate. The `production` environment's "Required
-  # reviewers" protection rule makes this job wait for a maintainer's approval.
-  # deploy.yml then rolls the image onto the Container App and shifts 100% of
-  # traffic to the new revision once it reports healthy.
+  # Stage 3 — the go-live gate. The `production` environment's "Required reviewers"
+  # rule makes this job wait for a maintainer's approval. deploy.yml then rolls the
+  # image onto the Container App and shifts 100% of traffic once it reports healthy.
   #
   # Releases are the ONLY thing that moves production traffic; pull requests get
-  # 0%-traffic preview revisions on the same app (see pr-preview.yml). To roll
-  # back, dispatch deploy.yml by hand with an older tag.
+  # 0%-traffic preview revisions on the same app (see pr-preview.yml). To roll back,
+  # dispatch deploy.yml by hand with an older tag.
   deploy-production:
     name: Deploy · production
-    needs: [release-please, package]
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: [sync-version, package]
     uses: ./.github/workflows/deploy.yml
     with:
-      tag: ${{ needs.release-please.outputs.tag_name }}
+      tag: ${{ github.event.release.tag_name }}
       environment: production
     secrets: inherit
     permissions:

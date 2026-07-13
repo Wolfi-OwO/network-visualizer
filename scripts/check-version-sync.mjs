@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 // Guards against the failure this repo actually hit: the git tag said v2.3.0
 // while application/package.json still said 1.0.0 and the client said 0.0.0,
-// because nothing ever wrote them.
+// because nothing ever wrote them. It was invisible from the outside, because the
+// build injects the displayed version from the *tag* — the worst kind of bug.
 //
-// release-please now bumps every one of these files in the same commit that
-// cuts the tag (see release-please-config.json -> "extra-files"), so they agree
-// by construction. This script is the seatbelt: it fails CI if a hand-edit, a
-// bad merge, or a mistyped extra-files path lets them drift apart again.
+// Publishing a release now writes every one of these files from the tag you
+// released (scripts/set-version.mjs, run by .github/workflows/release.yml), and the
+// tag is moved onto that commit — so they agree by construction. This script is the
+// seatbelt: it fails CI if a hand-edit or a bad merge lets them drift apart again.
 //
-// The manifest is the source of truth — it is what release-please reads to
-// decide the next version, and what the tag is derived from.
+// version.txt is the source of truth: it is the plain-text mirror of the released
+// version, and the release pipeline re-checks it against the tag itself.
 //
 //   node scripts/check-version-sync.mjs
 
@@ -21,11 +22,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => readFileSync(join(root, p), 'utf8')
 const json = (p) => JSON.parse(read(p))
 
-const SOURCE_OF_TRUTH = '.release-please-manifest.json'
-const expected = json(SOURCE_OF_TRUTH)['.']
+const SOURCE_OF_TRUTH = 'version.txt'
+const expected = read(SOURCE_OF_TRUTH).trim()
 
 if (!expected) {
-  console.error(`error: ${SOURCE_OF_TRUTH} has no "." entry — cannot determine the expected version.`)
+  console.error(`error: ${SOURCE_OF_TRUTH} is empty — cannot determine the expected version.`)
   process.exit(1)
 }
 if (!/^\d+\.\d+\.\d+/.test(expected)) {
@@ -33,9 +34,8 @@ if (!/^\d+\.\d+\.\d+/.test(expected)) {
   process.exit(1)
 }
 
-// Every place the version is recorded, and how to pull it back out.
+// Every other place the version is recorded, and how to pull it back out.
 const targets = [
-  ['version.txt', () => read('version.txt').trim()],
   ['application/package.json', () => json('application/package.json').version],
   ['application/package-lock.json', () => json('application/package-lock.json').version],
   ['application/package-lock.json (packages."")', () => json('application/package-lock.json').packages['']?.version],
@@ -62,11 +62,11 @@ if (drifted.length > 0) {
     console.error(`  ${label}\n    expected ${expected}, found ${actual}`)
   }
   console.error(
-    '\nDo not fix this by hand-editing one file. Versions are written by release-please;' +
-      '\nif they have drifted, set them all to the manifest version in a single commit' +
+    '\nDo not fix this by hand-editing one file. Set them all at once:' +
+      `\n\n  node scripts/set-version.mjs ${expected}\n` +
       '\n(see docs/releasing.md).',
   )
   process.exit(1)
 }
 
-console.log(`All ${targets.length} version files agree with ${SOURCE_OF_TRUTH}: ${expected}`)
+console.log(`All ${targets.length + 1} version files agree with ${SOURCE_OF_TRUTH}: ${expected}`)
