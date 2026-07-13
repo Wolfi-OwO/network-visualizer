@@ -225,9 +225,11 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
         run: |
           miss=0
-          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP CONTAINERAPP_NAME; do
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP CONTAINERAPP_NAME ACR_NAME IMAGE_NAME; do
             [ -z "${!v}" ] && { echo "::error::missing: $v"; miss=1; }
           done
           [ "$miss" = 0 ] || { echo "Missing Azure config for teardown."; exit 1; }
@@ -256,6 +258,47 @@ jobs:
           for r in $REVS; do
             echo "Deactivating $r"
             az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$r" -o none || true
+          done
+
+      - name: Delete this PR's preview images from ACR
+        env:
+          ACR: ${{ vars.ACR_NAME }}
+          IMAGE: ${{ vars.IMAGE_NAME }}
+          PR: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+
+          # Deactivating a revision only stops it running; the image it was built
+          # from stays in ACR. The preview build tags one image per *commit*
+          # (pr-<n>-<sha7>), so without this every commit ever pushed to any PR
+          # would accrue a billable layer set forever.
+          TAGS=$(az acr repository show-tags -n "$ACR" --repository "$IMAGE" \
+            --query "[?starts_with(@, 'pr-${PR}-')]" -o tsv 2>/dev/null || true)
+
+          if [ -z "$TAGS" ]; then
+            echo "No images tagged pr-${PR}-* in $IMAGE — nothing to delete."
+            exit 0
+          fi
+
+          for t in $TAGS; do
+            # `az acr repository delete` removes the whole *manifest*, and with it
+            # every tag pointing at that manifest. Two builds of identical content
+            # produce identical digests, so a preview tag can in principle share a
+            # manifest with a release tag — deleting by tag alone could then take a
+            # released image with it. Only delete the manifest when this PR's tags
+            # are the only ones on it; otherwise just drop our tag and leave the
+            # manifest for whoever else is using it.
+            DIGEST=$(az acr repository show -n "$ACR" --image "${IMAGE}:${t}" --query digest -o tsv)
+            OTHERS=$(az acr repository show-tags -n "$ACR" --repository "$IMAGE" --detail \
+              --query "[?digest=='${DIGEST}' && !starts_with(name, 'pr-${PR}-')].name" -o tsv)
+
+            if [ -n "$OTHERS" ]; then
+              echo "Manifest of ${t} is shared with: ${OTHERS//$'\n'/ } — untagging ${t} only."
+              az acr repository untag -n "$ACR" --image "${IMAGE}:${t}" -o none
+            else
+              echo "Deleting ${IMAGE}:${t}"
+              az acr repository delete -n "$ACR" --image "${IMAGE}:${t}" --yes -o none
+            fi
           done
 
       - name: Comment the teardown on the PR
