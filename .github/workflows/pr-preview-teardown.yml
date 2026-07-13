@@ -1,0 +1,154 @@
+name: PR · preview teardown
+
+# Deactivates a PR's preview revisions and deletes its images once the PR closes.
+#
+# WHY THIS IS A SEPARATE WORKFLOW, AND WHY pull_request_target
+# This job used to live in pr-preview.yml under `pull_request: types: [closed]`.
+# It silently never ran for the PRs that needed it most.
+#
+# For a `pull_request` event, GitHub runs the workflow from `refs/pull/<n>/merge`
+# — the PR's head test-merged into the base. When a PR has a merge CONFLICT that
+# ref cannot be built, so GitHub schedules no run at all. Not a failed run: no run.
+# Close a conflicting PR and the teardown simply never happens, which is exactly
+# how PR #10 and #13 left preview revisions running on the production app.
+#
+# `pull_request_target` runs from the BASE branch instead and never needs the merge
+# ref, so it fires on close whether the PR was merged, abandoned, or conflicted.
+#
+# That trigger is normally dangerous, because it hands secrets to a workflow running
+# on a PR-influenced event. It is safe here for one reason, which must stay true:
+# THIS WORKFLOW NEVER CHECKS OUT OR EXECUTES PR CODE. It only reads the PR number
+# from the event payload and issues `az` calls. Do not add actions/checkout of the
+# PR head here, and do not run anything from the PR's tree.
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  contents: read
+  id-token: write # OIDC login to Azure
+  pull-requests: write # sticky preview comment
+
+concurrency:
+  group: pr-preview-teardown-${{ github.event.number }}
+  cancel-in-progress: false
+
+jobs:
+  teardown:
+    name: Tear down preview
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.PREVIEW_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Check Azure config
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+        run: |
+          miss=0
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP CONTAINERAPP_NAME ACR_NAME IMAGE_NAME; do
+            [ -z "${!v}" ] && { echo "::error::missing: $v"; miss=1; }
+          done
+          [ "$miss" = 0 ] || { echo "Missing Azure config for teardown."; exit 1; }
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deactivate this PR's preview revisions
+        env:
+          RG: ${{ vars.RESOURCE_GROUP }}
+          APP: ${{ vars.CONTAINERAPP_NAME }}
+          PR: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          # The name filter (<app>--pr-<n>-*) can only ever match this PR's preview
+          # revisions, never the production one.
+          REVS=$(az containerapp revision list -g "$RG" -n "$APP" \
+            --query "[?properties.active && starts_with(name, '${APP}--pr-${PR}-')].name" -o tsv)
+          if [ -z "$REVS" ]; then
+            echo "No active preview revisions for PR #$PR."
+          fi
+          for r in $REVS; do
+            echo "Deactivating $r"
+            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$r" -o none || true
+          done
+
+      - name: Delete this PR's preview images from ACR
+        env:
+          ACR: ${{ vars.ACR_NAME }}
+          IMAGE: ${{ vars.IMAGE_NAME }}
+          PR: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+
+          # Deleting an image is a data-plane call, and the AAD token from azure/login
+          # only carries the scopes the service principal's ACR roles grant it. AcrPush
+          # and AcrPull are not enough: the registry answers "authentication required"
+          # to a delete, which reads like a login failure but is really a missing role.
+          # The identity needs AcrDelete on the registry for the step below to work.
+          TAGS=$(az acr repository show-tags -n "$ACR" --repository "$IMAGE" \
+            --query "[?starts_with(@, 'pr-${PR}-')]" -o tsv 2>/dev/null || true)
+
+          if [ -z "$TAGS" ]; then
+            echo "No images tagged pr-${PR}-* in $IMAGE — nothing to delete."
+            exit 0
+          fi
+
+          for t in $TAGS; do
+            # `az acr repository delete` removes the whole *manifest*, and with it
+            # every tag pointing at that manifest. Two builds of identical content
+            # produce identical digests, so a preview tag can in principle share a
+            # manifest with a release tag — deleting by tag alone could then take a
+            # released image with it. Only delete the manifest when this PR's tags
+            # are the only ones on it; otherwise just drop our tag and leave the
+            # manifest for whoever else is using it.
+            DIGEST=$(az acr repository show -n "$ACR" --image "${IMAGE}:${t}" --query digest -o tsv)
+            OTHERS=$(az acr repository show-tags -n "$ACR" --repository "$IMAGE" --detail \
+              --query "[?digest=='${DIGEST}' && !starts_with(name, 'pr-${PR}-')].name" -o tsv)
+
+            if [ -n "$OTHERS" ]; then
+              echo "Manifest of ${t} is shared with: ${OTHERS//$'\n'/ } — untagging ${t} only."
+              az acr repository untag -n "$ACR" --image "${IMAGE}:${t}" -o none
+            else
+              echo "Deleting ${IMAGE}:${t}"
+              az acr repository delete -n "$ACR" --image "${IMAGE}:${t}" --yes -o none
+            fi
+          done
+
+      - name: Comment the teardown on the PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const merged = context.payload.pull_request.merged;
+            const marker = '<!-- pr-preview -->';
+            const body = [
+              marker,
+              '## Preview torn down',
+              '',
+              merged
+                ? 'This PR was merged — its preview revision has been deactivated.'
+                : 'This PR was closed — its preview revision has been deactivated.',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

@@ -174,3 +174,42 @@ Previews are opt-in (repo variable `PREVIEW_ENABLED=true`) and are **skipped for
 fork PRs**, whose read-only token cannot reach the container registry. They also
 need `ACR_NAME` / `IMAGE_NAME` (variables) and `ACR_USERNAME` / `ACR_PASSWORD`
 (secrets) to be set — `package.yml` fails fast and names whichever is missing.
+
+### Teardown fails with `authentication required` when deleting an image
+
+```
+ERROR: Error: authentication required, visit https://aka.ms/acr/authorization
+```
+
+This looks like a broken login, and it isn't — `azure/login` worked, which is why
+the *read* calls (`show-tags`, `show`) in the same step succeeded. Deleting is a
+**data-plane** call, and the token from `azure/login` only carries the scopes the
+service principal's ACR roles grant it. `AcrPush` and `AcrPull` do not include
+deletion, so the registry rejects the delete and phrases it as an auth failure.
+
+Grant the identity `AcrDelete` on the registry (scoped to the registry, not the
+subscription):
+
+```bash
+az role assignment create \
+  --assignee <AZURE_CLIENT_ID> \
+  --role AcrDelete \
+  --scope $(az acr show -n <ACR_NAME> --query id -o tsv)
+```
+
+### A closed PR left its preview revision running
+
+Almost always because the PR had a **merge conflict**. For a `pull_request` event,
+GitHub runs the workflow from `refs/pull/<n>/merge` — the head test-merged into the
+base. A conflicting PR has no such ref, so GitHub schedules **no run at all**, not a
+failing one. Closing that PR therefore fired no teardown, and its zero-traffic
+revision stayed active on the app.
+
+This is why the teardown lives in its own workflow on `pull_request_target`
+(`pr-preview-teardown.yml`), which runs from the base branch and needs no merge ref.
+If you find a stale preview revision from before that change, deactivate it by hand
+— the name filter makes it impossible to hit production:
+
+```bash
+az containerapp revision deactivate -g <RG> -n <APP> --revision <app>--pr-<n>-<sha>
+```
