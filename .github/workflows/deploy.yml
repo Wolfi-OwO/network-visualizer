@@ -110,12 +110,21 @@ jobs:
           # MONGODB_CONNECTION_STRING is pinned explicitly: the app was renamed off
           # the old MONGO_URI variable, so relying on the inherited template alone
           # would leave a new revision on the localhost fallback.
+          #
+          # --min-replicas 0 buys idle cost at the price of a cold start: when nothing
+          # has hit the app for a while it holds no replica at all, and the next visitor
+          # waits for a container to come up. That is a deliberate trade for this app.
+          # It also fixes what made it worth changing: scale is baked into a revision's
+          # template and cannot be altered afterwards, so a revision created with
+          # --min-replicas 1 keeps a replica alive FOREVER, including after it is
+          # superseded and retained purely as a rollback target at zero traffic. With 0,
+          # the retired revision costs nothing while staying one command from a rollback.
           az containerapp revision copy -g "$RG" -n "$APP" \
             --from-revision "$FROM" \
             --image "${ACR}.azurecr.io/${IMAGE}:${TAG}" \
             --revision-suffix "$SUFFIX" \
             --set-env-vars MONGODB_CONNECTION_STRING=secretref:mongo-uri \
-            --min-replicas 1 --max-replicas 3 -o none
+            --min-replicas 0 --max-replicas 3 -o none
 
           echo "from=$FROM" >> "$GITHUB_OUTPUT"
           echo "rev=$REV"   >> "$GITHUB_OUTPUT"
@@ -128,22 +137,45 @@ jobs:
           REV: ${{ steps.rev.outputs.rev }}
         run: |
           set -euo pipefail
+
+          # Since the revision is created with --min-replicas 0, an idle one holds no
+          # replica and reports runningState=ScaledToZero. Waiting for "Running" would
+          # therefore hang until it timed out and then fail a revision that is perfectly
+          # fine. Accepting ScaledToZero as healthy would be worse: nothing would have
+          # proven the container can boot at all, which is the one thing this gate is
+          # here to prove before we hand it production traffic.
+          #
+          # So ask the revision to prove it, over its own FQDN. The request wakes it from
+          # zero and only succeeds if the container starts AND serves HTTP — a stronger
+          # guarantee than runningState ever gave us. The revision FQDN is addressable at
+          # 0% traffic, so none of this is visible to users on the production URL.
+          FQDN=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" \
+            --query properties.fqdn -o tsv)
+          echo "Probing https://$FQDN (this wakes the revision from zero)"
+
           for i in $(seq 1 40); do
             RUNNING=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" \
               --query properties.runningState -o tsv 2>/dev/null || echo "Unknown")
-            HEALTH=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" \
-              --query properties.healthState -o tsv 2>/dev/null || echo "Unknown")
-            echo "[$i/40] runningState=$RUNNING healthState=$HEALTH"
+
+            # A revision that cannot start says so — no point probing it 40 times.
             case "$RUNNING" in
-              Running|RunningAtMaxScale) exit 0 ;;
               Failed|Degraded)
                 echo "::error::Revision $REV failed to start — traffic NOT shifted; production is untouched."
                 az containerapp logs show -g "$RG" -n "$APP" --revision "$REV" --tail 50 --type console || true
                 exit 1 ;;
             esac
+
+            CODE=$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 20 "https://$FQDN/" 2>/dev/null || echo "000")
+            echo "[$i/40] runningState=$RUNNING probe=$CODE"
+            if [ "$CODE" -ge 200 ] && [ "$CODE" -lt 400 ]; then
+              echo "Revision $REV served HTTP $CODE — healthy."
+              exit 0
+            fi
             sleep 10
           done
-          echo "::error::Revision $REV never became healthy — traffic NOT shifted; production is untouched."
+
+          echo "::error::Revision $REV never served a successful response — traffic NOT shifted; production is untouched."
+          az containerapp logs show -g "$RG" -n "$APP" --revision "$REV" --tail 50 --type console || true
           exit 1
 
       - name: Shift 100% of traffic to the new revision
