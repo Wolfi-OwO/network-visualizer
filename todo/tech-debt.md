@@ -54,8 +54,8 @@ An item leaves this list when it's fixed, or when it's promoted to an
 - [ ] **No automated dependency updates.** No Dependabot or Renovate config, so
       security patches land only when someone notices. `.github/dependabot.yml` with
       npm ecosystems for `application/` and `application/client/` (plus
-      `github-actions`) is close to free — and it will interact correctly with
-      release-please, since `chore(deps):` commits don't force a release on their own.
+      `github-actions`) is close to free. Group the minor/patch bumps into a single
+      PR and ignore majors, or it turns into a wall of PRs nobody reads.
       *Effort:* S
 
 - [ ] **`tsx` is a runtime dependency of the backend.** It sits in `dependencies`

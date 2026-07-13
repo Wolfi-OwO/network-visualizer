@@ -83,15 +83,15 @@ approval and never touch production.
 
 ## Releases -> production (release.yml)
 
-A release is the **only** thing that moves production traffic — and releases are
-**fully automatic**. Nobody creates a tag or publishes a Release by hand.
+A release is the **only** thing that moves production traffic — and a release only
+happens when **you publish a GitHub Release**. Merging a PR into `main` ships
+nothing, and pushing a bare tag does nothing.
 
-[`release.yml`](../../.github/workflows/release.yml) runs on every push to `main`.
-[release-please](https://github.com/googleapis/release-please) reads the
-Conventional Commit messages since the last tag, works out the next semver, and
-keeps a `chore(main): release X.Y.Z` PR open. **Merging that PR is the release**:
-it bumps every version file, writes `CHANGELOG.md`, tags `vX.Y.Z` and publishes the
-GitHub Release — and then, in the same workflow run, ships it with three jobs:
+[`release.yml`](../../.github/workflows/release.yml) runs on `release: published`.
+It first sets every version file to the tag you published, lands that on `main` as
+a commit **authored by you** (not a bot), and **re-points the tag at that commit** —
+because the commit you tagged still carried the *previous* version. Everything
+below then builds from the moved tag:
 
 1. **test** — reuses [`ci.yml`](../../.github/workflows/ci.yml) so nothing ships
    that hasn't passed lint/build/tests.
@@ -105,10 +105,10 @@ GitHub Release — and then, in the same workflow run, ships it with three jobs:
    environment a **Required reviewers** rule so this job pauses for a maintainer's
    approval — the manual go-live gate.
 
-> The version number itself is derived from the commit messages, and the release
-> commit rewrites every file that records it — see
-> [docs/releasing.md](../../docs/releasing.md) for the full process, including how
-> to force a major bump and how to release without a code change.
+> You choose the version number when you draft the Release; the pipeline writes it
+> into every file that records it and moves the tag onto that commit — see
+> [docs/releasing.md](../../docs/releasing.md) for the full process, including what
+> happens when a release half-fails.
 
 `deploy.yml` also runs standalone (`workflow_dispatch` with a `tag`), so it
 doubles as the rollback tool: dispatch it with any older tag to cut production
