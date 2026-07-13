@@ -191,9 +191,9 @@ the [root README](ReadMe.md#run-in-development).
   read** — make it a valid Conventional Commit. Branch names follow the same
   `type/short-description` shape, e.g. `feat/packet-filters`. See
   [docs/releasing.md](docs/releasing.md).
-- **Never hand-edit a version number.** `package.json`, `package-lock.json`,
-  `version.txt` and `.release-please-manifest.json` are all written by the release
-  automation in a single commit. CI fails the build if they disagree
+- **Never hand-edit a version number.** `package.json`, `package-lock.json` and
+  `version.txt` are all written from the tag when a release is published
+  (`scripts/set-version.mjs`). CI fails the build if they disagree
   (`node scripts/check-version-sync.mjs`).
 
 ## Quality gates

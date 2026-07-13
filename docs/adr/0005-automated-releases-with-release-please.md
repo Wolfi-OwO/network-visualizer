@@ -1,7 +1,14 @@
 # 0005. Versions and releases are derived from commits by release-please
 
-- **Status:** Accepted
+- **Status:** Superseded by [0006](0006-releases-are-cut-by-publishing-a-github-release.md)
 - **Date:** 2026-07-11
+
+> **Superseded 2026-07-13.** release-please fixed the version-drift bug this ADR was
+> written for, and that fix survives. What did not survive is the *release model*: a
+> permanently-open bot PR whose version came from commit prefixes. Releases are now cut
+> by publishing a GitHub Release, and the version is taken from the tag you publish.
+> See [ADR 0006](0006-releases-are-cut-by-publishing-a-github-release.md) for why.
+> This document is kept as the record of the reasoning at the time.
 
 ## Context
 
