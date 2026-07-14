@@ -5,12 +5,7 @@ function ipToInt(ip: string): number {
 }
 
 function intToIp(n: number): string {
-  return [
-    (n >>> 24) & 0xff,
-    (n >>> 16) & 0xff,
-    (n >>> 8) & 0xff,
-    n & 0xff,
-  ].join('.');
+  return [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff].join('.');
 }
 
 function toBinary(n: number, bits = 32): string {
@@ -41,7 +36,7 @@ function isPrivateIp(ip: string): boolean {
     { start: ipToInt('172.16.0.0'), end: ipToInt('172.31.255.255') },
     { start: ipToInt('192.168.0.0'), end: ipToInt('192.168.255.255') },
   ];
-  return ranges.some(r => n >= r.start && n <= r.end);
+  return ranges.some((r) => n >= r.start && n <= r.end);
 }
 
 // Strict dotted-quad validation (each octet 0–255, no leading-zero tricks)
@@ -59,7 +54,7 @@ function assertValidMask(mask: string): void {
   assertValidIp(mask);
   // A subnet mask must be contiguous 1s followed by contiguous 0s
   const n = ipToInt(mask);
-  const inv = (~n) >>> 0;
+  const inv = ~n >>> 0;
   if (((inv + 1) & inv) !== 0 && n !== 0) throw new Error(`Invalid subnet mask: ${mask}`);
 }
 
@@ -101,7 +96,7 @@ export function parseCIDR(input: string): CIDRResult {
   const broadcastInt = (networkInt | (~maskInt >>> 0)) >>> 0;
   const firstHostInt = prefix < 31 ? networkInt + 1 : networkInt;
   const lastHostInt = prefix < 31 ? broadcastInt - 1 : broadcastInt;
-  const wildcardInt = (~maskInt) >>> 0;
+  const wildcardInt = ~maskInt >>> 0;
 
   const totalHosts = Math.pow(2, 32 - prefix);
   const usableHosts = prefix <= 30 ? totalHosts - 2 : totalHosts;
@@ -129,7 +124,11 @@ export function parseCIDR(input: string): CIDRResult {
   };
 }
 
-export function generateSubnets(network: string, count?: number, prefixLength?: number): CIDRResult[] {
+export function generateSubnets(
+  network: string,
+  count?: number,
+  prefixLength?: number,
+): CIDRResult[] {
   const base = parseCIDR(network);
   const networkInt = ipToInt(base.networkAddress);
   const currentPrefix = base.cidrPrefix;
@@ -165,15 +164,15 @@ export function generateSubnets(network: string, count?: number, prefixLength?: 
 export function findSupernet(networks: string[]): CIDRResult {
   if (networks.length === 0) throw new Error('No networks provided');
 
-  const parsed = networks.map(n => parseCIDR(n));
-  const networkInts = parsed.map(p => ipToInt(p.networkAddress));
+  const parsed = networks.map((n) => parseCIDR(n));
+  const networkInts = parsed.map((p) => ipToInt(p.networkAddress));
 
   // Number of identical leading bits across all network addresses
   let commonBits = 32;
   for (let bit = 31; bit >= 0; bit--) {
     const mask = 1 << bit;
     const firstBit = networkInts[0] & mask;
-    const allSame = networkInts.every(n => (n & mask) === firstBit);
+    const allSame = networkInts.every((n) => (n & mask) === firstBit);
     if (!allSame) {
       commonBits = 31 - bit;
       break;
@@ -182,7 +181,7 @@ export function findSupernet(networks: string[]): CIDRResult {
 
   // The aggregate can never be more specific than the least-specific input,
   // otherwise it would not fully contain that input (correct route summarization).
-  const minInputPrefix = Math.min(...parsed.map(p => p.cidrPrefix));
+  const minInputPrefix = Math.min(...parsed.map((p) => p.cidrPrefix));
   const superPrefix = Math.min(commonBits, minInputPrefix);
   const superMask = superPrefix === 0 ? 0 : (0xffffffff << (32 - superPrefix)) >>> 0;
   const superNetwork = (networkInts[0] & superMask) >>> 0;
@@ -193,7 +192,7 @@ export function findSupernet(networks: string[]): CIDRResult {
 export function validateIpAddress(ip: string): boolean {
   const parts = ip.split('.');
   if (parts.length !== 4) return false;
-  return parts.every(p => {
+  return parts.every((p) => {
     const n = parseInt(p, 10);
     return !isNaN(n) && n >= 0 && n <= 255 && p === String(n);
   });

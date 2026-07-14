@@ -49,7 +49,7 @@ export const initialBuilderState: BuilderState = {
   traceStep: -1,
   isAnimating: false,
   isPaused: false,
-  animSpeed: 2000,   // Normal (matches the 'Normal' preset in packet-sender)
+  animSpeed: 2000, // Normal (matches the 'Normal' preset in packet-sender)
   liveMode: true,
   histTick: 0,
 }
@@ -57,7 +57,9 @@ export const initialBuilderState: BuilderState = {
 type Updater<T> = T | ((prev: T) => T)
 
 export type BuilderAction =
-  | { [K in keyof BuilderState]: { type: 'set'; key: K; value: Updater<BuilderState[K]> } }[keyof BuilderState]
+  | {
+      [K in keyof BuilderState]: { type: 'set'; key: K; value: Updater<BuilderState[K]> }
+    }[keyof BuilderState]
   | { type: 'patch'; values: Partial<BuilderState> }
   | { type: 'reset' }
 
@@ -69,8 +71,11 @@ export function builderReducer(state: BuilderState, action: BuilderAction): Buil
       const next = typeof value === 'function' ? (value as (p: unknown) => unknown)(prev) : value
       return { ...state, [action.key]: next }
     }
-    case 'patch': return { ...state, ...action.values }
-    case 'reset': return initialBuilderState
-    default: return state
+    case 'patch':
+      return { ...state, ...action.values }
+    case 'reset':
+      return initialBuilderState
+    default:
+      return state
   }
 }

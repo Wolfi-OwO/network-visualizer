@@ -1,6 +1,6 @@
 // Centralised application configuration (12-factor: read from the environment).
 // Every tunable value lives here so the rest of the code never touches process.env.
-import { logger } from '../lib/logger.js'
+import { logger } from '../lib/logger.js';
 
 export const config = {
   /** Interface/hostname the server binds to */
@@ -52,45 +52,47 @@ export const config = {
       tenant: process.env.MICROSOFT_TENANT ?? 'common',
     },
   },
-} as const
+} as const;
 
-export const isProduction = config.nodeEnv === 'production'
+export const isProduction = config.nodeEnv === 'production';
 
-const INSECURE_SECRET = 'dev-insecure-secret-change-me'
+const INSECURE_SECRET = 'dev-insecure-secret-change-me';
 
 /**
  * Fail fast on insecure / missing configuration in production. Called from the
  * server entrypoint (not app.ts) so tests can import the app without tripping it.
  */
 export function validateConfig(): void {
-  if (!isProduction) return
+  if (!isProduction) return;
   // Fatal: a default / weak signing secret is never acceptable in production.
-  const errors: string[] = []
+  const errors: string[] = [];
   if (!process.env.JWT_SECRET || config.jwtSecret === INSECURE_SECRET) {
-    errors.push('JWT_SECRET must be set to a strong random value in production')
+    errors.push('JWT_SECRET must be set to a strong random value in production');
   } else if (config.jwtSecret.length < 32) {
-    errors.push('JWT_SECRET should be at least 32 characters')
+    errors.push('JWT_SECRET should be at least 32 characters');
   }
   if (errors.length > 0) {
-    throw new Error(`Insecure configuration:\n  - ${errors.join('\n  - ')}`)
+    throw new Error(`Insecure configuration:\n  - ${errors.join('\n  - ')}`);
   }
   // Warnings: allowed, but flagged so they aren't left on by accident.
   if (config.allowDevLogin) {
-    logger.warn('ALLOW_DEV_LOGIN is enabled in production — disable it unless you need the password-less local login')
+    logger.warn(
+      'ALLOW_DEV_LOGIN is enabled in production — disable it unless you need the password-less local login',
+    );
   }
 }
 
 /** Which OAuth providers are configured (have client id + secret). */
 export function enabledProviders(): string[] {
-  const out: string[] = []
-  if (config.oauth.google.clientId && config.oauth.google.clientSecret) out.push('google')
-  if (config.oauth.microsoft.clientId && config.oauth.microsoft.clientSecret) out.push('microsoft')
-  return out
+  const out: string[] = [];
+  if (config.oauth.google.clientId && config.oauth.google.clientSecret) out.push('google');
+  if (config.oauth.microsoft.clientId && config.oauth.microsoft.clientSecret) out.push('microsoft');
+  return out;
 }
 
 /** Whether a given request Origin is allowed by CORS. */
 export function isOriginAllowed(origin: string): boolean {
   return config.corsAllowList.length > 0
     ? config.corsAllowList.includes(origin)
-    : config.corsOriginPattern.test(origin)
+    : config.corsOriginPattern.test(origin);
 }

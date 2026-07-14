@@ -36,8 +36,22 @@ export interface ControlPlaneReport {
   macTable?: { vlan: number; mac: string; port: string; type: string }[]
   dhcpLeases?: { ip: string; mac: string; hostname: string; state: string; lease: string }[]
   ospfNeighbors?: { neighborId: string; state: string; address: string; iface: string }[]
-  stp?: { bridgeId: string; rootBridgeId: string; isRoot: boolean; ports: { port: string; neighbor: string; role: string; state: string }[] }
-  acl?: { seq: number; action: string; protocol: string; src: string; dst: string; direction: string; hits: number; enabled: boolean }[]
+  stp?: {
+    bridgeId: string
+    rootBridgeId: string
+    isRoot: boolean
+    ports: { port: string; neighbor: string; role: string; state: string }[]
+  }
+  acl?: {
+    seq: number
+    action: string
+    protocol: string
+    src: string
+    dst: string
+    direction: string
+    hits: number
+    enabled: boolean
+  }[]
   nat?: { protocol: string; insideLocal: string; insideGlobal: string; outsideGlobal: string }[]
 }
 
@@ -72,8 +86,10 @@ export const network = {
     api.get<string>(`/networks/${id}/nodes/${nodeId}/config`, { responseType: 'text' }),
   topologyConfig: (id: string) =>
     api.get<string>(`/networks/${id}/config`, { responseType: 'text' }),
-  versions: (id: string) => api.get<{ count: number; items: VersionSummary[] }>(`/networks/${id}/versions`),
-  createVersion: (id: string, label?: string) => api.post<VersionSummary>(`/networks/${id}/versions`, { label }),
+  versions: (id: string) =>
+    api.get<{ count: number; items: VersionSummary[] }>(`/networks/${id}/versions`),
+  createVersion: (id: string, label?: string) =>
+    api.post<VersionSummary>(`/networks/${id}/versions`, { label }),
   restoreVersion: (id: string, versionId: string) =>
     api.post<NetworkTopology>(`/networks/${id}/versions/${versionId}/restore`),
 }

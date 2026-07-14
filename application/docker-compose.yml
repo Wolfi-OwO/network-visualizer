@@ -2,7 +2,7 @@ services:
   mongo:
     image: mongo
     ports:
-      - "27017:27017"
+      - '27017:27017'
     attach: false
     # No host port — Mongo is only reachable by the backend on the internal network.
     restart: unless-stopped
@@ -11,7 +11,7 @@ services:
     build: ./
     environment:
       NODE_ENV: production
-      PORT: "8080"
+      PORT: '8080'
       # Authenticated connection string (overrides any MONGODB_CONNECTION_STRING in the env_file).
     env_file:
       - path: ./.env
@@ -20,7 +20,7 @@ services:
     depends_on:
       - mongo
     ports:
-      - "8080:8080"
+      - '8080:8080'
     # Use public resolvers for outbound lookups (Docker's embedded DNS still
     # resolves the `mongo` service name). Fixes "fetch failed" reaching OAuth
     # endpoints like login.microsoftonline.com when the default resolver is flaky.

@@ -9,7 +9,10 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue>({
-  user: null, loading: true, refresh: async () => {}, signOut: async () => {},
+  user: null,
+  loading: true,
+  refresh: async () => {},
+  signOut: async () => {},
 })
 
 // Tracks the signed-in user (via the session cookie). Anonymous users get a
@@ -28,8 +31,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }
   }, [])
-  
-  useEffect(() => { refresh() }, [refresh])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
 
   const signOut = useCallback(async () => {
     await auth.logout().catch(() => {})

@@ -1,5 +1,14 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Activity, Network, Calculator, LayoutDashboard, Radio, LogIn, LogOut, User } from 'lucide-react'
+import {
+  Activity,
+  Network,
+  Calculator,
+  LayoutDashboard,
+  Radio,
+  LogIn,
+  LogOut,
+  User,
+} from 'lucide-react'
 import { useAuth } from '../context/auth-context.tsx'
 
 const navItems = [
@@ -40,7 +49,9 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
       {/* Nav */}
       <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
         <div className="px-2 py-1.5 mb-1">
-          <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Tools</span>
+          <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+            Tools
+          </span>
         </div>
         {navItems.map(({ to, label, icon: Icon, end }) => (
           <NavLink
@@ -48,13 +59,15 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
             to={to}
             end={end}
             onClick={onClose}
-            className={({ isActive }) => [
-              'group relative flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-xs font-medium text-left',
-              'transition-colors duration-150',
-              isActive
-                ? 'bg-[var(--bg-800)] text-[var(--text-primary)] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-[var(--accent)]'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-800)]/60 hover:text-[var(--text-primary)]',
-            ].join(' ')}
+            className={({ isActive }) =>
+              [
+                'group relative flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-xs font-medium text-left',
+                'transition-colors duration-150',
+                isActive
+                  ? 'bg-[var(--bg-800)] text-[var(--text-primary)] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-[var(--accent)]'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-800)]/60 hover:text-[var(--text-primary)]',
+              ].join(' ')
+            }
           >
             {({ isActive }) => (
               <>
@@ -74,16 +87,25 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
               <User size={12} className="text-[var(--accent)]" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-medium text-[var(--text-primary)] truncate">{user.name}</div>
+              <div className="text-[10px] font-medium text-[var(--text-primary)] truncate">
+                {user.name}
+              </div>
               <div className="text-[10px] text-[var(--text-muted)] truncate">{user.role}</div>
             </div>
-            <button onClick={() => signOut()} title="Sign out" className="text-[var(--text-muted)] hover:text-[var(--text-primary)] shrink-0">
+            <button
+              onClick={() => signOut()}
+              title="Sign out"
+              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] shrink-0"
+            >
               <LogOut size={13} />
             </button>
           </div>
         ) : (
           <button
-            onClick={() => { navigate('/login'); onClose?.() }}
+            onClick={() => {
+              navigate('/login')
+              onClose?.()
+            }}
             className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md bg-[var(--bg-800)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-700)] transition-colors"
           >
             <LogIn size={13} className="text-[var(--accent)]" />

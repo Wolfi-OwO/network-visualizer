@@ -14,7 +14,13 @@ const COLORS = {
   info: 'text-[var(--accent)]',
 }
 
-export default function Toast({ toast, onClose }: { toast: ToastData; onClose: (id: string) => void }) {
+export default function Toast({
+  toast,
+  onClose,
+}: {
+  toast: ToastData
+  onClose: (id: string) => void
+}) {
   const Icon = ICONS[toast.type]
   return (
     <div className="animate-rise flex items-center gap-2 px-3 py-2 rounded-xl backdrop-blur-xl bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset,0_16px_40px_-16px_rgba(0,0,0,0.8)] text-xs text-[var(--text-primary)]">

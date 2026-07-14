@@ -1,24 +1,65 @@
 import {
-  X, CheckCircle, XCircle, AlertTriangle, ArrowRight, Clock,
-  Play, MoveRight, Route, ShieldCheck, ShieldX, ShieldOff, TimerOff, RouteOff, Ban, HelpCircle,
+  X,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  ArrowRight,
+  Clock,
+  Play,
+  MoveRight,
+  Route,
+  ShieldCheck,
+  ShieldX,
+  ShieldOff,
+  TimerOff,
+  RouteOff,
+  Ban,
+  HelpCircle,
   type LucideIcon,
 } from 'lucide-react'
 import type { TraceResult, TraceHop } from '../../lib/api/index.ts'
 import { meta } from './device-catalog.tsx'
 
-const ACTION_CONFIG: Record<string, { label: string; color: string; bg: string; Icon: LucideIcon }> = {
-  start:           { label: 'Start',           color: '#58a6ff', bg: 'rgba(88,166,255,0.12)',  Icon: Play },
-  switch_forward:  { label: 'L2 Forward',      color: '#3fb950', bg: 'rgba(63,185,80,0.10)',   Icon: MoveRight },
-  route:           { label: 'L3 Route',        color: '#58a6ff', bg: 'rgba(88,166,255,0.10)',  Icon: Route },
-  firewall_allow:  { label: 'FW Allow',        color: '#3fb950', bg: 'rgba(63,185,80,0.12)',   Icon: ShieldCheck },
-  firewall_deny:   { label: 'FW Deny',         color: '#f85149', bg: 'rgba(248,81,73,0.12)',   Icon: ShieldX },
-  firewall_drop:   { label: 'FW Drop',         color: '#d29922', bg: 'rgba(210,153,34,0.12)',  Icon: ShieldOff },
-  delivered:       { label: 'Delivered',       color: '#3fb950', bg: 'rgba(63,185,80,0.15)',   Icon: CheckCircle },
-  ttl_exceeded:    { label: 'TTL Exceeded',    color: '#f85149', bg: 'rgba(248,81,73,0.12)',   Icon: TimerOff },
-  no_route:        { label: 'No Route',        color: '#f85149', bg: 'rgba(248,81,73,0.12)',   Icon: RouteOff },
-  port_closed:     { label: 'Port Closed',     color: '#f85149', bg: 'rgba(248,81,73,0.12)',   Icon: Ban },
+const ACTION_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string; Icon: LucideIcon }
+> = {
+  start: { label: 'Start', color: '#58a6ff', bg: 'rgba(88,166,255,0.12)', Icon: Play },
+  switch_forward: {
+    label: 'L2 Forward',
+    color: '#3fb950',
+    bg: 'rgba(63,185,80,0.10)',
+    Icon: MoveRight,
+  },
+  route: { label: 'L3 Route', color: '#58a6ff', bg: 'rgba(88,166,255,0.10)', Icon: Route },
+  firewall_allow: {
+    label: 'FW Allow',
+    color: '#3fb950',
+    bg: 'rgba(63,185,80,0.12)',
+    Icon: ShieldCheck,
+  },
+  firewall_deny: { label: 'FW Deny', color: '#f85149', bg: 'rgba(248,81,73,0.12)', Icon: ShieldX },
+  firewall_drop: {
+    label: 'FW Drop',
+    color: '#d29922',
+    bg: 'rgba(210,153,34,0.12)',
+    Icon: ShieldOff,
+  },
+  delivered: {
+    label: 'Delivered',
+    color: '#3fb950',
+    bg: 'rgba(63,185,80,0.15)',
+    Icon: CheckCircle,
+  },
+  ttl_exceeded: {
+    label: 'TTL Exceeded',
+    color: '#f85149',
+    bg: 'rgba(248,81,73,0.12)',
+    Icon: TimerOff,
+  },
+  no_route: { label: 'No Route', color: '#f85149', bg: 'rgba(248,81,73,0.12)', Icon: RouteOff },
+  port_closed: { label: 'Port Closed', color: '#f85149', bg: 'rgba(248,81,73,0.12)', Icon: Ban },
 }
-
 
 interface TracePanelProps {
   result: TraceResult
@@ -27,17 +68,24 @@ interface TracePanelProps {
 }
 
 function HopRow({ hop, active, done }: { hop: TraceHop; active: boolean; done: boolean }) {
-  const cfg = ACTION_CONFIG[hop.action] ?? { label: hop.action, color: '#8b949e', bg: 'rgba(139,148,158,0.1)', Icon: HelpCircle }
+  const cfg = ACTION_CONFIG[hop.action] ?? {
+    label: hop.action,
+    color: '#8b949e',
+    bg: 'rgba(139,148,158,0.1)',
+    Icon: HelpCircle,
+  }
   const nm = meta(hop.nodeType)
   const NodeIcon = nm.Icon
   const ActionIcon = cfg.Icon
   return (
-    <div className={[
-      'flex gap-2 p-2 rounded-md border transition-all duration-300',
-      active ? 'border-[var(--accent)] bg-[rgba(88,166,255,0.08)] scale-[1.01]' : '',
-      !active && done ? 'border-[var(--border)]/50 opacity-90' : '',
-      !active && !done ? 'border-transparent opacity-40' : '',
-    ].join(' ')}>
+    <div
+      className={[
+        'flex gap-2 p-2 rounded-md border transition-all duration-300',
+        active ? 'border-[var(--accent)] bg-[rgba(88,166,255,0.08)] scale-[1.01]' : '',
+        !active && done ? 'border-[var(--border)]/50 opacity-90' : '',
+        !active && !done ? 'border-transparent opacity-40' : '',
+      ].join(' ')}
+    >
       {/* Step badge */}
       <div
         className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5"
@@ -50,7 +98,9 @@ function HopRow({ hop, active, done }: { hop: TraceHop; active: boolean; done: b
         {/* Header */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <NodeIcon size={13} color={nm.color} strokeWidth={1.9} />
-          <span className="text-[11px] font-semibold text-[var(--text-primary)]">{hop.nodeName}</span>
+          <span className="text-[11px] font-semibold text-[var(--text-primary)]">
+            {hop.nodeName}
+          </span>
           <ArrowRight size={9} className="text-[var(--text-muted)]" />
           <span
             className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
@@ -85,16 +135,20 @@ export default function TracePanel({ result, activeStep, onClose }: TracePanelPr
   return (
     <div className="flex flex-col h-full bg-[var(--bg-900)] border-l border-[var(--border)] w-full">
       {/* Header */}
-      <div className={[
-        'flex items-center justify-between px-3 py-2 border-b border-[var(--border)] shrink-0',
-        result.success ? 'bg-[rgba(63,185,80,0.08)]' : 'bg-[rgba(248,81,73,0.08)]',
-      ].join(' ')}>
+      <div
+        className={[
+          'flex items-center justify-between px-3 py-2 border-b border-[var(--border)] shrink-0',
+          result.success ? 'bg-[rgba(63,185,80,0.08)]' : 'bg-[rgba(248,81,73,0.08)]',
+        ].join(' ')}
+      >
         <div className="flex items-center gap-2">
-          {result.success
-            ? <CheckCircle size={14} className="text-[var(--green)]" />
-            : result.blocked
-              ? <XCircle size={14} className="text-[var(--red)]" />
-              : <AlertTriangle size={14} className="text-[var(--yellow)]" />}
+          {result.success ? (
+            <CheckCircle size={14} className="text-[var(--green)]" />
+          ) : result.blocked ? (
+            <XCircle size={14} className="text-[var(--red)]" />
+          ) : (
+            <AlertTriangle size={14} className="text-[var(--yellow)]" />
+          )}
           <span className="text-xs font-semibold text-[var(--text-primary)]">
             {result.success ? 'Delivered' : result.blocked ? 'Blocked' : 'Failed'}
           </span>
@@ -102,7 +156,10 @@ export default function TracePanel({ result, activeStep, onClose }: TracePanelPr
             {result.hops.length} hops · {result.totalLatencyMs.toFixed(2)}ms
           </span>
         </div>
-        <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 transition-colors">
+        <button
+          onClick={onClose}
+          className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 transition-colors"
+        >
           <X size={13} />
         </button>
       </div>
@@ -113,7 +170,10 @@ export default function TracePanel({ result, activeStep, onClose }: TracePanelPr
           {[
             ['Protocol', result.packet.protocol.toUpperCase()],
             ['Source', result.packet.srcIp],
-            ['Destination', `${result.packet.dstIp}${result.packet.dstPort ? `:${result.packet.dstPort}` : ''}`],
+            [
+              'Destination',
+              `${result.packet.dstIp}${result.packet.dstPort ? `:${result.packet.dstPort}` : ''}`,
+            ],
             ['TTL', String(result.packet.ttl)],
           ].map(([k, v]) => (
             <div key={k} className="flex items-center gap-1">
@@ -131,7 +191,7 @@ export default function TracePanel({ result, activeStep, onClose }: TracePanelPr
 
       {/* Hop list */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {result.hops.map(hop => (
+        {result.hops.map((hop) => (
           <HopRow
             key={hop.step}
             hop={hop}
