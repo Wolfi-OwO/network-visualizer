@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose'
+import { Schema, model } from 'mongoose';
 
 // An authenticated user (via Google, Microsoft, or local dev login).
 const userSchema = new Schema(
@@ -7,22 +7,22 @@ const userSchema = new Schema(
     email: { type: String, required: true, index: true },
     name: { type: String, required: true },
     avatar: { type: String },
-    provider: { type: String, required: true },   // google | microsoft | local
+    provider: { type: String, required: true }, // google | microsoft | local
     providerId: { type: String, required: true },
-    role: { type: String, default: 'editor' },     // admin | editor | viewer
+    role: { type: String, default: 'editor' }, // admin | editor | viewer
     createdAt: { type: Number, required: true },
   },
   {
     toJSON: {
       transform: (_doc, ret: Record<string, unknown>) => {
-        delete ret._id
-        delete ret.__v
-        delete ret.providerId
-        return ret
+        delete ret._id;
+        delete ret.__v;
+        delete ret.providerId;
+        return ret;
       },
     },
   },
-)
-userSchema.index({ provider: 1, providerId: 1 }, { unique: true })
+);
+userSchema.index({ provider: 1, providerId: 1 }, { unique: true });
 
-export const UserModel = model('User', userSchema)
+export const UserModel = model('User', userSchema);
