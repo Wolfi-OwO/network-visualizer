@@ -101,15 +101,34 @@ jobs:
           fi
           echo "Copying from production revision: $FROM"
 
-          # Deterministic, DNS-safe revision suffix from the tag, made unique per run
-          # so re-deploys (rollbacks) never collide with an existing revision.
+          # Deterministic, DNS-safe revision suffix from the tag, so a revision says
+          # which version it runs: `netviz--v2-4-3-7`.
+          #
+          # The trailing number is GITHUB_RUN_NUMBER, not GITHUB_RUN_ID. Both make a
+          # re-deploy of the same tag (a rollback) unique, so it never collides with the
+          # revision that tag already has — but a run ID is an 11-digit account-wide
+          # counter that pushed the useful part of the name past where the portal
+          # truncates it, leaving a column of `netviz--v2-4-1-…`. The run number is
+          # per-workflow and small, so the version stays readable.
           BASE=$(echo "$TAG" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/-\+/-/g; s/^-//; s/-$//')
-          SUFFIX=$(echo "${BASE}-${GITHUB_RUN_ID}" | cut -c1-40 | sed 's/-$//')
+          SUFFIX=$(echo "${BASE}-${GITHUB_RUN_NUMBER}" | cut -c1-40 | sed 's/-$//')
           REV="${APP}--${SUFFIX}"
 
           # MONGODB_CONNECTION_STRING is pinned explicitly: the app was renamed off
           # the old MONGO_URI variable, so relying on the inherited template alone
           # would leave a new revision on the localhost fallback.
+          #
+          # MONGODB_DB_NAME and ALLOW_DEV_LOGIN are pinned for a harder reason: copying
+          # FROM production is only safe while production is clean, and once it isn't,
+          # the copy launders the damage forward forever. It already happened — the
+          # v2.4.1 deploy copied from a PR-8 preview and production has been serving
+          # from the `netviz-pr-8` database, with the password-less dev login enabled,
+          # ever since. Every later release would have inherited that, because each one
+          # copies from the revision the last one left behind.
+          #
+          # So production's identity is asserted here, not inherited: no DB override
+          # (use the database named in the connection string, which is what production
+          # means) and no dev login. A preview's overrides now die with the preview.
           #
           # --min-replicas 0 buys idle cost at the price of a cold start: when nothing
           # has hit the app for a while it holds no replica at all, and the next visitor
@@ -123,7 +142,8 @@ jobs:
             --from-revision "$FROM" \
             --image "${ACR}.azurecr.io/${IMAGE}:${TAG}" \
             --revision-suffix "$SUFFIX" \
-            --set-env-vars MONGODB_CONNECTION_STRING=secretref:mongo-uri \
+            --set-env-vars MONGODB_CONNECTION_STRING=secretref:mongo-uri ALLOW_DEV_LOGIN=false \
+            --remove-env-vars MONGODB_DB_NAME \
             --min-replicas 0 --max-replicas 3 -o none
 
           echo "from=$FROM" >> "$GITHUB_OUTPUT"
