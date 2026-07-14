@@ -1,4 +1,4 @@
-import { Schema, model, type InferSchemaType } from 'mongoose'
+import { Schema, model, type InferSchemaType } from 'mongoose';
 
 // Nodes and edges carry deeply-nested, device-specific config, so we store them
 // as flexible Mixed sub-documents and rely on the shared TS types for shape.
@@ -24,16 +24,16 @@ const topologySchema = new Schema(
     toJSON: {
       virtuals: false,
       transform: (_doc, ret: Record<string, unknown>) => {
-        delete ret._id
-        delete ret.__v
-        delete ret.isDefault
-        delete ret.ownerId
-        return ret
+        delete ret._id;
+        delete ret.__v;
+        delete ret.isDefault;
+        delete ret.ownerId;
+        return ret;
       },
     },
   },
-)
+);
 
-export type TopologyDocument = InferSchemaType<typeof topologySchema>
+export type TopologyDocument = InferSchemaType<typeof topologySchema>;
 
-export const TopologyModel = model('Topology', topologySchema)
+export const TopologyModel = model('Topology', topologySchema);

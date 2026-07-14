@@ -1,9 +1,9 @@
-import { Router } from 'express'
-import * as handlers from '../handlers/capture.handlers.js'
+import { Router } from 'express';
+import * as handlers from '../handlers/capture.handlers.js';
 
-const router = Router()
+const router = Router();
 
-router.get('/', handlers.getCapture)
-router.patch('/', handlers.updateCapture)
+router.get('/', handlers.getCapture);
+router.patch('/', handlers.updateCapture);
 
-export default router
+export default router;

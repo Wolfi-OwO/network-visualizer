@@ -13,30 +13,41 @@ export interface NetworkNodeData extends Record<string, unknown> {
   highlight?: NodeHighlight
 }
 
-const HIGHLIGHT_STYLES: Record<NodeHighlight, { border: string; shadow: string; badge?: boolean }> = {
-  none:      { border: '',        shadow: '' },
-  path:      { border: '#58a6ff', shadow: '0 0 16px #58a6ff55' },
-  active:    { border: '#3fb950', shadow: '0 0 20px #3fb95088, 0 0 40px #3fb95044' },
-  delivered: { border: '#3fb950', shadow: '0 0 24px #3fb950aa, 0 0 50px #3fb95066' },
-  blocked:   { border: '#f85149', shadow: '0 0 24px #f8514999, 0 0 50px #f8514966', badge: true },
-}
+const HIGHLIGHT_STYLES: Record<NodeHighlight, { border: string; shadow: string; badge?: boolean }> =
+  {
+    none: { border: '', shadow: '' },
+    path: { border: '#58a6ff', shadow: '0 0 16px #58a6ff55' },
+    active: { border: '#3fb950', shadow: '0 0 20px #3fb95088, 0 0 40px #3fb95044' },
+    delivered: { border: '#3fb950', shadow: '0 0 24px #3fb950aa, 0 0 50px #3fb95066' },
+    blocked: { border: '#f85149', shadow: '0 0 24px #f8514999, 0 0 50px #f8514966', badge: true },
+  }
 
 // Round corner badge the trace drops on a node when a packet stops (or lands) there.
 function TraceBadge({ color, children }: { color: string; children: React.ReactNode }) {
   return (
-    <div style={{
-      position: 'absolute', top: -8, right: -10,
-      background: color, color: '#fff', width: 16, height: 16, borderRadius: '50%',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      boxShadow: `0 0 8px ${color}`,
-    }}>
+    <div
+      style={{
+        position: 'absolute',
+        top: -8,
+        right: -10,
+        background: color,
+        color: '#fff',
+        width: 16,
+        height: 16,
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: `0 0 8px ${color}`,
+      }}
+    >
       {children}
     </div>
   )
 }
 
 function getIpLabel(config: NetworkNodeConfig): string {
-  const withIp = (config.interfaces ?? []).filter(i => i.ipAddress)
+  const withIp = (config.interfaces ?? []).filter((i) => i.ipAddress)
   if (withIp.length === 0) return ''
   const first = withIp[0]
   const base = `${first.ipAddress}${first.cidr ?? ''}`
@@ -52,10 +63,10 @@ function NetworkNodeComponent({ data, id }: NodeProps) {
   const hl = d.highlight ?? 'none'
   const hlStyle = HIGHLIGHT_STYLES[hl]
   const ip = getIpLabel(d.config)
-  const powered = d.config.powered !== false   // undefined = on
+  const powered = d.config.powered !== false // undefined = on
 
   const borderColor = hlStyle.border || m.color
-  const shadow = powered ? (hlStyle.shadow || `0 0 12px ${m.color}33`) : 'none'
+  const shadow = powered ? hlStyle.shadow || `0 0 12px ${m.color}33` : 'none'
 
   const togglePower = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -66,25 +77,47 @@ function NetworkNodeComponent({ data, id }: NodeProps) {
     <div
       style={{
         border: `2px solid ${powered ? borderColor : '#30363d'}`,
-        background: !powered ? '#10131a'
-          : hl === 'blocked' ? '#2d0a0a'
-          : hl === 'delivered' || hl === 'active' ? '#0a2018'
-          : m.bg,
+        background: !powered
+          ? '#10131a'
+          : hl === 'blocked'
+            ? '#2d0a0a'
+            : hl === 'delivered' || hl === 'active'
+              ? '#0a2018'
+              : m.bg,
         borderRadius: 10,
         padding: '10px 14px',
         minWidth: 108,
         boxShadow: shadow,
         position: 'relative',
         opacity: powered ? 1 : 0.55,
-        transition: 'box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease, opacity 0.2s',
+        transition:
+          'box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease, opacity 0.2s',
       }}
     >
       {/* Glow rings (only when powered) */}
       {powered && (hl === 'active' || hl === 'delivered') && (
-        <div style={{ position: 'absolute', inset: -4, borderRadius: 14, border: '2px solid #3fb95044', animation: 'pulse-ring 1s ease-in-out infinite', pointerEvents: 'none' }} />
+        <div
+          style={{
+            position: 'absolute',
+            inset: -4,
+            borderRadius: 14,
+            border: '2px solid #3fb95044',
+            animation: 'pulse-ring 1s ease-in-out infinite',
+            pointerEvents: 'none',
+          }}
+        />
       )}
       {powered && hl === 'blocked' && (
-        <div style={{ position: 'absolute', inset: -4, borderRadius: 14, border: '2px solid #f8514966', animation: 'pulse-ring-red 0.8s ease-in-out infinite', pointerEvents: 'none' }} />
+        <div
+          style={{
+            position: 'absolute',
+            inset: -4,
+            borderRadius: 14,
+            border: '2px solid #f8514966',
+            animation: 'pulse-ring-red 0.8s ease-in-out infinite',
+            pointerEvents: 'none',
+          }}
+        />
       )}
 
       {/* Loose connection mode lets every one of these dots both start and
@@ -93,9 +126,27 @@ function NetworkNodeComponent({ data, id }: NodeProps) {
           and snaps every link to the first handle (the old "edges only attach
           top/bottom" bug). The rendered edge ignores the handle anyway and
           floats to the side facing the peer (see packet-edge.tsx). */}
-      {([['top', Position.Top], ['bottom', Position.Bottom], ['left', Position.Left], ['right', Position.Right]] as const).map(([hid, pos]) => (
-        <Handle key={hid} id={hid} type="source" position={pos}
-          style={{ background: borderColor, border: '2px solid var(--bg-950)', width: 11, height: 11, cursor: 'crosshair' }} />
+      {(
+        [
+          ['top', Position.Top],
+          ['bottom', Position.Bottom],
+          ['left', Position.Left],
+          ['right', Position.Right],
+        ] as const
+      ).map(([hid, pos]) => (
+        <Handle
+          key={hid}
+          id={hid}
+          type="source"
+          position={pos}
+          style={{
+            background: borderColor,
+            border: '2px solid var(--bg-950)',
+            width: 11,
+            height: 11,
+            cursor: 'crosshair',
+          }}
+        />
       ))}
 
       {/* Power button */}
@@ -104,13 +155,20 @@ function NetworkNodeComponent({ data, id }: NodeProps) {
         onClick={togglePower}
         title={powered ? 'Power off' : 'Power on (auto-requests DHCP)'}
         style={{
-          position: 'absolute', top: -9, left: -9,
-          width: 18, height: 18, borderRadius: '50%',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          position: 'absolute',
+          top: -9,
+          left: -9,
+          width: 18,
+          height: 18,
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           background: powered ? '#3fb950' : '#30363d',
           color: powered ? '#0d1117' : '#8b949e',
           border: '2px solid var(--bg-950)',
-          cursor: 'pointer', padding: 0,
+          cursor: 'pointer',
+          padding: 0,
           boxShadow: powered ? '0 0 8px #3fb95088' : 'none',
         }}
       >
@@ -120,10 +178,14 @@ function NetworkNodeComponent({ data, id }: NodeProps) {
       <div className="flex flex-col items-center gap-1 relative">
         {/* Trace status badge */}
         {hlStyle.badge && powered && (
-          <TraceBadge color="#f85149"><X size={11} strokeWidth={3} /></TraceBadge>
+          <TraceBadge color="#f85149">
+            <X size={11} strokeWidth={3} />
+          </TraceBadge>
         )}
         {hl === 'delivered' && powered && (
-          <TraceBadge color="#3fb950"><Check size={11} strokeWidth={3} /></TraceBadge>
+          <TraceBadge color="#3fb950">
+            <Check size={11} strokeWidth={3} />
+          </TraceBadge>
         )}
 
         <Icon size={24} color={powered ? m.color : '#6e7681'} strokeWidth={1.75} />
@@ -136,13 +198,23 @@ function NetworkNodeComponent({ data, id }: NodeProps) {
             <PowerOff size={9} /> powered off
           </div>
         ) : ip ? (
-          <div className="text-[9px] font-mono text-center" style={{ color: hl !== 'none' ? borderColor : 'var(--text-muted)' }}>{ip}</div>
+          <div
+            className="text-[9px] font-mono text-center"
+            style={{ color: hl !== 'none' ? borderColor : 'var(--text-muted)' }}
+          >
+            {ip}
+          </div>
         ) : isDhcpClient(type) ? (
-          <div className="text-[9px] font-mono" style={{ color: '#d29922' }}>needs IP</div>
+          <div className="text-[9px] font-mono" style={{ color: '#d29922' }}>
+            needs IP
+          </div>
         ) : null}
 
         <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full border border-[var(--bg-800)]" style={{ background: powered ? '#3fb950' : '#6e7681' }} />
+          <div
+            className="w-2 h-2 rounded-full border border-[var(--bg-800)]"
+            style={{ background: powered ? '#3fb950' : '#6e7681' }}
+          />
           <span className="text-[9px] text-[var(--text-muted)]">{d.config.model ?? m.label}</span>
         </div>
       </div>
@@ -152,5 +224,5 @@ function NetworkNodeComponent({ data, id }: NodeProps) {
 
 // Map every device type to the renderer
 export const nodeTypes = Object.fromEntries(
-  (Object.keys(DEVICE_META) as NodeType[]).map(t => [t, NetworkNodeComponent]),
+  (Object.keys(DEVICE_META) as NodeType[]).map((t) => [t, NetworkNodeComponent]),
 )

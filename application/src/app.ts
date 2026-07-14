@@ -36,20 +36,22 @@ app.set('trust proxy', 1);
 // not broken; tighten it per deployment if you serve from a fixed origin.
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
-app.use(express.static(clientDist))
+app.use(express.static(clientDist));
 
 // Restrict CORS to local development origins (and same-origin / tooling requests
 // that send no Origin header). `credentials` lets the session cookie flow.
-app.use(cors({
-  origin: (origin, cb) => cb(null, !origin || isOriginAllowed(origin)),
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: (origin, cb) => cb(null, !origin || isOriginAllowed(origin)),
+    credentials: true,
+  }),
+);
 
 app.use(express.json({ limit: config.jsonBodyLimit })); // topologies can be large
 app.use(cookieParser());
-app.use(authenticate);     // populates req.user from the session cookie, if any
+app.use(authenticate); // populates req.user from the session cookie, if any
 app.use(requestLogger);
-app.use(audit);            // record mutating actions by signed-in users
+app.use(audit); // record mutating actions by signed-in users
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
@@ -68,14 +70,14 @@ app.use('/auth', authLimiter, authRouter);
 app.use('/api', apiLimiter, countRequest);
 app.use('/api/audit', auditRouter);
 app.use('/api/metrics', metricsRouter);
-app.use('/api/users', usersRouter);                           // admin-only account & role management
-app.use('/api/networks', ...networkGuards, networksRouter);   // per-user, viewers read-only
+app.use('/api/users', usersRouter); // admin-only account & role management
+app.use('/api/networks', ...networkGuards, networksRouter); // per-user, viewers read-only
 app.use('/api/cidr', cidrRouter);
 app.use('/api/packets', packetsRouter);
 app.use('/api/capture', captureRouter);
 
 app.get(/^(?!\/api|\/auth).*/, (_req, res) => {
-    res.sendFile(path.join(clientDist, 'index.html'));
+  res.sendFile(path.join(clientDist, 'index.html'));
 });
 
 app.use(notFound);

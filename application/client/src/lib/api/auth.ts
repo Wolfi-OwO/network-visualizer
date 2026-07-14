@@ -10,8 +10,8 @@ export interface AuthUser {
 }
 
 export interface ProvidersInfo {
-  providers: string[]      // configured OAuth providers, e.g. ['google','microsoft']
-  devLogin: boolean        // whether the local dev login is available
+  providers: string[] // configured OAuth providers, e.g. ['google','microsoft']
+  devLogin: boolean // whether the local dev login is available
 }
 
 export const auth = {

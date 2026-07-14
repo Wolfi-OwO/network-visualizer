@@ -18,25 +18,36 @@ function TreeNode({ label, value, comment, children, defaultOpen = true }: TreeN
     <div>
       <div
         className="tree-item"
-        onClick={() => hasChildren && setOpen(v => !v)}
+        onClick={() => hasChildren && setOpen((v) => !v)}
         style={{ cursor: hasChildren ? 'pointer' : 'default' }}
       >
         {hasChildren ? (
-          open ? <ChevronDown size={10} className="text-[var(--text-muted)] shrink-0 mt-0.5" />
-                : <ChevronRight size={10} className="text-[var(--text-muted)] shrink-0 mt-0.5" />
-        ) : <span className="w-[10px] shrink-0" />}
+          open ? (
+            <ChevronDown size={10} className="text-[var(--text-muted)] shrink-0 mt-0.5" />
+          ) : (
+            <ChevronRight size={10} className="text-[var(--text-muted)] shrink-0 mt-0.5" />
+          )
+        ) : (
+          <span className="w-[10px] shrink-0" />
+        )}
         <span className="tree-key">{label}</span>
         {value && <span className="tree-val">{value}</span>}
         {comment && <span className="tree-comment"> ({comment})</span>}
       </div>
-      {hasChildren && open && (
-        <div style={{ paddingLeft: 16 }}>{children}</div>
-      )}
+      {hasChildren && open && <div style={{ paddingLeft: 16 }}>{children}</div>}
     </div>
   )
 }
 
-function Leaf({ label, value, comment }: { label: string; value: string | number; comment?: string }) {
+function Leaf({
+  label,
+  value,
+  comment,
+}: {
+  label: string
+  value: string | number
+  comment?: string
+}) {
   return (
     <div className="tree-item">
       <span className="w-[10px] shrink-0" />
@@ -71,7 +82,11 @@ export default function PacketDetail({ packet }: PacketDetailProps) {
   return (
     <div className="h-full overflow-y-auto py-1 text-xs">
       {/* Frame */}
-      <TreeNode label="Frame" value={`${packet.length} bytes on wire, ${packet.capturedLength} bytes captured`} defaultOpen={false}>
+      <TreeNode
+        label="Frame"
+        value={`${packet.length} bytes on wire, ${packet.capturedLength} bytes captured`}
+        defaultOpen={false}
+      >
         <Leaf label="Arrival Time" value={ts.toISOString()} />
         <Leaf label="Frame Number" value={packet.id} />
         <Leaf label="Frame Length" value={`${packet.length} bytes`} />
@@ -87,16 +102,16 @@ export default function PacketDetail({ packet }: PacketDetailProps) {
         >
           <Leaf label="Destination" value={packet.ethernet.dstMac} />
           <Leaf label="Source" value={packet.ethernet.srcMac} />
-          <Leaf label="Type" value={`${packet.ethernet.etherTypeName} (${packet.ethernet.etherType})`} />
+          <Leaf
+            label="Type"
+            value={`${packet.ethernet.etherTypeName} (${packet.ethernet.etherType})`}
+          />
         </TreeNode>
       )}
 
       {/* ARP (no IP layer) */}
       {packet.arp && (
-        <TreeNode
-          label="Address Resolution Protocol"
-          value={`(${packet.arp.opcodeName})`}
-        >
+        <TreeNode label="Address Resolution Protocol" value={`(${packet.arp.opcodeName})`}>
           <Leaf label="Hardware type" value={`Ethernet (${packet.arp.hardwareType})`} />
           <Leaf label="Protocol type" value={`IPv4 (${packet.arp.protocolType})`} />
           <Leaf label="Hardware size" value={packet.arp.hardwareSize} />
@@ -136,8 +151,15 @@ export default function PacketDetail({ packet }: PacketDetailProps) {
           <Leaf label="Type" value={`${packet.icmp.type} (${packet.icmp.typeName})`} />
           <Leaf label="Code" value={packet.icmp.code} />
           <Leaf label="Checksum" value={packet.icmp.checksum} />
-          {packet.icmp.identifier !== undefined && <Leaf label="Identifier" value={`0x${packet.icmp.identifier.toString(16).padStart(4, '0')}`} />}
-          {packet.icmp.sequenceNumber !== undefined && <Leaf label="Sequence Number" value={packet.icmp.sequenceNumber} />}
+          {packet.icmp.identifier !== undefined && (
+            <Leaf
+              label="Identifier"
+              value={`0x${packet.icmp.identifier.toString(16).padStart(4, '0')}`}
+            />
+          )}
+          {packet.icmp.sequenceNumber !== undefined && (
+            <Leaf label="Sequence Number" value={packet.icmp.sequenceNumber} />
+          )}
         </TreeNode>
       )}
 
@@ -152,9 +174,18 @@ export default function PacketDetail({ packet }: PacketDetailProps) {
           <Leaf label="Sequence Number" value={packet.tcp.sequenceNumber} />
           <Leaf label="Acknowledgment Number" value={packet.tcp.acknowledgmentNumber} />
           <Leaf label="Header Length" value={`${packet.tcp.dataOffset * 4} bytes`} />
-          <TreeNode label="Flags" value={flagStr ? `0x... [${flagStr}]` : '0x000'} defaultOpen={false}>
+          <TreeNode
+            label="Flags"
+            value={flagStr ? `0x... [${flagStr}]` : '0x000'}
+            defaultOpen={false}
+          >
             {Object.entries(packet.tcp.flags).map(([k, v]) => (
-              <Leaf key={k} label={`.... .... ${k.toUpperCase()}`} value={v ? '1' : '0'} comment={v ? 'Set' : 'Not set'} />
+              <Leaf
+                key={k}
+                label={`.... .... ${k.toUpperCase()}`}
+                value={v ? '1' : '0'}
+                comment={v ? 'Set' : 'Not set'}
+              />
             ))}
           </TreeNode>
           <Leaf label="Window Size" value={packet.tcp.windowSize} />
@@ -165,7 +196,10 @@ export default function PacketDetail({ packet }: PacketDetailProps) {
 
       {/* UDP */}
       {packet.udp && (
-        <TreeNode label="User Datagram Protocol" value={`Src Port: ${packet.udp.srcPort}, Dst Port: ${packet.udp.dstPort}`}>
+        <TreeNode
+          label="User Datagram Protocol"
+          value={`Src Port: ${packet.udp.srcPort}, Dst Port: ${packet.udp.dstPort}`}
+        >
           <Leaf label="Source Port" value={packet.udp.srcPort} />
           <Leaf label="Destination Port" value={packet.udp.dstPort} />
           <Leaf label="Length" value={`${packet.udp.length} bytes`} />
@@ -175,7 +209,10 @@ export default function PacketDetail({ packet }: PacketDetailProps) {
 
       {/* DNS */}
       {packet.dns && (
-        <TreeNode label="Domain Name System" value={`(${packet.dns.isResponse ? 'response' : 'query'})`}>
+        <TreeNode
+          label="Domain Name System"
+          value={`(${packet.dns.isResponse ? 'response' : 'query'})`}
+        >
           <Leaf label="Transaction ID" value={packet.dns.transactionId} />
           <Leaf label="Flags" value={packet.dns.flags} />
           <Leaf label="Questions" value={packet.dns.questions} />
@@ -210,9 +247,11 @@ export default function PacketDetail({ packet }: PacketDetailProps) {
       {packet.http && (
         <TreeNode
           label={`Hypertext Transfer Protocol${packet.http.isRequest ? ' (Request)' : ' (Response)'}`}
-          value={packet.http.isRequest
-            ? `${packet.http.method} ${packet.http.uri} ${packet.http.version}`
-            : `${packet.http.version} ${packet.http.statusCode} ${packet.http.statusMessage}`}
+          value={
+            packet.http.isRequest
+              ? `${packet.http.method} ${packet.http.uri} ${packet.http.version}`
+              : `${packet.http.version} ${packet.http.statusCode} ${packet.http.statusMessage}`
+          }
         >
           {packet.http.isRequest ? (
             <>
@@ -239,15 +278,22 @@ export default function PacketDetail({ packet }: PacketDetailProps) {
 
       {/* TLS */}
       {packet.tls && (
-        <TreeNode label="Transport Layer Security" value={packet.tls.handshakeType ?? packet.tls.contentType}>
+        <TreeNode
+          label="Transport Layer Security"
+          value={packet.tls.handshakeType ?? packet.tls.contentType}
+        >
           <Leaf label="Content Type" value={packet.tls.contentType} />
           <Leaf label="Version" value={packet.tls.version} />
           <Leaf label="Length" value={`${packet.tls.length} bytes`} />
-          {packet.tls.handshakeType && <Leaf label="Handshake Type" value={packet.tls.handshakeType} />}
-          {packet.tls.serverName && <Leaf label="Server Name (SNI)" value={packet.tls.serverName} />}
+          {packet.tls.handshakeType && (
+            <Leaf label="Handshake Type" value={packet.tls.handshakeType} />
+          )}
+          {packet.tls.serverName && (
+            <Leaf label="Server Name (SNI)" value={packet.tls.serverName} />
+          )}
           {packet.tls.cipherSuites && (
             <TreeNode label="Cipher Suites" defaultOpen={false}>
-              {packet.tls.cipherSuites.map(cs => (
+              {packet.tls.cipherSuites.map((cs) => (
                 <Leaf key={cs} label="Cipher Suite" value={cs} />
               ))}
             </TreeNode>

@@ -23,14 +23,16 @@ const ERRORS: Record<number, ErrorMeta> = {
   403: {
     code: '403',
     title: 'Forbidden',
-    message: "You don't have permission to access this resource. Ask an administrator if you think this is a mistake.",
+    message:
+      "You don't have permission to access this resource. Ask an administrator if you think this is a mistake.",
     Icon: ShieldX,
     accent: 'var(--red)',
   },
   404: {
     code: '404',
     title: 'Page Not Found',
-    message: "Sorry, we couldn't find the page you're looking for. It may have been moved or never existed.",
+    message:
+      "Sorry, we couldn't find the page you're looking for. It may have been moved or never existed.",
     Icon: SearchX,
     accent: 'var(--accent)',
   },
@@ -57,7 +59,10 @@ export default function ErrorPage({ code = 404, overlay = false, onDismiss }: Er
   const e = ERRORS[code] ?? GENERIC
   const { Icon } = e
 
-  const go = (path: string) => { onDismiss?.(); window.location.assign(path) }
+  const go = (path: string) => {
+    onDismiss?.()
+    window.location.assign(path)
+  }
   const back = () => {
     onDismiss?.()
     if (window.history.length > 1) window.history.back()
@@ -75,12 +80,20 @@ export default function ErrorPage({ code = 404, overlay = false, onDismiss }: Er
     >
       <div
         className="flex items-center justify-center rounded-2xl"
-        style={{ width: 72, height: 72, background: 'var(--bg-900)', border: '1px solid var(--border)', color: e.accent }}
+        style={{
+          width: 72,
+          height: 72,
+          background: 'var(--bg-900)',
+          border: '1px solid var(--border)',
+          color: e.accent,
+        }}
       >
         <Icon size={34} />
       </div>
 
-      <p className="font-semibold text-lg" style={{ color: e.accent }}>{e.code} Error</p>
+      <p className="font-semibold text-lg" style={{ color: e.accent }}>
+        {e.code} Error
+      </p>
       <h2 className="text-3xl md:text-5xl font-bold text-[var(--text-primary)]">{e.title}</h2>
       <p className="text-sm text-[var(--text-secondary)] max-w-md leading-relaxed">{e.message}</p>
 

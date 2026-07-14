@@ -25,14 +25,19 @@ export default function PacketCapturePage() {
   const startedRef = useRef(false)
 
   const stopStream = useCallback(() => {
-    if (esRef.current) { esRef.current.close(); esRef.current = null }
+    if (esRef.current) {
+      esRef.current.close()
+      esRef.current = null
+    }
   }, [])
 
   const fetchStats = useCallback(async () => {
     try {
       const { data } = await captureApi.get()
       setStats(data.stats)
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [])
 
   const startCapture = useCallback(async () => {
@@ -44,12 +49,15 @@ export default function PacketCapturePage() {
     esRef.current = es
     es.onmessage = (e: MessageEvent) => {
       const newPkts: Packet[] = JSON.parse(e.data as string)
-      setPacketList(prev => {
+      setPacketList((prev) => {
         const combined = [...prev, ...newPkts]
         return combined.slice(-5000)
       })
     }
-    es.onerror = () => { es.close(); esRef.current = null }
+    es.onerror = () => {
+      es.close()
+      esRef.current = null
+    }
 
     statsTimerRef.current = setInterval(fetchStats, 2000)
   }, [fetchStats])
@@ -58,7 +66,10 @@ export default function PacketCapturePage() {
     await captureApi.stop()
     setCapturing(false)
     stopStream()
-    if (statsTimerRef.current) { clearInterval(statsTimerRef.current); statsTimerRef.current = null }
+    if (statsTimerRef.current) {
+      clearInterval(statsTimerRef.current)
+      statsTimerRef.current = null
+    }
     fetchStats()
   }, [stopStream, fetchStats])
 
@@ -87,10 +98,13 @@ export default function PacketCapturePage() {
     startCapture()
   }, [startCapture])
 
-  useEffect(() => () => {
-    stopStream()
-    if (statsTimerRef.current) clearInterval(statsTimerRef.current)
-  }, [stopStream])
+  useEffect(
+    () => () => {
+      stopStream()
+      if (statsTimerRef.current) clearInterval(statsTimerRef.current)
+    },
+    [stopStream],
+  )
 
   // Live per-protocol counts from the captured buffer
   const protocolCounts = useMemo(() => {
@@ -100,22 +114,24 @@ export default function PacketCapturePage() {
   }, [packetList])
 
   const toggleProtocol = useCallback((proto: string) => {
-    setHiddenProtocols(prev => {
+    setHiddenProtocols((prev) => {
       const next = new Set(prev)
-      if (next.has(proto)) next.delete(proto); else next.add(proto)
+      if (next.has(proto)) next.delete(proto)
+      else next.add(proto)
       return next
     })
   }, [])
 
   const showAllProtocols = useCallback(() => setHiddenProtocols(new Set()), [])
   const hideAllProtocols = useCallback(
-    () => setHiddenProtocols(new Set([...PROTOCOLS.map(p => p.id), ...Object.keys(protocolCounts)])),
+    () =>
+      setHiddenProtocols(new Set([...PROTOCOLS.map((p) => p.id), ...Object.keys(protocolCounts)])),
     [protocolCounts],
   )
 
   const filtered = useMemo(() => {
     const f = filter.trim().toUpperCase()
-    return packetList.filter(p => {
+    return packetList.filter((p) => {
       if (hiddenProtocols.has(p.protocol)) return false
       if (!f) return true
       return (
@@ -140,10 +156,12 @@ export default function PacketCapturePage() {
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 gap-y-1.5 px-4 py-2 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)] shrink-0">
         <div className="flex items-center gap-1.5 mr-2">
-          <div className={[
-            'w-2 h-2 rounded-full',
-            capturing ? 'bg-[var(--red)] animate-pulse' : 'bg-[var(--bg-600)]',
-          ].join(' ')} />
+          <div
+            className={[
+              'w-2 h-2 rounded-full',
+              capturing ? 'bg-[var(--red)] animate-pulse' : 'bg-[var(--bg-600)]',
+            ].join(' ')}
+          />
           <span className="text-xs font-semibold text-[var(--text-primary)]">Packet Capture</span>
         </div>
 
@@ -169,7 +187,7 @@ export default function PacketCapturePage() {
           <input
             type="checkbox"
             checked={autoScroll}
-            onChange={e => setAutoScroll(e.target.checked)}
+            onChange={(e) => setAutoScroll(e.target.checked)}
             className="w-3 h-3 accent-[var(--accent)]"
           />
           Auto-scroll
@@ -195,7 +213,10 @@ export default function PacketCapturePage() {
       {/* Main area: packet list (top 60%) + bottom panel (40%) */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Packet list */}
-        <div className="flex-1 overflow-hidden border-b border-[var(--border)]" style={{ minHeight: 0 }}>
+        <div
+          className="flex-1 overflow-hidden border-b border-[var(--border)]"
+          style={{ minHeight: 0 }}
+        >
           <PacketList
             packets={filtered}
             selectedId={selected?.id ?? null}
@@ -208,7 +229,7 @@ export default function PacketCapturePage() {
         <div className="flex flex-col overflow-hidden h-[45%] md:h-[38%]" style={{ minHeight: 0 }}>
           {/* Bottom tabs */}
           <div className="flex items-center border-b border-[var(--border)] bg-[var(--bg-950)] shrink-0">
-            {bottomTabs.map(t => (
+            {bottomTabs.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setBottomTab(t.id)}

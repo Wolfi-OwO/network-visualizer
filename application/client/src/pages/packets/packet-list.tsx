@@ -5,8 +5,26 @@ const COL_WIDTHS = ['50px', '90px', '140px', '140px', '70px', '65px', 'auto']
 const HEADERS = ['No.', 'Time', 'Source', 'Destination', 'Protocol', 'Length', 'Info']
 
 function protoClass(proto: string) {
-  const known = ['HTTP', 'HTTPS', 'DNS', 'mDNS', 'TCP', 'UDP', 'ICMP', 'ARP', 'TLS', 'SSH',
-    'DHCP', 'STP', 'NTP', 'LLDP', 'SNMP', 'OSPF', 'SSDP', 'SIP']
+  const known = [
+    'HTTP',
+    'HTTPS',
+    'DNS',
+    'mDNS',
+    'TCP',
+    'UDP',
+    'ICMP',
+    'ARP',
+    'TLS',
+    'SSH',
+    'DHCP',
+    'STP',
+    'NTP',
+    'LLDP',
+    'SNMP',
+    'OSPF',
+    'SSDP',
+    'SIP',
+  ]
   return known.includes(proto) ? `proto-${proto}` : 'proto-default'
 }
 
@@ -42,7 +60,11 @@ export default function PacketList({ packets, selectedId, onSelect, autoScroll }
               <div
                 key={h}
                 className="px-2 py-1.5 text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider shrink-0 border-r border-[var(--border)] last:border-r-0"
-                style={{ width: COL_WIDTHS[i], minWidth: COL_WIDTHS[i], flex: i === 6 ? '1' : undefined }}
+                style={{
+                  width: COL_WIDTHS[i],
+                  minWidth: COL_WIDTHS[i],
+                  flex: i === 6 ? '1' : undefined,
+                }}
               >
                 {h}
               </div>
@@ -55,7 +77,7 @@ export default function PacketList({ packets, selectedId, onSelect, autoScroll }
               No packets captured yet
             </div>
           ) : (
-            packets.map(p => (
+            packets.map((p) => (
               <div
                 key={p.id}
                 onClick={() => onSelect(p)}
@@ -65,20 +87,29 @@ export default function PacketList({ packets, selectedId, onSelect, autoScroll }
                   selectedId === p.id ? 'row-selected' : '',
                 ].join(' ')}
               >
-                <Cell width={COL_WIDTHS[0]} mono>{p.id}</Cell>
-                <Cell width={COL_WIDTHS[1]} mono>{p.relativeTime.toFixed(6)}</Cell>
-                <Cell width={COL_WIDTHS[2]} mono>{p.ip?.srcIp ?? p.ethernet?.srcMac ?? '—'}</Cell>
-                <Cell width={COL_WIDTHS[3]} mono>{p.ip?.dstIp ?? p.ethernet?.dstMac ?? '—'}</Cell>
+                <Cell width={COL_WIDTHS[0]} mono>
+                  {p.id}
+                </Cell>
+                <Cell width={COL_WIDTHS[1]} mono>
+                  {p.relativeTime.toFixed(6)}
+                </Cell>
+                <Cell width={COL_WIDTHS[2]} mono>
+                  {p.ip?.srcIp ?? p.ethernet?.srcMac ?? '—'}
+                </Cell>
+                <Cell width={COL_WIDTHS[3]} mono>
+                  {p.ip?.dstIp ?? p.ethernet?.dstMac ?? '—'}
+                </Cell>
                 <Cell width={COL_WIDTHS[4]}>
-                  <span className={[
-                    'badge text-[10px]',
-                    protoBadgeColor(p.protocol),
-                  ].join(' ')}>
+                  <span className={['badge text-[10px]', protoBadgeColor(p.protocol)].join(' ')}>
                     {p.protocol}
                   </span>
                 </Cell>
-                <Cell width={COL_WIDTHS[5]} mono>{p.length}</Cell>
-                <Cell flex mono truncate>{p.info}</Cell>
+                <Cell width={COL_WIDTHS[5]} mono>
+                  {p.length}
+                </Cell>
+                <Cell flex mono truncate>
+                  {p.info}
+                </Cell>
               </div>
             ))
           )}
@@ -105,7 +136,12 @@ function Cell({ width, children, mono, flex, truncate }: CellProps) {
         truncate ? 'overflow-hidden text-ellipsis whitespace-nowrap' : 'whitespace-nowrap',
         'text-[var(--text-primary)]',
       ].join(' ')}
-      style={{ width: flex ? undefined : width, minWidth: flex ? undefined : width, flex: flex ? 1 : undefined, overflow: truncate ? 'hidden' : undefined }}
+      style={{
+        width: flex ? undefined : width,
+        minWidth: flex ? undefined : width,
+        flex: flex ? 1 : undefined,
+        overflow: truncate ? 'hidden' : undefined,
+      }}
     >
       {children}
     </div>

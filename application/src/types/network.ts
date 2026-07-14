@@ -10,7 +10,7 @@ export interface NetworkInterface {
   speed?: string;
   duplex?: 'full' | 'half';
   description?: string;
-  vlan?: number;         // access VLAN of this port (untagged = 1)
+  vlan?: number; // access VLAN of this port (untagged = 1)
 }
 
 export interface RoutingTableEntry {
@@ -99,7 +99,7 @@ export interface NetworkNodeConfig {
   services?: ServiceConfig[];
   webPage?: WebPage;
   powered?: boolean;
-  zone?: string;          // security zone (Internal/DMZ/External/Management/…)
+  zone?: string; // security zone (Internal/DMZ/External/Management/…)
   osType?: string;
   model?: string;
   serialNumber?: string;
@@ -108,14 +108,34 @@ export interface NetworkNodeConfig {
 }
 
 export type NodeType =
-  | 'router' | 'l3switch' | 'switch' | 'hub'
-  | 'firewall' | 'ids_ips' | 'vpn_gateway'
+  | 'router'
+  | 'l3switch'
+  | 'switch'
+  | 'hub'
+  | 'firewall'
+  | 'ids_ips'
+  | 'vpn_gateway'
   | 'wifiap'
-  | 'load_balancer' | 'proxy' | 'api_gateway'
-  | 'server' | 'dns' | 'dhcp' | 'mailserver' | 'fileserver' | 'database' | 'virtualhost'
-  | 'nas' | 'storage'
-  | 'pc' | 'laptop' | 'phone' | 'printer' | 'iot'
-  | 'isp' | 'www' | 'cloud';
+  | 'load_balancer'
+  | 'proxy'
+  | 'api_gateway'
+  | 'server'
+  | 'dns'
+  | 'dhcp'
+  | 'mailserver'
+  | 'fileserver'
+  | 'database'
+  | 'virtualhost'
+  | 'nas'
+  | 'storage'
+  | 'pc'
+  | 'laptop'
+  | 'phone'
+  | 'printer'
+  | 'iot'
+  | 'isp'
+  | 'www'
+  | 'cloud';
 
 export interface NetworkNode {
   id: string;

@@ -30,9 +30,9 @@ export default function HexDump({ packet }: HexDumpProps) {
         return (
           <div key={i} className="hex-line hover:bg-[var(--bg-700)] rounded px-1">
             <span className="hex-offset">{offset}</span>
-            <span className="text-[var(--text-muted)]">  </span>
+            <span className="text-[var(--text-muted)]"> </span>
             <span className="hex-bytes">{hex.padEnd(47, ' ')}</span>
-            <span className="text-[var(--text-muted)]">  </span>
+            <span className="text-[var(--text-muted)]"> </span>
             <span className="hex-ascii">{ascii}</span>
           </div>
         )

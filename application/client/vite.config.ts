@@ -8,8 +8,12 @@ if (!process.env.VITE_APP_REVISION) {
   try {
     process.env.VITE_APP_REVISION = execSync('git rev-parse --short HEAD', {
       stdio: ['ignore', 'pipe', 'ignore'],
-    }).toString().trim()
-  } catch { /* not a git checkout — leave it unset */ }
+    })
+      .toString()
+      .trim()
+  } catch {
+    /* not a git checkout — leave it unset */
+  }
 }
 
 export default defineConfig({

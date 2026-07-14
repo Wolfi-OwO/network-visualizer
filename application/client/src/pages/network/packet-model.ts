@@ -2,13 +2,20 @@
 // Each in-flight packet carries a fully decoded, layered representation so the
 // user can freeze it and drill into every protocol layer, just like Wireshark.
 
-export interface PacketField { label: string; value: string }
-export interface PacketLayer { name: string; summary: string; fields: PacketField[] }
+export interface PacketField {
+  label: string
+  value: string
+}
+export interface PacketLayer {
+  name: string
+  summary: string
+  fields: PacketField[]
+}
 
 export interface PacketInfo {
   id: string
   ts: number
-  protocol: string            // top-most app protocol (DNS, HTTPS, SQL…)
+  protocol: string // top-most app protocol (DNS, HTTPS, SQL…)
   srcName: string
   dstName: string
   srcIp: string
@@ -18,31 +25,38 @@ export interface PacketInfo {
   l4: 'TCP' | 'UDP' | 'ICMP'
   srcPort?: number
   dstPort?: number
-  length: number              // total frame length (bytes)
-  info: string                // the Wireshark "Info" column
-  layers: PacketLayer[]       // Frame -> Ethernet -> IP -> TCP/UDP -> App
-  payloadHex: string          // formatted hex dump
+  length: number // total frame length (bytes)
+  info: string // the Wireshark "Info" column
+  layers: PacketLayer[] // Frame -> Ethernet -> IP -> TCP/UDP -> App
+  payloadHex: string // formatted hex dump
   phase?: 'request' | 'reply' // which leg of the exchange this is
 }
 
-export type AppProto = 'DNS' | 'HTTPS' | 'HTTP' | 'SQL' | 'DHCP' | 'MQTT' | 'SMB' | 'IMAP' | 'IPP' | 'ICMP'
+export type AppProto =
+  'DNS' | 'HTTPS' | 'HTTP' | 'SQL' | 'DHCP' | 'MQTT' | 'SMB' | 'IMAP' | 'IPP' | 'ICMP'
 
-const WELL_KNOWN: Record<AppProto, { l4: 'TCP' | 'UDP' | 'ICMP'; port: number; etherType: string }> = {
-  DNS:   { l4: 'UDP', port: 53,   etherType: '0x0800' },
-  HTTPS: { l4: 'TCP', port: 443,  etherType: '0x0800' },
-  HTTP:  { l4: 'TCP', port: 80,   etherType: '0x0800' },
-  SQL:   { l4: 'TCP', port: 3306, etherType: '0x0800' },
-  DHCP:  { l4: 'UDP', port: 67,   etherType: '0x0800' },
-  MQTT:  { l4: 'TCP', port: 1883, etherType: '0x0800' },
-  SMB:   { l4: 'TCP', port: 445,  etherType: '0x0800' },
-  IMAP:  { l4: 'TCP', port: 143,  etherType: '0x0800' },
-  IPP:   { l4: 'TCP', port: 631,  etherType: '0x0800' },
-  ICMP:  { l4: 'ICMP', port: 0,   etherType: '0x0800' },
+const WELL_KNOWN: Record<
+  AppProto,
+  { l4: 'TCP' | 'UDP' | 'ICMP'; port: number; etherType: string }
+> = {
+  DNS: { l4: 'UDP', port: 53, etherType: '0x0800' },
+  HTTPS: { l4: 'TCP', port: 443, etherType: '0x0800' },
+  HTTP: { l4: 'TCP', port: 80, etherType: '0x0800' },
+  SQL: { l4: 'TCP', port: 3306, etherType: '0x0800' },
+  DHCP: { l4: 'UDP', port: 67, etherType: '0x0800' },
+  MQTT: { l4: 'TCP', port: 1883, etherType: '0x0800' },
+  SMB: { l4: 'TCP', port: 445, etherType: '0x0800' },
+  IMAP: { l4: 'TCP', port: 143, etherType: '0x0800' },
+  IPP: { l4: 'TCP', port: 631, etherType: '0x0800' },
+  ICMP: { l4: 'ICMP', port: 0, etherType: '0x0800' },
 }
 
 function hash(seed: string): number {
   let h = 2166136261
-  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619) }
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
   return h >>> 0
 }
 
@@ -62,12 +76,15 @@ function hexDump(text: string): string {
   // Build a plausible byte stream from the header + payload text.
   const bytes: number[] = []
   for (let i = 0; i < text.length && bytes.length < 96; i++) bytes.push(text.charCodeAt(i) & 0xff)
-  while (bytes.length < 48) bytes.push((hash('pad' + bytes.length) & 0xff))
+  while (bytes.length < 48) bytes.push(hash('pad' + bytes.length) & 0xff)
   const rows: string[] = []
   for (let off = 0; off < bytes.length; off += 16) {
     const slice = bytes.slice(off, off + 16)
-    const hex = slice.map(b => b.toString(16).padStart(2, '0')).join(' ').padEnd(16 * 3 - 1, ' ')
-    const ascii = slice.map(b => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : '.')).join('')
+    const hex = slice
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join(' ')
+      .padEnd(16 * 3 - 1, ' ')
+    const ascii = slice.map((b) => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : '.')).join('')
     rows.push(`${off.toString(16).padStart(4, '0')}  ${hex}  ${ascii}`)
   }
   return rows.join('\n')
@@ -75,11 +92,11 @@ function hexDump(text: string): string {
 
 interface BuildOpts {
   phase?: 'request' | 'reply'
-  query?: string      // DNS: queried name
-  answer?: string     // DNS: resolved A record
-  dhcp?: string       // DHCP message type (Discover/Offer/Request/ACK)
-  sql?: string        // SQL: the statement
-  reqId?: string      // correlation id shared by request/reply
+  query?: string // DNS: queried name
+  answer?: string // DNS: resolved A record
+  dhcp?: string // DHCP message type (Discover/Offer/Request/ACK)
+  sql?: string // SQL: the statement
+  reqId?: string // correlation id shared by request/reply
 }
 
 export function appFromLabel(label: string): AppProto {
@@ -98,9 +115,14 @@ export function appFromLabel(label: string): AppProto {
 
 // Build a fully-decoded packet from src -> dst for the given app protocol.
 export function buildPacket(
-  srcName: string, srcIp: string, srcId: string,
-  dstName: string, dstIp: string, dstId: string,
-  app: AppProto, opts: BuildOpts = {},
+  srcName: string,
+  srcIp: string,
+  srcId: string,
+  dstName: string,
+  dstIp: string,
+  dstId: string,
+  app: AppProto,
+  opts: BuildOpts = {},
 ): PacketInfo {
   const wk = WELL_KNOWN[app]
   const reply = opts.phase === 'reply'
@@ -112,9 +134,16 @@ export function buildPacket(
   let srcPort: number | undefined
   let dstPort: number | undefined
   if (wk.l4 !== 'ICMP') {
-    if (app === 'DHCP') { srcPort = reply ? 67 : 68; dstPort = reply ? 68 : 67 }
-    else if (reply) { srcPort = wk.port; dstPort = ephemeralPort(dstId) }
-    else { srcPort = ephemeralPort(srcId); dstPort = wk.port }
+    if (app === 'DHCP') {
+      srcPort = reply ? 67 : 68
+      dstPort = reply ? 68 : 67
+    } else if (reply) {
+      srcPort = wk.port
+      dstPort = ephemeralPort(dstId)
+    } else {
+      srcPort = ephemeralPort(srcId)
+      dstPort = wk.port
+    }
   }
 
   const seq = hash(srcId + (opts.reqId ?? '')) % 4000000000
@@ -126,7 +155,10 @@ export function buildPacket(
       { label: 'Header Length', value: '20 bytes (5)' },
       { label: 'Differentiated Services', value: '0x00 (DSCP CS0)' },
       { label: 'Time to Live', value: String(ttl) },
-      { label: 'Protocol', value: wk.l4 === 'ICMP' ? 'ICMP (1)' : wk.l4 === 'UDP' ? 'UDP (17)' : 'TCP (6)' },
+      {
+        label: 'Protocol',
+        value: wk.l4 === 'ICMP' ? 'ICMP (1)' : wk.l4 === 'UDP' ? 'UDP (17)' : 'TCP (6)',
+      },
       { label: 'Source Address', value: srcIp },
       { label: 'Destination Address', value: dstIp },
       { label: 'Flags', value: "0x40, Don't fragment" },
@@ -141,9 +173,12 @@ export function buildPacket(
       fields: [
         { label: 'Type', value: reply ? '0 (Echo reply)' : '8 (Echo request)' },
         { label: 'Code', value: '0' },
-        { label: 'Checksum', value: `0x${(hash(srcId + dstId) & 0xffff).toString(16).padStart(4, '0')}` },
+        {
+          label: 'Checksum',
+          value: `0x${(hash(srcId + dstId) & 0xffff).toString(16).padStart(4, '0')}`,
+        },
         { label: 'Identifier', value: String(hash(srcId) % 65535) },
-        { label: 'Sequence', value: String((hash(opts.reqId ?? srcId) % 1000)) },
+        { label: 'Sequence', value: String(hash(opts.reqId ?? srcId) % 1000) },
       ],
     }
   } else if (wk.l4 === 'UDP') {
@@ -154,7 +189,10 @@ export function buildPacket(
         { label: 'Source Port', value: String(srcPort) },
         { label: 'Destination Port', value: String(dstPort) },
         { label: 'Length', value: String(8 + 40) },
-        { label: 'Checksum', value: `0x${(hash('udp' + seq) & 0xffff).toString(16).padStart(4, '0')}` },
+        {
+          label: 'Checksum',
+          value: `0x${(hash('udp' + seq) & 0xffff).toString(16).padStart(4, '0')}`,
+        },
       ],
     }
   } else {
@@ -168,7 +206,10 @@ export function buildPacket(
         { label: 'Acknowledgment Number', value: String((seq + 1) % 100000) },
         { label: 'Flags', value: reply ? '0x018 (PSH, ACK)' : '0x018 (PSH, ACK)' },
         { label: 'Window Size', value: '64240' },
-        { label: 'Checksum', value: `0x${(hash('tcp' + seq) & 0xffff).toString(16).padStart(4, '0')}` },
+        {
+          label: 'Checksum',
+          value: `0x${(hash('tcp' + seq) & 0xffff).toString(16).padStart(4, '0')}`,
+        },
       ],
     }
   }
@@ -176,7 +217,7 @@ export function buildPacket(
   // Application layer + the human-readable Info column.
   let appLayer: PacketLayer
   let info: string
-  let protoLabel: string   // every switch branch (incl. default) sets this
+  let protoLabel: string // every switch branch (incl. default) sets this
   switch (app) {
     case 'DNS': {
       const name = opts.query ?? dstName
@@ -188,12 +229,20 @@ export function buildPacket(
         name: 'Domain Name System' + (reply ? ' (response)' : ' (query)'),
         summary: info,
         fields: [
-          { label: 'Transaction ID', value: `0x${(hash(name) & 0xffff).toString(16).padStart(4, '0')}` },
-          { label: 'Flags', value: reply ? '0x8180 Standard query response, No error' : '0x0100 Standard query' },
+          {
+            label: 'Transaction ID',
+            value: `0x${(hash(name) & 0xffff).toString(16).padStart(4, '0')}`,
+          },
+          {
+            label: 'Flags',
+            value: reply ? '0x8180 Standard query response, No error' : '0x0100 Standard query',
+          },
           { label: 'Questions', value: '1' },
           { label: 'Answer RRs', value: reply ? '1' : '0' },
           { label: 'Queries', value: `${name}: type A, class IN` },
-          ...(reply ? [{ label: 'Answer', value: `${name}: type A, addr ${opts.answer ?? dstIp}` }] : []),
+          ...(reply
+            ? [{ label: 'Answer', value: `${name}: type A, addr ${opts.answer ?? dstIp}` }]
+            : []),
         ],
       }
       break
@@ -208,7 +257,10 @@ export function buildPacket(
         fields: [
           { label: 'Message type', value: `Boot ${reply ? 'Reply (2)' : 'Request (1)'}` },
           { label: 'Hardware type', value: 'Ethernet (0x01)' },
-          { label: 'Transaction ID', value: `0x${(hash(srcId) & 0xffffff).toString(16).padStart(8, '0')}` },
+          {
+            label: 'Transaction ID',
+            value: `0x${(hash(srcId) & 0xffffff).toString(16).padStart(8, '0')}`,
+          },
           { label: 'Client MAC', value: srcMac },
           { label: 'Option (53) DHCP Message Type', value: mt },
           ...(mt === 'Offer' || mt === 'ACK' ? [{ label: 'Your (client) IP', value: dstIp }] : []),
@@ -249,13 +301,23 @@ export function buildPacket(
           ],
         }
       } else {
-        info = reply ? 'HTTP/1.1 200 OK (text/html)' : `GET / HTTP/1.1  Host: ${dstName.toLowerCase().replace(/\s+/g, '-')}.lan`
+        info = reply
+          ? 'HTTP/1.1 200 OK (text/html)'
+          : `GET / HTTP/1.1  Host: ${dstName.toLowerCase().replace(/\s+/g, '-')}.lan`
         appLayer = {
           name: 'Hypertext Transfer Protocol',
           summary: info,
           fields: reply
-            ? [{ label: 'Status', value: 'HTTP/1.1 200 OK' }, { label: 'Content-Type', value: 'text/html; charset=utf-8' }, { label: 'Server', value: dstName }]
-            : [{ label: 'Request', value: 'GET / HTTP/1.1' }, { label: 'Host', value: `${dstName.toLowerCase().replace(/\s+/g, '-')}.lan` }, { label: 'User-Agent', value: 'NetViz/1.0' }],
+            ? [
+                { label: 'Status', value: 'HTTP/1.1 200 OK' },
+                { label: 'Content-Type', value: 'text/html; charset=utf-8' },
+                { label: 'Server', value: dstName },
+              ]
+            : [
+                { label: 'Request', value: 'GET / HTTP/1.1' },
+                { label: 'Host', value: `${dstName.toLowerCase().replace(/\s+/g, '-')}.lan` },
+                { label: 'User-Agent', value: 'NetViz/1.0' },
+              ],
         }
       }
       break
@@ -280,7 +342,11 @@ export function buildPacket(
       const [reqV, repV] = verbs[app] ?? ['Request', 'Response']
       protoLabel = app
       info = reply ? repV : reqV
-      appLayer = { name: `${app} Protocol`, summary: info, fields: [{ label: 'Operation', value: reply ? repV : reqV }] }
+      appLayer = {
+        name: `${app} Protocol`,
+        summary: info,
+        fields: [{ label: 'Operation', value: reply ? repV : reqV }],
+      }
     }
   }
 
@@ -294,14 +360,17 @@ export function buildPacket(
     ],
   }
 
-  const length = 54 + appLayer.fields.reduce((s, f) => s + f.value.length, 0) % 900 + 20
+  const length = 54 + (appLayer.fields.reduce((s, f) => s + f.value.length, 0) % 900) + 20
   const frame: PacketLayer = {
     name: `Frame: ${length} bytes`,
     summary: `${length} bytes on wire, ${length} bytes captured`,
     fields: [
       { label: 'Arrival Time', value: new Date().toLocaleTimeString() },
       { label: 'Frame Length', value: `${length} bytes` },
-      { label: 'Protocols in frame', value: `eth:ethertype:ip:${wk.l4.toLowerCase()}:${protoLabel.toLowerCase()}` },
+      {
+        label: 'Protocols in frame',
+        value: `eth:ethertype:ip:${wk.l4.toLowerCase()}:${protoLabel.toLowerCase()}`,
+      },
     ],
   }
 
@@ -310,72 +379,156 @@ export function buildPacket(
     ts: Date.now(),
     phase: reply ? 'reply' : 'request',
     protocol: protoLabel,
-    srcName, dstName, srcIp, dstIp, srcMac, dstMac,
-    l4: wk.l4, srcPort, dstPort,
+    srcName,
+    dstName,
+    srcIp,
+    dstIp,
+    srcMac,
+    dstMac,
+    l4: wk.l4,
+    srcPort,
+    dstPort,
     length,
     info,
-    layers: app === 'ICMP' ? [frame, ethernet, ipv4, transport] : [frame, ethernet, ipv4, transport, appLayer],
+    layers:
+      app === 'ICMP'
+        ? [frame, ethernet, ipv4, transport]
+        : [frame, ethernet, ipv4, transport, appLayer],
     payloadHex: hexDump(`${srcMac}${dstMac}${srcIp}${dstIp}${info}`),
   }
 }
 
 // ── Control-plane / L2 packets (ARP, TCP handshake) ──────────────────────────
 export function buildArp(
-  srcName: string, srcIp: string, srcId: string,
-  dstName: string, dstIp: string, dstId: string, request: boolean,
+  srcName: string,
+  srcIp: string,
+  srcId: string,
+  dstName: string,
+  dstIp: string,
+  dstId: string,
+  request: boolean,
 ): PacketInfo {
-  const srcMac = macFor(srcId), dstMac = macFor(dstId)
+  const srcMac = macFor(srcId),
+    dstMac = macFor(dstId)
   const info = request ? `Who has ${dstIp}? Tell ${srcIp}` : `${dstIp} is at ${dstMac}`
   const length = 42
   return {
     id: `arp-${hash(srcId + dstId + (request ? 'q' : 'r'))}-${Date.now() % 100000}`,
     phase: request ? 'request' : 'reply',
-    ts: Date.now(), protocol: 'ARP', srcName, dstName, srcIp, dstIp, srcMac, dstMac,
-    l4: 'TCP', length, info,
+    ts: Date.now(),
+    protocol: 'ARP',
+    srcName,
+    dstName,
+    srcIp,
+    dstIp,
+    srcMac,
+    dstMac,
+    l4: 'TCP',
+    length,
+    info,
     layers: [
-      { name: `Frame: ${length} bytes`, summary: `${length} bytes on wire`, fields: [{ label: 'Protocols in frame', value: 'eth:arp' }] },
-      { name: 'Ethernet II', summary: `${srcMac} -> ${request ? 'Broadcast' : dstMac}`, fields: [
-        { label: 'Destination', value: request ? 'Broadcast (ff:ff:ff:ff:ff:ff)' : dstMac },
-        { label: 'Source', value: srcMac }, { label: 'Type', value: 'ARP (0x0806)' } ] },
-      { name: 'Address Resolution Protocol', summary: info, fields: [
-        { label: 'Opcode', value: request ? 'request (1)' : 'reply (2)' },
-        { label: 'Sender MAC address', value: srcMac }, { label: 'Sender IP address', value: srcIp },
-        { label: 'Target MAC address', value: request ? '00:00:00:00:00:00' : dstMac },
-        { label: 'Target IP address', value: dstIp } ] },
+      {
+        name: `Frame: ${length} bytes`,
+        summary: `${length} bytes on wire`,
+        fields: [{ label: 'Protocols in frame', value: 'eth:arp' }],
+      },
+      {
+        name: 'Ethernet II',
+        summary: `${srcMac} -> ${request ? 'Broadcast' : dstMac}`,
+        fields: [
+          { label: 'Destination', value: request ? 'Broadcast (ff:ff:ff:ff:ff:ff)' : dstMac },
+          { label: 'Source', value: srcMac },
+          { label: 'Type', value: 'ARP (0x0806)' },
+        ],
+      },
+      {
+        name: 'Address Resolution Protocol',
+        summary: info,
+        fields: [
+          { label: 'Opcode', value: request ? 'request (1)' : 'reply (2)' },
+          { label: 'Sender MAC address', value: srcMac },
+          { label: 'Sender IP address', value: srcIp },
+          { label: 'Target MAC address', value: request ? '00:00:00:00:00:00' : dstMac },
+          { label: 'Target IP address', value: dstIp },
+        ],
+      },
     ],
     payloadHex: hexDump(`${srcMac}ffffffffffff${srcIp}${dstIp}${info}`),
   }
 }
 
 export function buildTcp(
-  srcName: string, srcIp: string, srcId: string,
-  dstName: string, dstIp: string, dstId: string,
-  flags: 'SYN' | 'SYN, ACK' | 'ACK', forApp: AppProto,
+  srcName: string,
+  srcIp: string,
+  srcId: string,
+  dstName: string,
+  dstIp: string,
+  dstId: string,
+  flags: 'SYN' | 'SYN, ACK' | 'ACK',
+  forApp: AppProto,
 ): PacketInfo {
   const wk = WELL_KNOWN[forApp]
   const synAck = flags === 'SYN, ACK'
   const srcPort = synAck ? wk.port : ephemeralPort(srcId)
   const dstPort = synAck ? ephemeralPort(dstId) : wk.port
-  const srcMac = macFor(srcId), dstMac = macFor(dstId)
+  const srcMac = macFor(srcId),
+    dstMac = macFor(dstId)
   const seq = hash(srcId + flags) % 100000
   const info = `${srcPort} -> ${dstPort} [${flags}] Seq=${flags === 'ACK' ? 1 : 0}${flags.includes('ACK') ? ' Ack=1' : ''} Win=64240 Len=0 MSS=1460`
   const length = 66
   return {
     id: `tcp-${hash(srcId + dstId + flags)}-${Date.now() % 100000}`,
     phase: synAck ? 'reply' : 'request',
-    ts: Date.now(), protocol: 'TCP', srcName, dstName, srcIp, dstIp, srcMac, dstMac,
-    l4: 'TCP', srcPort, dstPort, length, info,
+    ts: Date.now(),
+    protocol: 'TCP',
+    srcName,
+    dstName,
+    srcIp,
+    dstIp,
+    srcMac,
+    dstMac,
+    l4: 'TCP',
+    srcPort,
+    dstPort,
+    length,
+    info,
     layers: [
-      { name: `Frame: ${length} bytes`, summary: `${length} bytes on wire`, fields: [{ label: 'Protocols in frame', value: 'eth:ethertype:ip:tcp' }] },
-      { name: 'Ethernet II', summary: `${srcMac} -> ${dstMac}`, fields: [
-        { label: 'Destination', value: dstMac }, { label: 'Source', value: srcMac }, { label: 'Type', value: 'IPv4 (0x0800)' } ] },
-      { name: 'Internet Protocol Version 4', summary: `${srcIp} -> ${dstIp}`, fields: [
-        { label: 'Time to Live', value: '64' }, { label: 'Protocol', value: 'TCP (6)' },
-        { label: 'Source Address', value: srcIp }, { label: 'Destination Address', value: dstIp } ] },
-      { name: 'Transmission Control Protocol', summary: info, fields: [
-        { label: 'Source Port', value: String(srcPort) }, { label: 'Destination Port', value: String(dstPort) },
-        { label: 'Sequence Number', value: String(seq) }, { label: 'Flags', value: `[${flags}]` },
-        { label: 'Window Size', value: '64240' }, { label: 'Options', value: 'MSS, SACK permitted, Timestamps' } ] },
+      {
+        name: `Frame: ${length} bytes`,
+        summary: `${length} bytes on wire`,
+        fields: [{ label: 'Protocols in frame', value: 'eth:ethertype:ip:tcp' }],
+      },
+      {
+        name: 'Ethernet II',
+        summary: `${srcMac} -> ${dstMac}`,
+        fields: [
+          { label: 'Destination', value: dstMac },
+          { label: 'Source', value: srcMac },
+          { label: 'Type', value: 'IPv4 (0x0800)' },
+        ],
+      },
+      {
+        name: 'Internet Protocol Version 4',
+        summary: `${srcIp} -> ${dstIp}`,
+        fields: [
+          { label: 'Time to Live', value: '64' },
+          { label: 'Protocol', value: 'TCP (6)' },
+          { label: 'Source Address', value: srcIp },
+          { label: 'Destination Address', value: dstIp },
+        ],
+      },
+      {
+        name: 'Transmission Control Protocol',
+        summary: info,
+        fields: [
+          { label: 'Source Port', value: String(srcPort) },
+          { label: 'Destination Port', value: String(dstPort) },
+          { label: 'Sequence Number', value: String(seq) },
+          { label: 'Flags', value: `[${flags}]` },
+          { label: 'Window Size', value: '64240' },
+          { label: 'Options', value: 'MSS, SACK permitted, Timestamps' },
+        ],
+      },
     ],
     payloadHex: hexDump(`${srcMac}${dstMac}${srcIp}${dstIp}${info}`),
   }

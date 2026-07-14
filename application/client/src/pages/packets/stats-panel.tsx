@@ -2,8 +2,14 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import type { PacketStats } from '../../types/index.ts'
 
 const PROTO_COLORS: Record<string, string> = {
-  HTTP: '#3fb950', HTTPS: '#2ea043', DNS: '#58a6ff', TCP: '#8b949e',
-  UDP: '#d29922', ICMP: '#f85149', ARP: '#bc8cff', TLS: '#ffa657',
+  HTTP: '#3fb950',
+  HTTPS: '#2ea043',
+  DNS: '#58a6ff',
+  TCP: '#8b949e',
+  UDP: '#d29922',
+  ICMP: '#f85149',
+  ARP: '#bc8cff',
+  TLS: '#ffa657',
   SSH: '#3fb950',
 }
 
@@ -19,7 +25,11 @@ interface StatsPanelProps {
 
 export default function StatsPanel({ stats }: StatsPanelProps) {
   if (!stats) {
-    return <div className="flex items-center justify-center h-full text-xs text-[var(--text-muted)]">No data</div>
+    return (
+      <div className="flex items-center justify-center h-full text-xs text-[var(--text-muted)]">
+        No data
+      </div>
+    )
   }
 
   const chartData = Object.entries(stats.byProtocol).map(([name, value]) => ({ name, value }))
@@ -35,8 +45,12 @@ export default function StatsPanel({ stats }: StatsPanelProps) {
           { label: 'Throughput', value: `${formatBytes(stats.bytesPerSecond)}/s` },
         ].map(({ label, value }) => (
           <div key={label} className="card p-2">
-            <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-0.5">{label}</div>
-            <div className="text-sm font-mono font-semibold text-[var(--text-primary)]">{value}</div>
+            <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-0.5">
+              {label}
+            </div>
+            <div className="text-sm font-mono font-semibold text-[var(--text-primary)]">
+              {value}
+            </div>
           </div>
         ))}
       </div>
@@ -44,7 +58,9 @@ export default function StatsPanel({ stats }: StatsPanelProps) {
       {/* Protocol chart */}
       {chartData.length > 0 && (
         <div>
-          <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-2">Protocol Distribution</div>
+          <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-2">
+            Protocol Distribution
+          </div>
           <div className="h-36">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -85,7 +101,9 @@ export default function StatsPanel({ stats }: StatsPanelProps) {
                     className="w-2 h-2 rounded-sm shrink-0"
                     style={{ background: PROTO_COLORS[name] ?? '#484f58' }}
                   />
-                  <span className="text-[11px] font-mono text-[var(--text-secondary)] flex-1">{name}</span>
+                  <span className="text-[11px] font-mono text-[var(--text-secondary)] flex-1">
+                    {name}
+                  </span>
                   <span className="text-[11px] font-mono text-[var(--text-primary)]">{value}</span>
                   <span className="text-[10px] text-[var(--text-muted)] w-10 text-right">
                     {stats.total > 0 ? ((value / stats.total) * 100).toFixed(1) : '0.0'}%

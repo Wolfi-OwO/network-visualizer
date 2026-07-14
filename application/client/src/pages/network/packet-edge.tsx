@@ -8,9 +8,9 @@ export type PacketEdgeState = 'idle' | 'dimmed' | 'path' | 'active' | 'done' | '
 export interface PacketEdgeData extends Record<string, unknown> {
   packetState?: PacketEdgeState
   edgeLabel?: string
-  packetReversed?: boolean  // dot travels target->source when true
-  animDuration?: number     // ms — must match the step interval
-  animVersion?: number      // increment to force-restart the dot animation
+  packetReversed?: boolean // dot travels target->source when true
+  animDuration?: number // ms — must match the step interval
+  animVersion?: number // increment to force-restart the dot animation
   // Link metadata (editable via the edge properties panel)
   bandwidth?: string
   latencyMs?: number
@@ -18,22 +18,30 @@ export interface PacketEdgeData extends Record<string, unknown> {
 }
 
 const STATE_COLORS: Record<PacketEdgeState, string> = {
-  idle:    '#58a6ff',
-  dimmed:  '#30363d',
-  path:    '#484f58',
-  active:  '#3fb950',
-  done:    '#3fb950',
+  idle: '#58a6ff',
+  dimmed: '#30363d',
+  path: '#484f58',
+  active: '#3fb950',
+  done: '#3fb950',
   blocked: '#f85149',
 }
 
 const STATE_WIDTH: Record<PacketEdgeState, number> = {
-  idle: 2, dimmed: 1.5, path: 1.5, active: 3, done: 2.5, blocked: 3,
+  idle: 2,
+  dimmed: 1.5,
+  path: 1.5,
+  active: 3,
+  done: 2.5,
+  blocked: 3,
 }
 
 // "Floating" anchor: the point on `node`'s border facing `other`, so a link
 // always leaves from the geometrically correct side (left/right/top/bottom)
 // no matter which handle it was drawn from.
-function floatingAnchor(node: InternalNode, other: InternalNode): { x: number; y: number; pos: Position } {
+function floatingAnchor(
+  node: InternalNode,
+  other: InternalNode,
+): { x: number; y: number; pos: Position } {
   const w = node.measured.width ?? 0
   const h = node.measured.height ?? 0
   const x = node.internals.positionAbsolute.x
@@ -53,10 +61,17 @@ function floatingAnchor(node: InternalNode, other: InternalNode): { x: number; y
 }
 
 export function PacketEdge({
-  id, source, target,
-  sourceX, sourceY, targetX, targetY,
-  sourcePosition, targetPosition,
-  data, markerEnd,
+  id,
+  source,
+  target,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  data,
+  markerEnd,
 }: EdgeProps) {
   const d = data as PacketEdgeData
   const state: PacketEdgeState = d?.packetState ?? 'idle'
@@ -68,26 +83,49 @@ export function PacketEdge({
   // the handle coordinates until the nodes have been measured).
   const sourceNode = useInternalNode(source)
   const targetNode = useInternalNode(target)
-  let sx = sourceX, sy = sourceY, sp = sourcePosition
-  let tx = targetX, ty = targetY, tp = targetPosition
+  let sx = sourceX,
+    sy = sourceY,
+    sp = sourcePosition
+  let tx = targetX,
+    ty = targetY,
+    tp = targetPosition
   if (sourceNode?.measured.width && targetNode?.measured.width) {
     const s = floatingAnchor(sourceNode, targetNode)
     const t = floatingAnchor(targetNode, sourceNode)
-    sx = s.x; sy = s.y; sp = s.pos
-    tx = t.x; ty = t.y; tp = t.pos
+    sx = s.x
+    sy = s.y
+    sp = s.pos
+    tx = t.x
+    ty = t.y
+    tp = t.pos
   }
 
   // Visual path always source->target
   const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX: sx, sourceY: sy, sourcePosition: sp,
-    targetX: tx, targetY: ty, targetPosition: tp,
+    sourceX: sx,
+    sourceY: sy,
+    sourcePosition: sp,
+    targetX: tx,
+    targetY: ty,
+    targetPosition: tp,
   })
 
   // Forward (source->target) and reversed motion paths — dots pick one by direction
-  const [fwdPath] = getBezierPath({ sourceX: sx, sourceY: sy, sourcePosition: sp, targetX: tx, targetY: ty, targetPosition: tp })
+  const [fwdPath] = getBezierPath({
+    sourceX: sx,
+    sourceY: sy,
+    sourcePosition: sp,
+    targetX: tx,
+    targetY: ty,
+    targetPosition: tp,
+  })
   const [revPath] = getBezierPath({
-    sourceX: tx, sourceY: ty, sourcePosition: tp,
-    targetX: sx, targetY: sy, targetPosition: sp,
+    sourceX: tx,
+    sourceY: ty,
+    sourcePosition: tp,
+    targetX: sx,
+    targetY: sy,
+    targetPosition: sp,
   })
   const fwdId = `${id}-mf`
   const revId = `${id}-mr`
@@ -107,7 +145,11 @@ export function PacketEdge({
     // Don't (re)start a dot while the analyzer has frozen the world — it must
     // stay exactly where it is, not jump back to the start of the edge.
     if (el && !(window as unknown as { __netvizFrozen?: boolean }).__netvizFrozen) {
-      try { el.beginElement() } catch { /* not yet attached */ }
+      try {
+        el.beginElement()
+      } catch {
+        /* not yet attached */
+      }
     }
   }, [])
 
@@ -142,9 +184,22 @@ export function PacketEdge({
       {/* ── Traveling packet dot ───────────────────────────────── */}
       {state === 'active' && (
         // key=animVersion forces a clean remount (and animation restart) after resume
-        <circle key={`dot-${animVersion}`} r={5} fill="#3fb950" stroke="#0d1117" strokeWidth={1.5}
-          style={{ filter: 'drop-shadow(0 0 7px #3fb950) drop-shadow(0 0 14px #3fb95066)' }}>
-          <animateMotion ref={beginMotion} dur={dur} begin="indefinite" repeatCount="1" fill="freeze" rotate="auto">
+        <circle
+          key={`dot-${animVersion}`}
+          r={5}
+          fill="#3fb950"
+          stroke="#0d1117"
+          strokeWidth={1.5}
+          style={{ filter: 'drop-shadow(0 0 7px #3fb950) drop-shadow(0 0 14px #3fb95066)' }}
+        >
+          <animateMotion
+            ref={beginMotion}
+            dur={dur}
+            begin="indefinite"
+            repeatCount="1"
+            fill="freeze"
+            rotate="auto"
+          >
             <mpath href={`#${motionPathId}`} />
           </animateMotion>
         </circle>
@@ -152,16 +207,36 @@ export function PacketEdge({
 
       {state === 'blocked' && (
         <>
-          <circle key={`bdot-${animVersion}`} r={5} fill="#f85149" stroke="#0d1117" strokeWidth={1.5}
-            style={{ filter: 'drop-shadow(0 0 7px #f85149)' }}>
-            <animateMotion ref={beginMotion} dur={dur} begin="indefinite" repeatCount="1" fill="freeze" rotate="auto">
+          <circle
+            key={`bdot-${animVersion}`}
+            r={5}
+            fill="#f85149"
+            stroke="#0d1117"
+            strokeWidth={1.5}
+            style={{ filter: 'drop-shadow(0 0 7px #f85149)' }}
+          >
+            <animateMotion
+              ref={beginMotion}
+              dur={dur}
+              begin="indefinite"
+              repeatCount="1"
+              fill="freeze"
+              rotate="auto"
+            >
               <mpath href={`#${motionPathId}`} />
             </animateMotion>
           </circle>
           {/* The X rides just above the blocked dot. animateMotion drives the <g>,
               so the nested icon travels with it. */}
           <g key={`bicon-${animVersion}`} style={{ filter: 'drop-shadow(0 0 3px #f85149)' }}>
-            <animateMotion ref={beginMotion} dur={dur} begin="indefinite" repeatCount="1" fill="freeze" rotate="auto">
+            <animateMotion
+              ref={beginMotion}
+              dur={dur}
+              begin="indefinite"
+              repeatCount="1"
+              fill="freeze"
+              rotate="auto"
+            >
               <mpath href={`#${motionPathId}`} />
             </animateMotion>
             <X x={-5} y={-13} size={10} color="#f85149" strokeWidth={3} />
@@ -171,8 +246,13 @@ export function PacketEdge({
 
       {/* Small dot frozen at end of completed edges */}
       {state === 'done' && (
-        <circle r={3.5} fill="#3fb950" stroke="#0d1117" strokeWidth={1}
-          style={{ filter: 'drop-shadow(0 0 4px #3fb950)' }}>
+        <circle
+          r={3.5}
+          fill="#3fb950"
+          stroke="#0d1117"
+          strokeWidth={1}
+          style={{ filter: 'drop-shadow(0 0 4px #3fb950)' }}
+        >
           <animateMotion dur="0.001s" repeatCount="1" fill="freeze" begin="0s">
             <mpath href={`#${motionPathId}`} />
           </animateMotion>
@@ -188,7 +268,8 @@ export function PacketEdge({
             style={{
               position: 'absolute',
               transform: `translate(-50%,-50%) translate(${labelX}px,${labelY}px)`,
-              fontSize: 10, color: '#8b949e',
+              fontSize: 10,
+              color: '#8b949e',
               pointerEvents: 'none',
               background: '#161b22cc',
               padding: '1px 4px',

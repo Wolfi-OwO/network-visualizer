@@ -178,7 +178,7 @@ export interface NetworkInterface {
   speed?: string
   duplex?: 'full' | 'half'
   description?: string
-  vlan?: number          // access VLAN of this port (untagged = 1)
+  vlan?: number // access VLAN of this port (untagged = 1)
 }
 
 export interface RoutingTableEntry {
@@ -220,7 +220,7 @@ export interface DhcpConfig {
   poolEnd: string
   subnetMask: string
   gateway: string
-  dnsServers: string   // comma-separated list
+  dnsServers: string // comma-separated list
   leaseHours: number
 }
 
@@ -236,13 +236,13 @@ export interface DnsRecord {
 
 export interface DnsConfig {
   enabled: boolean
-  forwarders: string   // comma-separated upstream resolvers
+  forwarders: string // comma-separated upstream resolvers
   records: DnsRecord[]
 }
 
 export interface ServiceConfig {
   id: string
-  name: string                 // HTTP, HTTPS, FTP, SSH, DNS, SMTP, RDP, Telnet …
+  name: string // HTTP, HTTPS, FTP, SSH, DNS, SMTP, RDP, Telnet …
   port: number
   protocol: 'tcp' | 'udp'
   enabled: boolean
@@ -266,8 +266,8 @@ export interface NetworkNodeConfig {
   dns?: DnsConfig
   services?: ServiceConfig[]
   webPage?: WebPage
-  powered?: boolean        // device power state (undefined = on)
-  zone?: string            // security zone (Internal/DMZ/External/Management/…)
+  powered?: boolean // device power state (undefined = on)
+  zone?: string // security zone (Internal/DMZ/External/Management/…)
   osType?: string
   model?: string
   serialNumber?: string
@@ -276,14 +276,34 @@ export interface NetworkNodeConfig {
 }
 
 export type NodeType =
-  | 'router' | 'l3switch' | 'switch' | 'hub'
-  | 'firewall' | 'ids_ips' | 'vpn_gateway'
+  | 'router'
+  | 'l3switch'
+  | 'switch'
+  | 'hub'
+  | 'firewall'
+  | 'ids_ips'
+  | 'vpn_gateway'
   | 'wifiap'
-  | 'load_balancer' | 'proxy' | 'api_gateway'
-  | 'server' | 'dns' | 'dhcp' | 'mailserver' | 'fileserver' | 'database' | 'virtualhost'
-  | 'nas' | 'storage'
-  | 'pc' | 'laptop' | 'phone' | 'printer' | 'iot'
-  | 'isp' | 'www' | 'cloud'
+  | 'load_balancer'
+  | 'proxy'
+  | 'api_gateway'
+  | 'server'
+  | 'dns'
+  | 'dhcp'
+  | 'mailserver'
+  | 'fileserver'
+  | 'database'
+  | 'virtualhost'
+  | 'nas'
+  | 'storage'
+  | 'pc'
+  | 'laptop'
+  | 'phone'
+  | 'printer'
+  | 'iot'
+  | 'isp'
+  | 'www'
+  | 'cloud'
 
 export interface NetworkNode {
   id: string

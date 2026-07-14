@@ -5,8 +5,18 @@ export interface Metrics {
   uptimeSeconds: number
   timestamp: string
   requests: number
-  process: { node: string; pid: number; memoryMB: { rss: number; heapUsed: number; heapTotal: number } }
-  database: { state: string; topologies: number; users: number; auditEntries: number; versions: number }
+  process: {
+    node: string
+    pid: number
+    memoryMB: { rss: number; heapUsed: number; heapTotal: number }
+  }
+  database: {
+    state: string
+    topologies: number
+    users: number
+    auditEntries: number
+    versions: number
+  }
   capture: { capturing: boolean; packets: number; packetsPerSecond: number; bytesPerSecond: number }
   auth: { providers: string[] }
 }

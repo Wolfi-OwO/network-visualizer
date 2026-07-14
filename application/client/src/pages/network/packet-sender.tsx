@@ -9,23 +9,23 @@ import SelectMenu from '../../components/core/select-menu.tsx'
 
 const PROTOCOLS = [
   { value: 'icmp', label: 'ICMP (Ping)' },
-  { value: 'tcp',  label: 'TCP' },
-  { value: 'udp',  label: 'UDP' },
+  { value: 'tcp', label: 'TCP' },
+  { value: 'udp', label: 'UDP' },
 ] as const
 
 const PRESET_PORTS = [
-  { label: 'HTTP (80)',   port: 80,   proto: 'tcp' as const },
-  { label: 'HTTPS (443)', port: 443,  proto: 'tcp' as const },
-  { label: 'SSH (22)',    port: 22,   proto: 'tcp' as const },
-  { label: 'DNS (53)',    port: 53,   proto: 'udp' as const },
-  { label: 'SMTP (25)',   port: 25,   proto: 'tcp' as const },
+  { label: 'HTTP (80)', port: 80, proto: 'tcp' as const },
+  { label: 'HTTPS (443)', port: 443, proto: 'tcp' as const },
+  { label: 'SSH (22)', port: 22, proto: 'tcp' as const },
+  { label: 'DNS (53)', port: 53, proto: 'udp' as const },
+  { label: 'SMTP (25)', port: 25, proto: 'tcp' as const },
   { label: 'RDP (3389)', port: 3389, proto: 'tcp' as const },
 ]
 
 const SPEED_PRESETS = [
-  { label: 'Fast',   ms: 1300 },
+  { label: 'Fast', ms: 1300 },
   { label: 'Normal', ms: 2000 },
-  { label: 'Slow',   ms: 5000 },
+  { label: 'Slow', ms: 5000 },
 ] as const
 
 interface PacketSenderProps {
@@ -42,10 +42,16 @@ interface PacketSenderProps {
 }
 
 export default function PacketSender({
-  nodes, topologyId, currentEdges,
-  onTraceResult, onClear,
-  animSpeed, isPaused, isAnimating,
-  onSpeedChange, onPauseToggle,
+  nodes,
+  topologyId,
+  currentEdges,
+  onTraceResult,
+  onClear,
+  animSpeed,
+  isPaused,
+  isAnimating,
+  onSpeedChange,
+  onPauseToggle,
 }: PacketSenderProps) {
   const [srcId, setSrcId] = useState('')
   const [dstId, setDstId] = useState('')
@@ -57,8 +63,14 @@ export default function PacketSender({
   const [showPresets, setShowPresets] = useState(false)
 
   const handleSend = async () => {
-    if (!srcId || !dstId) { setError('Select source and destination'); return }
-    if (srcId === dstId) { setError('Source and destination must differ'); return }
+    if (!srcId || !dstId) {
+      setError('Select source and destination')
+      return
+    }
+    if (srcId === dstId) {
+      setError('Source and destination must differ')
+      return
+    }
     setError('')
     setLoading(true)
     onClear()
@@ -66,10 +78,14 @@ export default function PacketSender({
     try {
       // Sync current local topology to backend before tracing so new nodes are visible
       if (topologyId) {
-        const netNodes = nodes.map(n => ({
-          id: n.id, type: n.type, label: n.label, position: n.position, config: n.config,
+        const netNodes = nodes.map((n) => ({
+          id: n.id,
+          type: n.type,
+          label: n.label,
+          position: n.position,
+          config: n.config,
         }))
-        const netEdges: NetworkEdge[] = currentEdges.map(e => ({
+        const netEdges: NetworkEdge[] = currentEdges.map((e) => ({
           id: e.id,
           source: e.source,
           target: e.target,
@@ -91,7 +107,8 @@ export default function PacketSender({
       })
       onTraceResult(data)
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Trace failed'
+      const msg =
+        (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Trace failed'
       setError(msg)
     } finally {
       setLoading(false)
@@ -105,13 +122,18 @@ export default function PacketSender({
   }
 
   return (
-    <div data-tour="sender" className="relative z-20 flex flex-wrap items-center gap-2 px-3 py-2 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)]">
+    <div
+      data-tour="sender"
+      className="relative z-20 flex flex-wrap items-center gap-2 px-3 py-2 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)]"
+    >
       {/* Field controls: label -> source -> destination -> protocol -> port -> TTL -> send, wrap as one unit */}
       <div className="flex flex-wrap items-center gap-2">
         {/* Label */}
         <div className="flex items-center gap-1.5 shrink-0">
           <Zap size={12} className="text-[var(--yellow)]" />
-          <span className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Send Packet</span>
+          <span className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+            Send Packet
+          </span>
         </div>
 
         {/* Source */}
@@ -122,7 +144,10 @@ export default function PacketSender({
             value={srcId}
             onChange={setSrcId}
             placeholder="— Source —"
-            options={nodes.map(n => ({ value: n.id, label: `${n.config.hostname ?? n.label} (${n.type})` }))}
+            options={nodes.map((n) => ({
+              value: n.id,
+              label: `${n.config.hostname ?? n.label} (${n.type})`,
+            }))}
           />
         </div>
 
@@ -136,7 +161,9 @@ export default function PacketSender({
             value={dstId}
             onChange={setDstId}
             placeholder="— Destination —"
-            options={nodes.filter(n => n.id !== srcId).map(n => ({ value: n.id, label: `${n.config.hostname ?? n.label} (${n.type})` }))}
+            options={nodes
+              .filter((n) => n.id !== srcId)
+              .map((n) => ({ value: n.id, label: `${n.config.hostname ?? n.label} (${n.type})` }))}
           />
         </div>
 
@@ -144,8 +171,8 @@ export default function PacketSender({
         <SelectMenu
           className="text-xs w-28"
           value={protocol}
-          onChange={v => setProtocol(v as 'icmp' | 'tcp' | 'udp')}
-          options={PROTOCOLS.map(p => ({ value: p.value, label: p.label }))}
+          onChange={(v) => setProtocol(v as 'icmp' | 'tcp' | 'udp')}
+          options={PROTOCOLS.map((p) => ({ value: p.value, label: p.label }))}
         />
 
         {/* Port (only TCP/UDP) */}
@@ -155,25 +182,37 @@ export default function PacketSender({
               className="input h-7 w-20 font-mono text-xs"
               placeholder="Port"
               value={dstPort}
-              onChange={e => setDstPort(e.target.value)}
+              onChange={(e) => setDstPort(e.target.value)}
               type="number"
               min={1}
               max={65535}
             />
-            <button onClick={() => setShowPresets(v => !v)} className="btn-ghost h-7 px-1.5" title="Preset ports">
+            <button
+              onClick={() => setShowPresets((v) => !v)}
+              className="btn-ghost h-7 px-1.5"
+              title="Preset ports"
+            >
               <ChevronDown size={10} />
             </button>
             {showPresets && (
               <div
                 className="rounded-lg p-1.5 shadow-2xl"
                 style={{
-                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
-                  minWidth: 140, background: 'var(--bg-800)', border: '1px solid var(--border)',
+                  position: 'absolute',
+                  top: 'calc(100% + 4px)',
+                  left: 0,
+                  zIndex: 50,
+                  minWidth: 140,
+                  background: 'var(--bg-800)',
+                  border: '1px solid var(--border)',
                 }}
               >
-                {PRESET_PORTS.map(p => (
-                  <button key={p.label} onClick={() => applyPreset(p.port, p.proto)}
-                    className="block w-full text-left px-2 py-1 rounded-md text-[11px] font-mono text-[var(--text-secondary)] hover:bg-white/10 hover:text-[var(--text-primary)] transition-colors">
+                {PRESET_PORTS.map((p) => (
+                  <button
+                    key={p.label}
+                    onClick={() => applyPreset(p.port, p.proto)}
+                    className="block w-full text-left px-2 py-1 rounded-md text-[11px] font-mono text-[var(--text-secondary)] hover:bg-white/10 hover:text-[var(--text-primary)] transition-colors"
+                  >
                     {p.label}
                   </button>
                 ))}
@@ -185,8 +224,14 @@ export default function PacketSender({
         {/* TTL */}
         <div className="flex items-center gap-1">
           <span className="text-[10px] text-[var(--text-muted)] shrink-0">TTL</span>
-          <input className="input h-7 w-12 font-mono text-xs" value={ttl}
-            onChange={e => setTtl(e.target.value)} type="number" min={1} max={255} />
+          <input
+            className="input h-7 w-12 font-mono text-xs"
+            value={ttl}
+            onChange={(e) => setTtl(e.target.value)}
+            type="number"
+            min={1}
+            max={255}
+          />
         </div>
 
         {/* Send button */}
@@ -201,10 +246,13 @@ export default function PacketSender({
       </div>
 
       {/* ── Speed control — drops to its own full-width row below `lg` ─── */}
-      <div data-tour="speed" className="flex items-center gap-1.5 w-full lg:w-auto border-t lg:border-t-0 lg:border-l border-[var(--border)] pt-2 lg:pt-0 lg:pl-2 lg:ml-1 shrink-0">
+      <div
+        data-tour="speed"
+        className="flex items-center gap-1.5 w-full lg:w-auto border-t lg:border-t-0 lg:border-l border-[var(--border)] pt-2 lg:pt-0 lg:pl-2 lg:ml-1 shrink-0"
+      >
         <Gauge size={11} className="text-[var(--text-muted)]" />
         <div className="flex rounded overflow-hidden border border-[var(--border)]">
-          {SPEED_PRESETS.map(p => (
+          {SPEED_PRESETS.map((p) => (
             <button
               key={p.ms}
               onClick={() => onSpeedChange(p.ms)}
@@ -224,7 +272,9 @@ export default function PacketSender({
         {isAnimating && (
           <button
             onClick={onPauseToggle}
-            className={['btn h-6 px-2 text-[10px]', isPaused ? 'btn-primary' : 'btn-ghost'].join(' ')}
+            className={['btn h-6 px-2 text-[10px]', isPaused ? 'btn-primary' : 'btn-ghost'].join(
+              ' ',
+            )}
             title={isPaused ? 'Resume animation' : 'Pause animation'}
           >
             {isPaused ? <Play size={10} /> : <Pause size={10} />}
