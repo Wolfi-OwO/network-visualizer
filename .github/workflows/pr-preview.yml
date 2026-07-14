@@ -45,10 +45,24 @@ jobs:
   # ── Compute a stable, DNS-safe tag/suffix for this commit ──────────────────
   prep:
     name: Prepare
+    # The release's own version-bump PR gets no preview.
+    #
+    # release.yml opens chore/release-vX.Y.Z and merges it seconds later with --admin.
+    # This workflow needs ~2 minutes to build an image, so the PR is already closed by
+    # the time it creates the revision — and pr-preview-teardown, which fires on close,
+    # has already run and found nothing to delete. The preview then lands orphaned:
+    # active, zero traffic, holding a replica, with no PR left whose closure could ever
+    # reap it. v2.5.0 leaked netviz--pr-19-2cf4ece exactly this way, and every release
+    # would leak one more.
+    #
+    # Racing teardown against an image build is unwinnable, so don't enter the race.
+    # There is nothing to preview anyway: the bump is a mechanical version stamp, and
+    # the code it carries is previewed on the PR that actually changed it.
     if: >-
       github.event.action != 'closed' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      vars.PREVIEW_ENABLED == 'true'
+      vars.PREVIEW_ENABLED == 'true' &&
+      !startsWith(github.head_ref, 'chore/release-')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.o.outputs.tag }}
@@ -109,6 +123,7 @@ jobs:
           IMAGE: ${{ vars.IMAGE_NAME }}
           TAG: ${{ needs.prep.outputs.tag }}
           PR: ${{ github.event.number }}
+          GH_TOKEN: ${{ github.token }}   # read the PR's state back at the end
         run: |
           set -euo pipefail
 
@@ -164,6 +179,20 @@ jobs:
             echo "::error::Preview revision $REV somehow holds ${WEIGHT}% of production traffic — deactivating it."
             az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$REV" -o none || true
             exit 1
+          fi
+
+          # Did the PR close while we were building? pr-preview-teardown fires on close
+          # and deactivates whatever previews exist AT THAT MOMENT. A revision created
+          # after it ran is invisible to it, and no second close event is ever coming —
+          # so it would stay active forever, holding a replica, with nothing left to reap
+          # it. Skipping chore/release-* (see the `prep` gate) removes the one branch that
+          # closes this fast by construction, but any PR merged during a build hits the
+          # same race, so clean up after ourselves rather than trusting the timing.
+          STATE=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq .state 2>/dev/null || echo "unknown")
+          if [ "$STATE" = "closed" ]; then
+            echo "::warning::PR #${PR} closed while this preview was building — deactivating $REV instead of orphaning it."
+            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$REV" -o none || true
+            exit 0
           fi
 
           echo "rev=$REV" >> "$GITHUB_OUTPUT"
