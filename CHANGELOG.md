@@ -1,3 +1,21 @@
+## [v2.5.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.5.0) — 2026-07-14
+
+## Production environment is now asserted, not inherited
+
+Production has been running on the `netviz-pr-8` throwaway database with the password-less dev login enabled since 12 Jul. The v2.4.1 rollout built its revision by copying the one then serving production — which had itself been copied from a PR-8 preview — and inherited the preview's `MONGODB_DB_NAME` and `ALLOW_DEV_LOGIN` overrides. Every subsequent release would have carried them forward.
+
+Deploys now pin production's identity explicitly: no database override (so the database named in the connection string is used) and no dev login. PR previews keep their own `netviz-pr-N` databases; those overrides now die with the preview.
+
+**This release returns production to the productive database.**
+
+## Scale to zero
+
+A revision's scale is immutable once created, so the `--min-replicas 0` already in `deploy.yml` never reached the running revision — it was created with `min=1` and has held a replica continuously, at zero requests, ever since. This release creates the first revision that actually scales to zero.
+
+## Revision naming
+
+Revisions are suffixed with the workflow run number instead of the 11-digit run ID, which had pushed the version out of the portal's visible column (`netviz--v2-4-1-…`).
+
 ## [v2.4.2](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.4.2) — 2026-07-13
 
 ## Changes
