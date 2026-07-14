@@ -251,3 +251,28 @@ jobs:
             echo "Deactivating superseded production revision $OLD"
             az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$OLD" -o none || true
           done
+
+          # A rollback target is only worth keeping if it is free to keep.
+          #
+          # Scale is immutable once a revision exists, so a revision created with
+          # minReplicas>0 holds a replica for the rest of its life — including now,
+          # retired behind 0% traffic, serving nobody. Retaining it as a rollback
+          # target means paying for an idle container indefinitely. That is the whole
+          # bug this pipeline was changed to stop: netviz ran a replica 24/7 for two
+          # days at zero requests because the revision serving production had been
+          # born with minReplicas=1 and could never be talked down.
+          #
+          # Revisions this workflow creates are born with minReplicas=0 and cost nothing
+          # while retired, so the common case keeps its rollback. Anything older that
+          # cannot scale to zero is dropped rather than subsidised: rolling back to it
+          # is still one `workflow_dispatch` of this file away with its tag, which
+          # rebuilds it as a revision that CAN scale to zero — and, unlike the retained
+          # revision, with production's env asserted rather than whatever it was carrying.
+          MIN=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$FROM" \
+            --query properties.template.scale.minReplicas -o tsv 2>/dev/null || echo 0)
+          if [ "${MIN:-0}" -gt 0 ]; then
+            echo "::warning::Rollback target $FROM was created with minReplicas=${MIN} and would hold a replica forever at 0% traffic. Deactivating it; roll back by dispatching this workflow with its tag instead."
+            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$FROM" -o none || true
+          else
+            echo "Keeping $FROM as a rollback target (minReplicas=0 — costs nothing while idle)."
+          fi
