@@ -1,13 +1,63 @@
-import { useReducer, useMemo, useCallback, useEffect, useRef, useState, type SetStateAction } from 'react'
 import {
-  ReactFlow, Background, Controls, MiniMap,
-  addEdge, useNodesState, useEdgesState,
-  type Node, type Edge, type Connection, type OnConnectStartParams,
-  BackgroundVariant, ConnectionMode,
+  useReducer,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type SetStateAction,
+} from 'react'
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  addEdge,
+  useNodesState,
+  useEdgesState,
+  type Node,
+  type Edge,
+  type Connection,
+  type OnConnectStartParams,
+  BackgroundVariant,
+  ConnectionMode,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Save, RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle, Info, ArrowRight, Ban, X, GraduationCap, Hammer, Activity, Undo2, Redo2, ShieldCheck, TerminalSquare, Download, History, Layers, PanelLeft, MoreHorizontal, SlidersHorizontal, type LucideIcon } from 'lucide-react'
-import type { NetworkTopology, NetworkNode as NetNode, NetworkEdge as NetEdge, NodeType, NetworkNodeConfig, NetworkInterface, RoutingTableEntry } from '../../types/index.ts'
+import {
+  Save,
+  RefreshCw,
+  Trash2,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Info,
+  ArrowRight,
+  Ban,
+  X,
+  GraduationCap,
+  Hammer,
+  Activity,
+  Undo2,
+  Redo2,
+  ShieldCheck,
+  TerminalSquare,
+  Download,
+  History,
+  Layers,
+  PanelLeft,
+  MoreHorizontal,
+  SlidersHorizontal,
+  type LucideIcon,
+} from 'lucide-react'
+import type {
+  NetworkTopology,
+  NetworkNode as NetNode,
+  NetworkEdge as NetEdge,
+  NodeType,
+  NetworkNodeConfig,
+  NetworkInterface,
+  RoutingTableEntry,
+} from '../../types/index.ts'
 import type { TraceResult } from '../../lib/api/index.ts'
 import { network as networkApi } from '../../lib/api/index.ts'
 import { nodeTypes, type NetworkNodeData, type NodeHighlight } from './custom-nodes.tsx'
@@ -26,14 +76,29 @@ import ValidationPanel from './validation-panel.tsx'
 import DeviceStatePanel from './device-state-panel.tsx'
 import VersionsPanel from './versions-panel.tsx'
 import PacketInspector from './packet-inspector.tsx'
-import { buildPacket, buildArp, buildTcp, appFromLabel, type PacketInfo, type AppProto } from './packet-model.ts'
-import { builderReducer, initialBuilderState, type BuilderState, type StatusKind, type StatusMessage } from './network-builder-page.reducer.ts'
+import {
+  buildPacket,
+  buildArp,
+  buildTcp,
+  appFromLabel,
+  type PacketInfo,
+  type AppProto,
+} from './packet-model.ts'
+import {
+  builderReducer,
+  initialBuilderState,
+  type BuilderState,
+  type StatusKind,
+  type StatusMessage,
+} from './network-builder-page.reducer.ts'
 
 // ── Converters ───────────────────────────────────────────────────────────────
 
 function toFlowNode(n: NetNode): Node<NetworkNodeData> {
   return {
-    id: n.id, type: n.type, position: n.position,
+    id: n.id,
+    type: n.type,
+    position: n.position,
     data: { type: n.type, label: n.label, config: n.config, highlight: 'none' },
   }
 }
@@ -41,7 +106,10 @@ function toFlowNode(n: NetNode): Node<NetworkNodeData> {
 function toFlowEdge(e: NetEdge): Edge<PacketEdgeData> {
   const lat = e.config?.latency ? parseFloat(e.config.latency) : undefined
   return {
-    id: e.id, source: e.source, target: e.target, type: 'packet',
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    type: 'packet',
     data: {
       packetState: 'idle',
       edgeLabel: e.label,
@@ -67,7 +135,8 @@ function bwToMbps(s?: string): number {
 // 1/bandwidth), referenced to a 100 Mbps / 1 ms link and bounded so it stays
 // watchable. `baseMs` is the Fast/Normal/Slow speed setting.
 function hopDuration(baseMs: number, latencyMs?: number, bandwidth?: string): number {
-  const refLat = 1, refBw = 100
+  const refLat = 1,
+    refBw = 100
   const lat = latencyMs && latencyMs > 0 ? latencyMs : refLat
   const bw = bwToMbps(bandwidth)
   const mult = Math.sqrt(lat / refLat) * Math.sqrt(refBw / bw)
@@ -78,7 +147,9 @@ function hopDuration(baseMs: number, latencyMs?: number, bandwidth?: string): nu
 function toNetEdge(e: Edge<PacketEdgeData>): NetEdge {
   const d = e.data ?? {}
   return {
-    id: e.id, source: e.source, target: e.target,
+    id: e.id,
+    source: e.source,
+    target: e.target,
     label: d.edgeLabel,
     config: {
       bandwidth: d.bandwidth,
@@ -98,13 +169,19 @@ function intToIp(n: number): string {
 }
 function maskToCidr(mask: string): number {
   return mask.split('.').reduce((a, o) => {
-    let b = parseInt(o, 10) || 0, c = 0
-    while (b & 0x80) { c++; b = (b << 1) & 0xff }
+    let b = parseInt(o, 10) || 0,
+      c = 0
+    while (b & 0x80) {
+      c++
+      b = (b << 1) & 0xff
+    }
     return a + c
   }, 0)
 }
 function setLastOctet(ip: string, last: number): string {
-  const p = ip.split('.'); if (p.length === 4) p[3] = String(last); return p.join('.')
+  const p = ip.split('.')
+  if (p.length === 4) p[3] = String(last)
+  return p.join('.')
 }
 // All node ids reachable from `start` across the (undirected) edges
 function reachableFrom(start: string, edges: { source: string; target: string }[]): Set<string> {
@@ -115,16 +192,22 @@ function reachableFrom(start: string, edges: { source: string; target: string }[
     adj.get(e.source)!.push(e.target)
     adj.get(e.target)!.push(e.source)
   }
-  const seen = new Set([start]); const q = [start]
+  const seen = new Set([start])
+  const q = [start]
   while (q.length) {
     const c = q.shift()!
-    for (const nb of adj.get(c) ?? []) if (!seen.has(nb)) { seen.add(nb); q.push(nb) }
+    for (const nb of adj.get(c) ?? [])
+      if (!seen.has(nb)) {
+        seen.add(nb)
+        q.push(nb)
+      }
   }
   return seen
 }
 // Shortest path (node ids + edge ids) between two nodes over the links
 function findPath(
-  src: string, dst: string,
+  src: string,
+  dst: string,
   edges: { id: string; source: string; target: string }[],
 ): { path: string[]; edgePath: string[] } | null {
   if (src === dst) return { path: [src], edgePath: [] }
@@ -136,29 +219,51 @@ function findPath(
     adj.get(e.target)!.push({ node: e.source, edge: e.id })
   }
   const prev = new Map<string, { node: string; edge: string }>()
-  const seen = new Set([src]); const q = [src]
+  const seen = new Set([src])
+  const q = [src]
   while (q.length) {
     const cur = q.shift()!
     if (cur === dst) break
     for (const nb of adj.get(cur) ?? []) {
-      if (!seen.has(nb.node)) { seen.add(nb.node); prev.set(nb.node, { node: cur, edge: nb.edge }); q.push(nb.node) }
+      if (!seen.has(nb.node)) {
+        seen.add(nb.node)
+        prev.set(nb.node, { node: cur, edge: nb.edge })
+        q.push(nb.node)
+      }
     }
   }
   if (!seen.has(dst)) return null
-  const path: string[] = [dst]; const edgePath: string[] = []
+  const path: string[] = [dst]
+  const edgePath: string[] = []
   let cur = dst
   while (cur !== src) {
-    const p = prev.get(cur)!; path.unshift(p.node); edgePath.unshift(p.edge); cur = p.node
+    const p = prev.get(cur)!
+    path.unshift(p.node)
+    edgePath.unshift(p.edge)
+    cur = p.node
   }
   return { path, edgePath }
 }
 
 // Set the primary interface's IP / mask / cidr (creating eth0 if needed)
-function assignIface(config: NetworkNodeConfig, ip: string, mask: string, cidr: string, desc?: string): NetworkNodeConfig {
-  const base: NetworkInterface[] = config.interfaces && config.interfaces.length
-    ? [...config.interfaces]
-    : [{ name: 'eth0', status: 'up', speed: '1 Gbps' }]
-  base[0] = { ...base[0], ipAddress: ip, subnetMask: mask, cidr, ...(desc ? { description: desc } : {}) }
+function assignIface(
+  config: NetworkNodeConfig,
+  ip: string,
+  mask: string,
+  cidr: string,
+  desc?: string,
+): NetworkNodeConfig {
+  const base: NetworkInterface[] =
+    config.interfaces && config.interfaces.length
+      ? [...config.interfaces]
+      : [{ name: 'eth0', status: 'up', speed: '1 Gbps' }]
+  base[0] = {
+    ...base[0],
+    ipAddress: ip,
+    subnetMask: mask,
+    cidr,
+    ...(desc ? { description: desc } : {}),
+  }
   return { ...config, interfaces: base }
 }
 
@@ -171,7 +276,12 @@ function getEdgeState(edgeId: string, result: TraceResult, step: number): Packet
   if (edgeHopIndex > step) return 'path'
 
   const blockedHopStep = result.hops.findIndex(
-    h => h.action === 'firewall_deny' || h.action === 'firewall_drop' || h.action === 'ttl_exceeded' || h.action === 'no_route' || h.action === 'port_closed',
+    (h) =>
+      h.action === 'firewall_deny' ||
+      h.action === 'firewall_drop' ||
+      h.action === 'ttl_exceeded' ||
+      h.action === 'no_route' ||
+      h.action === 'port_closed',
   )
   if (blockedHopStep !== -1 && edgeHopIndex === blockedHopStep) {
     return step >= edgeHopIndex ? 'blocked' : 'path'
@@ -184,7 +294,7 @@ function getNodeHighlight(nodeId: string, result: TraceResult, step: number): No
   if (!result.path.includes(nodeId)) return 'none'
   const nodeStepIndex = result.path.indexOf(nodeId)
   if (nodeStepIndex > step) return 'path'
-  const hop = result.hops.find(h => h.nodeId === nodeId)
+  const hop = result.hops.find((h) => h.nodeId === nodeId)
   if (!hop) return 'none'
   if (['firewall_deny', 'firewall_drop', 'ttl_exceeded', 'no_route'].includes(hop.action)) {
     return step >= nodeStepIndex ? 'blocked' : 'path'
@@ -197,50 +307,89 @@ function getNodeHighlight(nodeId: string, result: TraceResult, step: number): No
 // ── Result overlay ───────────────────────────────────────────────────────────
 
 function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () => void }) {
-  const blockedHop = result.hops.find(h =>
+  const blockedHop = result.hops.find((h) =>
     ['firewall_deny', 'firewall_drop', 'ttl_exceeded', 'no_route'].includes(h.action),
   )
-  const deliveredHop = result.hops.find(h => h.action === 'delivered')
+  const deliveredHop = result.hops.find((h) => h.action === 'delivered')
 
   return (
-    <div style={{
-      position: 'absolute', top: 16, left: '50%',
-      transform: 'translateX(-50%)',
-      zIndex: 50, minWidth: 360, maxWidth: 520,
-      animation: 'slideDown 0.25s ease-out',
-      pointerEvents: 'auto',
-    }}>
-      <div style={{
-        background: result.success ? '#0d2018' : '#1e0a0a',
-        border: `1.5px solid ${result.success ? '#3fb950' : '#f85149'}`,
-        borderRadius: 10,
-        boxShadow: result.success ? '0 4px 24px #3fb95044' : '0 4px 24px #f8514944',
-        padding: '12px 16px',
-      }}>
+    <div
+      style={{
+        position: 'absolute',
+        top: 16,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 50,
+        minWidth: 360,
+        maxWidth: 520,
+        animation: 'slideDown 0.25s ease-out',
+        pointerEvents: 'auto',
+      }}
+    >
+      <div
+        style={{
+          background: result.success ? '#0d2018' : '#1e0a0a',
+          border: `1.5px solid ${result.success ? '#3fb950' : '#f85149'}`,
+          borderRadius: 10,
+          boxShadow: result.success ? '0 4px 24px #3fb95044' : '0 4px 24px #f8514944',
+          padding: '12px 16px',
+        }}
+      >
         <div className="flex items-center gap-2 mb-2">
-          {result.success
-            ? <CheckCircle size={16} color="#3fb950" />
-            : result.blocked
-              ? <XCircle size={16} color="#f85149" />
-              : <AlertTriangle size={16} color="#d29922" />}
-          <span style={{ fontSize: 13, fontWeight: 700, color: result.success ? '#3fb950' : '#f85149' }}>
-            {result.success ? 'Packet Delivered' : result.blocked ? 'Packet Blocked' : 'Delivery Failed'}
+          {result.success ? (
+            <CheckCircle size={16} color="#3fb950" />
+          ) : result.blocked ? (
+            <XCircle size={16} color="#f85149" />
+          ) : (
+            <AlertTriangle size={16} color="#d29922" />
+          )}
+          <span
+            style={{ fontSize: 13, fontWeight: 700, color: result.success ? '#3fb950' : '#f85149' }}
+          >
+            {result.success
+              ? 'Packet Delivered'
+              : result.blocked
+                ? 'Packet Blocked'
+                : 'Delivery Failed'}
           </span>
           <span style={{ fontSize: 11, color: '#8b949e', marginLeft: 4, fontFamily: 'monospace' }}>
-            {result.hops.length - 1} hop{result.hops.length !== 2 ? 's' : ''} · {result.totalLatencyMs.toFixed(2)} ms
+            {result.hops.length - 1} hop{result.hops.length !== 2 ? 's' : ''} ·{' '}
+            {result.totalLatencyMs.toFixed(2)} ms
           </span>
-          <button onClick={onClose}
-            style={{ marginLeft: 'auto', color: '#6e7681', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
+          <button
+            onClick={onClose}
+            style={{
+              marginLeft: 'auto',
+              color: '#6e7681',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 2,
+            }}
+          >
             <X size={14} />
           </button>
         </div>
 
         {/* Packet summary */}
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 8, fontSize: 11, fontFamily: 'monospace' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            flexWrap: 'wrap',
+            marginBottom: 8,
+            fontSize: 11,
+            fontFamily: 'monospace',
+          }}
+        >
           {[
             { k: 'Proto', v: result.packet.protocol.toUpperCase(), c: '#ffa657' },
             { k: 'Src', v: result.packet.srcIp, c: '#e6edf3' },
-            { k: 'Dst', v: `${result.packet.dstIp}${result.packet.dstPort ? `:${result.packet.dstPort}` : ''}`, c: '#e6edf3' },
+            {
+              k: 'Dst',
+              v: `${result.packet.dstIp}${result.packet.dstPort ? `:${result.packet.dstPort}` : ''}`,
+              c: '#e6edf3',
+            },
             { k: 'TTL', v: String(result.packet.ttl), c: '#e6edf3' },
           ].map(({ k, v, c }) => (
             <span key={k} style={{ color: '#8b949e' }}>
@@ -251,19 +400,33 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
         </div>
 
         {/* Path chips */}
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4, fontSize: 11, fontFamily: 'monospace', marginBottom: blockedHop ? 8 : 0 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 4,
+            fontSize: 11,
+            fontFamily: 'monospace',
+            marginBottom: blockedHop ? 8 : 0,
+          }}
+        >
           {result.hops.map((hop, i) => {
             const isBlocked = ['firewall_deny', 'firewall_drop'].includes(hop.action)
             const isDelivered = hop.action === 'delivered'
             return (
               <span key={hop.step} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 {i > 0 && <ArrowRight size={11} style={{ color: '#484f58' }} />}
-                <span style={{
-                  padding: '1px 6px', borderRadius: 4, fontSize: 10,
-                  background: isBlocked ? '#3d0a0a' : isDelivered ? '#0d2a18' : '#21262d',
-                  color: isBlocked ? '#f85149' : isDelivered ? '#3fb950' : '#8b949e',
-                  border: `1px solid ${isBlocked ? '#f8514944' : isDelivered ? '#3fb95044' : '#30363d'}`,
-                }}>
+                <span
+                  style={{
+                    padding: '1px 6px',
+                    borderRadius: 4,
+                    fontSize: 10,
+                    background: isBlocked ? '#3d0a0a' : isDelivered ? '#0d2a18' : '#21262d',
+                    color: isBlocked ? '#f85149' : isDelivered ? '#3fb950' : '#8b949e',
+                    border: `1px solid ${isBlocked ? '#f8514944' : isDelivered ? '#3fb95044' : '#30363d'}`,
+                  }}
+                >
                   {hop.nodeName}
                 </span>
               </span>
@@ -273,17 +436,58 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
 
         {/* Block reason */}
         {blockedHop && (
-          <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 6, background: '#2d0a0a', border: '1px solid #f8514933' }}>
-            <div style={{ fontSize: 11, color: '#f85149', fontWeight: 600, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div
+            style={{
+              marginTop: 8,
+              padding: '8px 10px',
+              borderRadius: 6,
+              background: '#2d0a0a',
+              border: '1px solid #f8514933',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                color: '#f85149',
+                fontWeight: 600,
+                marginBottom: 3,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
               <Ban size={12} /> Blocked at {blockedHop.nodeName}
             </div>
-            <div style={{ fontSize: 10, color: '#8b949e', fontFamily: 'monospace', lineHeight: 1.6 }}>
+            <div
+              style={{ fontSize: 10, color: '#8b949e', fontFamily: 'monospace', lineHeight: 1.6 }}
+            >
               {blockedHop.detail}
             </div>
             {blockedHop.firewallRule && (
-              <div style={{ marginTop: 6, padding: '4px 8px', borderRadius: 4, background: '#1a0808', fontSize: 10, fontFamily: 'monospace', color: '#6e7681', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <span><span style={{ color: '#6e7681' }}>Rule #</span><span style={{ color: '#ffa657' }}>{blockedHop.firewallRule.priority}</span></span>
-                <span><span style={{ color: '#6e7681' }}>Action: </span><span style={{ color: '#f85149', fontWeight: 700 }}>{blockedHop.firewallRule.action.toUpperCase()}</span></span>
+              <div
+                style={{
+                  marginTop: 6,
+                  padding: '4px 8px',
+                  borderRadius: 4,
+                  background: '#1a0808',
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  color: '#6e7681',
+                  display: 'flex',
+                  gap: 8,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span>
+                  <span style={{ color: '#6e7681' }}>Rule #</span>
+                  <span style={{ color: '#ffa657' }}>{blockedHop.firewallRule.priority}</span>
+                </span>
+                <span>
+                  <span style={{ color: '#6e7681' }}>Action: </span>
+                  <span style={{ color: '#f85149', fontWeight: 700 }}>
+                    {blockedHop.firewallRule.action.toUpperCase()}
+                  </span>
+                </span>
                 <span style={{ color: '#8b949e' }}>"{blockedHop.firewallRule.description}"</span>
               </div>
             )}
@@ -291,7 +495,21 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
         )}
 
         {deliveredHop && (
-          <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: '#0a1e10', border: '1px solid #3fb95033', fontSize: 10, color: '#3fb950', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div
+            style={{
+              marginTop: 8,
+              padding: '6px 10px',
+              borderRadius: 6,
+              background: '#0a1e10',
+              border: '1px solid #3fb95033',
+              fontSize: 10,
+              color: '#3fb950',
+              fontFamily: 'monospace',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
             <CheckCircle size={12} style={{ flexShrink: 0 }} /> {deliveredHop.detail}
           </div>
         )}
@@ -301,7 +519,14 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
 }
 
 // A single row in the toolbar's "More" glass menu.
-function MenuItem({ icon: Icon, label, onClick, active, danger, disabled }: {
+function MenuItem({
+  icon: Icon,
+  label,
+  onClick,
+  active,
+  danger,
+  disabled,
+}: {
   icon: React.ComponentType<{ size?: number }>
   label: string
   onClick: () => void
@@ -315,7 +540,11 @@ function MenuItem({ icon: Icon, label, onClick, active, danger, disabled }: {
       disabled={disabled}
       className={[
         'flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-md text-xs font-medium text-left transition-colors disabled:opacity-40',
-        active ? 'bg-white/10 text-[var(--accent)]' : danger ? 'text-[var(--red)] hover:bg-white/5' : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]',
+        active
+          ? 'bg-white/10 text-[var(--accent)]'
+          : danger
+            ? 'text-[var(--red)] hover:bg-white/5'
+            : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]',
       ].join(' ')}
     >
       <Icon size={13} />
@@ -333,20 +562,23 @@ const AUTOSAVE_KEY = 'netviz.topology.autosave.v1'
 // much overall traffic each volume level generates (session burst size per
 // tick + how fast ticks fire — jittered, not a metronome).
 const AMBIENT_PROTOCOLS = [
-  { key: 'dns',   label: 'DNS' },
+  { key: 'dns', label: 'DNS' },
   { key: 'https', label: 'HTTPS' },
-  { key: 'sql',   label: 'SQL' },
-  { key: 'smb',   label: 'SMB / Mail' },
-  { key: 'mqtt',  label: 'MQTT' },
-  { key: 'arp',   label: 'ARP' },
-  { key: 'icmp',  label: 'ICMP ping' },
+  { key: 'sql', label: 'SQL' },
+  { key: 'smb', label: 'SMB / Mail' },
+  { key: 'mqtt', label: 'MQTT' },
+  { key: 'arp', label: 'ARP' },
+  { key: 'icmp', label: 'ICMP ping' },
 ] as const
-type AmbientProtocol = typeof AMBIENT_PROTOCOLS[number]['key']
+type AmbientProtocol = (typeof AMBIENT_PROTOCOLS)[number]['key']
 type TrafficVolume = 'low' | 'medium' | 'high'
-const VOLUME: Record<TrafficVolume, { minBurst: number; maxBurst: number; minMs: number; maxMs: number }> = {
-  low:    { minBurst: 0, maxBurst: 1, minMs: 1800, maxMs: 2600 },
-  medium: { minBurst: 1, maxBurst: 2, minMs: 900,  maxMs: 1400 },
-  high:   { minBurst: 2, maxBurst: 4, minMs: 450,  maxMs: 850 },
+const VOLUME: Record<
+  TrafficVolume,
+  { minBurst: number; maxBurst: number; minMs: number; maxMs: number }
+> = {
+  low: { minBurst: 0, maxBurst: 1, minMs: 1800, maxMs: 2600 },
+  medium: { minBurst: 1, maxBurst: 2, minMs: 900, maxMs: 1400 },
+  high: { minBurst: 2, maxBurst: 4, minMs: 450, maxMs: 850 },
 }
 
 // Which "show this traffic" toggle a live packet belongs to, derived from its
@@ -363,7 +595,7 @@ function ambientFamily(packet?: PacketInfo, label?: string): AmbientProtocol | u
     if (has(1883)) return 'mqtt'
     if (has(445) || has(143) || has(631)) return 'smb'
     if (has(80) || has(443)) return 'https'
-    return undefined   // DHCP (67/68) and anything else -> always shown
+    return undefined // DHCP (67/68) and anything else -> always shown
   }
   if (label) {
     const L = label.toUpperCase()
@@ -378,16 +610,19 @@ function ambientFamily(packet?: PacketInfo, label?: string): AmbientProtocol | u
   return undefined
 }
 
-interface TopoSnapshot { nodes: NetNode[]; edges: NetEdge[] }
+interface TopoSnapshot {
+  nodes: NetNode[]
+  edges: NetEdge[]
+}
 
 let nodeCounter = 100
 
 // Transient message in the toolbar. Severity picks both the icon and the colour.
 const STATUS_STYLE: Record<StatusKind, { Icon: LucideIcon; className: string }> = {
-  info:    { Icon: Info,          className: 'text-[var(--text-secondary)]' },
-  success: { Icon: CheckCircle,   className: 'text-[var(--green)]' },
-  warn:    { Icon: AlertTriangle, className: 'text-[var(--yellow)]' },
-  error:   { Icon: XCircle,       className: 'text-[var(--red)]' },
+  info: { Icon: Info, className: 'text-[var(--text-secondary)]' },
+  success: { Icon: CheckCircle, className: 'text-[var(--green)]' },
+  warn: { Icon: AlertTriangle, className: 'text-[var(--yellow)]' },
+  error: { Icon: XCircle, className: 'text-[var(--red)]' },
 }
 
 function StatusPill({ status }: { status: StatusMessage }) {
@@ -403,45 +638,92 @@ function StatusPill({ status }: { status: StatusMessage }) {
 export default function NetworkBuilderPage() {
   const [builder, dispatch] = useReducer(builderReducer, initialBuilderState)
   const {
-    topology, selectedNodeId, selectedEdgeId, showValidation, showState, showVersions,
-    showTutorial, guidedActive, saving, status, traceResult, traceStep,
-    isAnimating, isPaused, animSpeed, liveMode,
+    topology,
+    selectedNodeId,
+    selectedEdgeId,
+    showValidation,
+    showState,
+    showVersions,
+    showTutorial,
+    guidedActive,
+    saving,
+    status,
+    traceResult,
+    traceStep,
+    isAnimating,
+    isPaused,
+    animSpeed,
+    liveMode,
   } = builder
   // Stable setX wrappers backed by the reducer (dispatch is stable), so existing
   // call sites and effect dependency arrays keep working unchanged.
   const {
-    setTopology, setSelectedNodeId, setSelectedEdgeId, setShowValidation, setShowState, setShowVersions,
-    setShowTutorial, setGuidedActive, setSaving, notify, clearStatus, setTraceResult, setTraceStep,
-    setIsAnimating, setIsPaused, setAnimSpeed, setLiveMode, setHistTick,
-  } = useMemo(() => ({
-    setTopology: (v: SetStateAction<BuilderState['topology']>) => dispatch({ type: 'set', key: 'topology', value: v }),
-    setSelectedNodeId: (v: SetStateAction<BuilderState['selectedNodeId']>) => dispatch({ type: 'set', key: 'selectedNodeId', value: v }),
-    setSelectedEdgeId: (v: SetStateAction<BuilderState['selectedEdgeId']>) => dispatch({ type: 'set', key: 'selectedEdgeId', value: v }),
-    setShowValidation: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'showValidation', value: v }),
-    setShowState: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'showState', value: v }),
-    setShowVersions: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'showVersions', value: v }),
-    setShowTutorial: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'showTutorial', value: v }),
-    setGuidedActive: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'guidedActive', value: v }),
-    setSaving: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'saving', value: v }),
-    // Status-bar message. The severity drives the icon and the colour, so a
-    // failure can never be reported in success-green.
-    notify: (text: string, kind: StatusKind = 'info') => dispatch({ type: 'set', key: 'status', value: { text, kind } }),
-    clearStatus: () => dispatch({ type: 'set', key: 'status', value: null }),
-    setTraceResult: (v: SetStateAction<BuilderState['traceResult']>) => dispatch({ type: 'set', key: 'traceResult', value: v }),
-    setTraceStep: (v: SetStateAction<number>) => dispatch({ type: 'set', key: 'traceStep', value: v }),
-    setIsAnimating: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'isAnimating', value: v }),
-    setIsPaused: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'isPaused', value: v }),
-    setAnimSpeed: (v: SetStateAction<number>) => dispatch({ type: 'set', key: 'animSpeed', value: v }),
-    setLiveMode: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'liveMode', value: v }),
-    setHistTick: (v: SetStateAction<number>) => dispatch({ type: 'set', key: 'histTick', value: v }),
-  }), [])
+    setTopology,
+    setSelectedNodeId,
+    setSelectedEdgeId,
+    setShowValidation,
+    setShowState,
+    setShowVersions,
+    setShowTutorial,
+    setGuidedActive,
+    setSaving,
+    notify,
+    clearStatus,
+    setTraceResult,
+    setTraceStep,
+    setIsAnimating,
+    setIsPaused,
+    setAnimSpeed,
+    setLiveMode,
+    setHistTick,
+  } = useMemo(
+    () => ({
+      setTopology: (v: SetStateAction<BuilderState['topology']>) =>
+        dispatch({ type: 'set', key: 'topology', value: v }),
+      setSelectedNodeId: (v: SetStateAction<BuilderState['selectedNodeId']>) =>
+        dispatch({ type: 'set', key: 'selectedNodeId', value: v }),
+      setSelectedEdgeId: (v: SetStateAction<BuilderState['selectedEdgeId']>) =>
+        dispatch({ type: 'set', key: 'selectedEdgeId', value: v }),
+      setShowValidation: (v: SetStateAction<boolean>) =>
+        dispatch({ type: 'set', key: 'showValidation', value: v }),
+      setShowState: (v: SetStateAction<boolean>) =>
+        dispatch({ type: 'set', key: 'showState', value: v }),
+      setShowVersions: (v: SetStateAction<boolean>) =>
+        dispatch({ type: 'set', key: 'showVersions', value: v }),
+      setShowTutorial: (v: SetStateAction<boolean>) =>
+        dispatch({ type: 'set', key: 'showTutorial', value: v }),
+      setGuidedActive: (v: SetStateAction<boolean>) =>
+        dispatch({ type: 'set', key: 'guidedActive', value: v }),
+      setSaving: (v: SetStateAction<boolean>) => dispatch({ type: 'set', key: 'saving', value: v }),
+      // Status-bar message. The severity drives the icon and the colour, so a
+      // failure can never be reported in success-green.
+      notify: (text: string, kind: StatusKind = 'info') =>
+        dispatch({ type: 'set', key: 'status', value: { text, kind } }),
+      clearStatus: () => dispatch({ type: 'set', key: 'status', value: null }),
+      setTraceResult: (v: SetStateAction<BuilderState['traceResult']>) =>
+        dispatch({ type: 'set', key: 'traceResult', value: v }),
+      setTraceStep: (v: SetStateAction<number>) =>
+        dispatch({ type: 'set', key: 'traceStep', value: v }),
+      setIsAnimating: (v: SetStateAction<boolean>) =>
+        dispatch({ type: 'set', key: 'isAnimating', value: v }),
+      setIsPaused: (v: SetStateAction<boolean>) =>
+        dispatch({ type: 'set', key: 'isPaused', value: v }),
+      setAnimSpeed: (v: SetStateAction<number>) =>
+        dispatch({ type: 'set', key: 'animSpeed', value: v }),
+      setLiveMode: (v: SetStateAction<boolean>) =>
+        dispatch({ type: 'set', key: 'liveMode', value: v }),
+      setHistTick: (v: SetStateAction<number>) =>
+        dispatch({ type: 'set', key: 'histTick', value: v }),
+    }),
+    [],
+  )
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<NetworkNodeData>>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge<PacketEdgeData>>([])
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const connectingNodeId = useRef<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stepRef = useRef(0)
-  const animSpeedRef = useRef(2000)   // mirrored from animSpeed each render
+  const animSpeedRef = useRef(2000) // mirrored from animSpeed each render
   const isPausedRef = useRef(false)
   const traceResultRef = useRef<TraceResult | null>(null)
   // Edges traversed target->source (dot must travel reversed)
@@ -458,7 +740,7 @@ export default function NetworkBuilderPage() {
   // ── Live simulation (auto-DHCP + background traffic) ──
   const liveRef = useRef(true)
   const isAnimatingRef = useRef(false)
-  const quietRef = useRef(false)              // current flow is background (no panel)
+  const quietRef = useRef(false) // current flow is background (no panel)
   const onAnimDoneRef = useRef<(() => void) | null>(null)
   const edgesRef = useRef<Edge<PacketEdgeData>[]>([])
   const nodesRef = useRef<Node<NetworkNodeData>[]>([])
@@ -494,7 +776,13 @@ export default function NetworkBuilderPage() {
   // down without an all-or-nothing Live toggle.
   const [trafficVolume, setTrafficVolume] = useState<TrafficVolume>('medium')
   const [enabledProtocols, setEnabledProtocols] = useState<Record<AmbientProtocol, boolean>>({
-    dns: true, https: true, sql: true, smb: true, mqtt: true, arp: true, icmp: false,
+    dns: true,
+    https: true,
+    sql: true,
+    smb: true,
+    mqtt: true,
+    arp: true,
+    icmp: false,
   })
   const [trafficPanelOpen, setTrafficPanelOpen] = useState(false)
   const trafficVolumeRef = useRef(trafficVolume)
@@ -518,8 +806,14 @@ export default function NetworkBuilderPage() {
   const lastFrameRef = useRef(0)
 
   // Point (in flow coordinates) a fraction `t` along an edge's hidden motion path.
-  const samplePoint = (edgeId: string, reversed: boolean, t: number): { x: number; y: number } | null => {
-    const el = document.getElementById(`${edgeId}-${reversed ? 'mr' : 'mf'}`) as SVGPathElement | null
+  const samplePoint = (
+    edgeId: string,
+    reversed: boolean,
+    t: number,
+  ): { x: number; y: number } | null => {
+    const el = document.getElementById(
+      `${edgeId}-${reversed ? 'mr' : 'mf'}`,
+    ) as SVGPathElement | null
     if (!el || typeof el.getTotalLength !== 'function') return null
     const len = el.getTotalLength()
     if (!len) return null
@@ -533,27 +827,56 @@ export default function NetworkBuilderPage() {
     lastFrameRef.current = now
     const flights = flightsRef.current
     const frozen = frozenRef.current
-    const nodeOn = (nid: string) => { const n = nodesRef.current.find(x => x.id === nid); return !!n && (n.data as NetworkNodeData).config.powered !== false }
+    const nodeOn = (nid: string) => {
+      const n = nodesRef.current.find((x) => x.id === nid)
+      return !!n && (n.data as NetworkNodeData).config.powered !== false
+    }
     let structural = false
 
     for (let i = flights.length - 1; i >= 0; i--) {
       const f = flights[i]
-      let edge = edgesRef.current.find(e => e.id === f.edgePath[f.hop])
+      let edge = edgesRef.current.find((e) => e.id === f.edgePath[f.hop])
       // Drop instantly if the link is gone/down or an endpoint powered off.
-      if (!edge || (edge.data?.linkStatus ?? 'up') === 'down' || !nodeOn(edge.source) || !nodeOn(edge.target)) {
-        flights.splice(i, 1); structural = true; f.onAbort?.(); continue
+      if (
+        !edge ||
+        (edge.data?.linkStatus ?? 'up') === 'down' ||
+        !nodeOn(edge.source) ||
+        !nodeOn(edge.target)
+      ) {
+        flights.splice(i, 1)
+        structural = true
+        f.onAbort?.()
+        continue
       }
       if (!frozen) {
         // Duration is recomputed every frame, so speed/latency changes retime the
         // packet in place — no remount, no jump.
-        const dur = hopDuration(animSpeedRef.current, edge.data?.latencyMs as number | undefined, edge.data?.bandwidth as string | undefined)
+        const dur = hopDuration(
+          animSpeedRef.current,
+          edge.data?.latencyMs as number | undefined,
+          edge.data?.bandwidth as string | undefined,
+        )
         f.progress += dt / Math.max(16, dur)
         if (f.progress >= 1) {
-          f.hop++; f.progress -= 1
-          if (f.hop >= f.edgePath.length) { flights.splice(i, 1); structural = true; f.onDone?.(); continue }
-          edge = edgesRef.current.find(e => e.id === f.edgePath[f.hop])
-          if (!edge || (edge.data?.linkStatus ?? 'up') === 'down' || !nodeOn(edge.source) || !nodeOn(edge.target)) {
-            flights.splice(i, 1); structural = true; f.onAbort?.(); continue
+          f.hop++
+          f.progress -= 1
+          if (f.hop >= f.edgePath.length) {
+            flights.splice(i, 1)
+            structural = true
+            f.onDone?.()
+            continue
+          }
+          edge = edgesRef.current.find((e) => e.id === f.edgePath[f.hop])
+          if (
+            !edge ||
+            (edge.data?.linkStatus ?? 'up') === 'down' ||
+            !nodeOn(edge.source) ||
+            !nodeOn(edge.target)
+          ) {
+            flights.splice(i, 1)
+            structural = true
+            f.onAbort?.()
+            continue
           }
         }
       }
@@ -566,30 +889,46 @@ export default function NetworkBuilderPage() {
 
     if (structural) bumpFlights()
     if (flightsRef.current.length > 0) rafRef.current = requestAnimationFrame(runFrame)
-    else { rafRef.current = null; lastFrameRef.current = 0 }
+    else {
+      rafRef.current = null
+      lastFrameRef.current = 0
+    }
   }, [])
   const ensureRaf = useCallback(() => {
-    if (rafRef.current == null) { lastFrameRef.current = 0; rafRef.current = requestAnimationFrame(runFrame) }
+    if (rafRef.current == null) {
+      lastFrameRef.current = 0
+      rafRef.current = requestAnimationFrame(runFrame)
+    }
   }, [runFrame])
 
-  const applyFreeze = useCallback((next: boolean) => {
-    setFrozen(next)
-    frozenRef.current = next
-    // A flag the trace dot's SMIL renderer reads so it doesn't restart on resume.
-    ;(window as unknown as { __netvizFrozen?: boolean }).__netvizFrozen = next
-    // Freeze the single SMIL trace dot too (live dots are held by the rAF engine).
-    reactFlowWrapper.current?.querySelectorAll('svg').forEach(svg => {
-      try { if (next) (svg as SVGSVGElement).pauseAnimations(); else (svg as SVGSVGElement).unpauseAnimations() } catch { /* ignore */ }
-    })
-    if (!next) ensureRaf()   // resume the flight loop
-  }, [ensureRaf])
+  const applyFreeze = useCallback(
+    (next: boolean) => {
+      setFrozen(next)
+      frozenRef.current = next
+      // A flag the trace dot's SMIL renderer reads so it doesn't restart on resume.
+      ;(window as unknown as { __netvizFrozen?: boolean }).__netvizFrozen = next
+      // Freeze the single SMIL trace dot too (live dots are held by the rAF engine).
+      reactFlowWrapper.current?.querySelectorAll('svg').forEach((svg) => {
+        try {
+          if (next) (svg as SVGSVGElement).pauseAnimations()
+          else (svg as SVGSVGElement).unpauseAnimations()
+        } catch {
+          /* ignore */
+        }
+      })
+      if (!next) ensureRaf() // resume the flight loop
+    },
+    [ensureRaf],
+  )
 
   // Clicking any moving packet captures + decodes it and stops the world.
   useEffect(() => {
     const onInspect = (e: Event) => {
       const pkt = (e as CustomEvent<PacketInfo>).detail
       if (!pkt) return
-      setCapturedPackets(prev => prev.some(p => p.id === pkt.id) ? prev : [...prev.slice(-79), pkt])
+      setCapturedPackets((prev) =>
+        prev.some((p) => p.id === pkt.id) ? prev : [...prev.slice(-79), pkt],
+      )
       setSelectedCaptureId(pkt.id)
       setInspectorOpen(true)
       if (!frozenRef.current) applyFreeze(true)
@@ -603,17 +942,32 @@ export default function NetworkBuilderPage() {
   // pulse animation) — so this fires the moment a device is powered, a link goes
   // up/down, an IP/service/DHCP/DNS/firewall rule changes, or a node/edge is
   // added or removed, but never on ambient-traffic churn.
-  const topoSignature = useMemo(() => JSON.stringify({
-    n: nodes.map(n => {
-      const d = n.data as NetworkNodeData
-      const c = d.config
-      return [n.id, d.type, c.powered, c.interfaces?.[0]?.ipAddress ?? '', c.interfaces?.[0]?.vlan ?? '',
-        c.dhcp?.enabled ?? false, c.dhcp?.poolStart ?? '', c.dhcp?.gateway ?? '',
-        c.dns?.enabled ?? false, c.dns?.records?.length ?? 0,
-        c.services?.length ?? 0, c.firewallRules?.length ?? 0, c.routingTable?.length ?? 0]
-    }),
-    e: edges.map(e => [e.id, e.source, e.target, e.data?.linkStatus ?? 'up']),
-  }), [nodes, edges])
+  const topoSignature = useMemo(
+    () =>
+      JSON.stringify({
+        n: nodes.map((n) => {
+          const d = n.data as NetworkNodeData
+          const c = d.config
+          return [
+            n.id,
+            d.type,
+            c.powered,
+            c.interfaces?.[0]?.ipAddress ?? '',
+            c.interfaces?.[0]?.vlan ?? '',
+            c.dhcp?.enabled ?? false,
+            c.dhcp?.poolStart ?? '',
+            c.dhcp?.gateway ?? '',
+            c.dns?.enabled ?? false,
+            c.dns?.records?.length ?? 0,
+            c.services?.length ?? 0,
+            c.firewallRules?.length ?? 0,
+            c.routingTable?.length ?? 0,
+          ]
+        }),
+        e: edges.map((e) => [e.id, e.source, e.target, e.data?.linkStatus ?? 'up']),
+      }),
+    [nodes, edges],
+  )
 
   useEffect(() => {
     // Re-evaluate addressing + traffic right now instead of waiting for the next
@@ -637,71 +991,97 @@ export default function NetworkBuilderPage() {
 
   // Load topology on mount — prefer an autosaved working copy, else the sample
   useEffect(() => {
-    networkApi.getDefault().then(({ data }) => {
-      setTopology(data)
-      let restored = false
-      try {
-        const saved = localStorage.getItem(AUTOSAVE_KEY)
-        if (saved) {
-          const t = JSON.parse(saved) as { nodes?: NetNode[]; edges?: NetEdge[] }
-          if (t.nodes?.length) {
-            setNodes(t.nodes.map(toFlowNode))
-            setEdges((t.edges ?? []).map(toFlowEdge))
-            bumpNodeCounter(t.nodes)
-            restored = true
-            notify('Restored your autosaved network')
-            setTimeout(() => clearStatus(), 2500)
+    networkApi
+      .getDefault()
+      .then(({ data }) => {
+        setTopology(data)
+        let restored = false
+        try {
+          const saved = localStorage.getItem(AUTOSAVE_KEY)
+          if (saved) {
+            const t = JSON.parse(saved) as { nodes?: NetNode[]; edges?: NetEdge[] }
+            if (t.nodes?.length) {
+              setNodes(t.nodes.map(toFlowNode))
+              setEdges((t.edges ?? []).map(toFlowEdge))
+              bumpNodeCounter(t.nodes)
+              restored = true
+              notify('Restored your autosaved network')
+              setTimeout(() => clearStatus(), 2500)
+            }
           }
+        } catch {
+          /* ignore corrupt autosave */
         }
-      } catch { /* ignore corrupt autosave */ }
-      if (!restored) {
-        setNodes(data.nodes.map(toFlowNode))
-        setEdges(data.edges.map(toFlowEdge))
-        bumpNodeCounter(data.nodes)
-      }
-    }).catch(() => notify('Failed to load topology', 'error'))
+        if (!restored) {
+          setNodes(data.nodes.map(toFlowNode))
+          setEdges(data.edges.map(toFlowEdge))
+          bumpNodeCounter(data.nodes)
+        }
+      })
+      .catch(() => notify('Failed to load topology', 'error'))
   }, [setNodes, setEdges, notify, clearStatus, setTopology])
 
   // Open the tutorial automatically on the very first visit
   useEffect(() => {
     try {
       if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) setShowTutorial(true)
-    } catch { /* localStorage unavailable */ }
+    } catch {
+      /* localStorage unavailable */
+    }
   }, [setShowTutorial])
 
   // ── Undo / Redo / Autosave (structural topology only — ignores live state) ──
-  const historyRef = useRef<{ past: TopoSnapshot[]; future: TopoSnapshot[] }>({ past: [], future: [] })
+  const historyRef = useRef<{ past: TopoSnapshot[]; future: TopoSnapshot[] }>({
+    past: [],
+    future: [],
+  })
 
   // Sanitised snapshot of the editable topology (no pulses/highlights/anim state)
-  const serializeTopology = useCallback((): TopoSnapshot => ({
-    nodes: nodesRef.current.map(n => {
-      const d = n.data as NetworkNodeData
-      return { id: n.id, type: d.type, label: d.label, position: { ...n.position }, config: d.config }
+  const serializeTopology = useCallback(
+    (): TopoSnapshot => ({
+      nodes: nodesRef.current.map((n) => {
+        const d = n.data as NetworkNodeData
+        return {
+          id: n.id,
+          type: d.type,
+          label: d.label,
+          position: { ...n.position },
+          config: d.config,
+        }
+      }),
+      edges: edgesRef.current.map(toNetEdge),
     }),
-    edges: edgesRef.current.map(toNetEdge),
-  }), [])
+    [],
+  )
 
   // Push one node's config to the server in the background. A locally-added
   // node doesn't exist server-side until the next full save, so a 404 here is
   // normal — recover by pushing the whole canvas once (upserts every local
   // node). All of it is silent: background sync must never raise the global
   // error overlay.
-  const syncNodeConfig = useCallback((nodeId: string, config: NetworkNodeConfig) => {
-    const tp = topologyRef.current
-    if (!tp) return
-    networkApi.updateNode(tp.id, nodeId, { config }).catch((err: unknown) => {
-      const status = (err as { response?: { status?: number } })?.response?.status
-      if (status === 404) {
-        networkApi.update(tp.id, serializeTopology(), { silent: true }).catch(() => {})
-      }
-    })
-  }, [serializeTopology])
+  const syncNodeConfig = useCallback(
+    (nodeId: string, config: NetworkNodeConfig) => {
+      const tp = topologyRef.current
+      if (!tp) return
+      networkApi.updateNode(tp.id, nodeId, { config }).catch((err: unknown) => {
+        const status = (err as { response?: { status?: number } })?.response?.status
+        if (status === 404) {
+          networkApi.update(tp.id, serializeTopology(), { silent: true }).catch(() => {})
+        }
+      })
+    },
+    [serializeTopology],
+  )
 
-  const applyTopology = useCallback((snap: TopoSnapshot) => {
-    setSelectedNodeId(null); setSelectedEdgeId(null)
-    setNodes(snap.nodes.map(toFlowNode))
-    setEdges(snap.edges.map(toFlowEdge))
-  }, [setNodes, setEdges, setSelectedNodeId, setSelectedEdgeId])
+  const applyTopology = useCallback(
+    (snap: TopoSnapshot) => {
+      setSelectedNodeId(null)
+      setSelectedEdgeId(null)
+      setNodes(snap.nodes.map(toFlowNode))
+      setEdges(snap.edges.map(toFlowEdge))
+    },
+    [setNodes, setEdges, setSelectedNodeId, setSelectedEdgeId],
+  )
 
   // Capture the CURRENT state before a user-initiated structural change
   const pushHistory = useCallback(() => {
@@ -709,7 +1089,7 @@ export default function NetworkBuilderPage() {
     h.past.push(serializeTopology())
     if (h.past.length > 60) h.past.shift()
     h.future = []
-    setHistTick(t => t + 1)
+    setHistTick((t) => t + 1)
   }, [serializeTopology, setHistTick])
 
   const undo = useCallback(() => {
@@ -717,7 +1097,7 @@ export default function NetworkBuilderPage() {
     if (!h.past.length) return
     h.future.push(serializeTopology())
     applyTopology(h.past.pop()!)
-    setHistTick(t => t + 1)
+    setHistTick((t) => t + 1)
     notify('Undo')
   }, [serializeTopology, applyTopology, setHistTick, notify])
 
@@ -726,7 +1106,7 @@ export default function NetworkBuilderPage() {
     if (!h.future.length) return
     h.past.push(serializeTopology())
     applyTopology(h.future.pop()!)
-    setHistTick(t => t + 1)
+    setHistTick((t) => t + 1)
     notify('Redo')
   }, [serializeTopology, applyTopology, setHistTick, notify])
 
@@ -736,8 +1116,14 @@ export default function NetworkBuilderPage() {
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
       const mod = e.ctrlKey || e.metaKey
-      if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo() }
-      else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo() }
+      if (mod && e.key.toLowerCase() === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) redo()
+        else undo()
+      } else if (mod && e.key.toLowerCase() === 'y') {
+        e.preventDefault()
+        redo()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -747,8 +1133,11 @@ export default function NetworkBuilderPage() {
   useEffect(() => {
     const iv = setInterval(() => {
       try {
-        if (nodesRef.current.length) localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeTopology()))
-      } catch { /* quota / unavailable */ }
+        if (nodesRef.current.length)
+          localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeTopology()))
+      } catch {
+        /* quota / unavailable */
+      }
     }, 4000)
     return () => clearInterval(iv)
   }, [serializeTopology])
@@ -760,12 +1149,12 @@ export default function NetworkBuilderPage() {
   // trace never sails across a router that was switched off mid-flight.
   const hopAlive = useCallback((result: TraceResult, step: number): boolean => {
     const nodeOn = (id: string) => {
-      const n = nodesRef.current.find(x => x.id === id)
+      const n = nodesRef.current.find((x) => x.id === id)
       return !!n && (n.data as NetworkNodeData).config.powered !== false
     }
     const edgeId = result.edgePath[step - 1]
     if (edgeId) {
-      const e = edgesRef.current.find(x => x.id === edgeId)
+      const e = edgesRef.current.find((x) => x.id === edgeId)
       if (!e || (e.data?.linkStatus ?? 'up') === 'down') return false
     }
     const from = result.path[step - 1]
@@ -777,30 +1166,51 @@ export default function NetworkBuilderPage() {
 
   // Stop an in-flight trace where its route just broke: flag the dead link + the
   // last node reached, tear down the (now-stale) result overlay, and report it.
-  const dropTraceAt = useCallback((edgeId?: string, nodeId?: string) => {
-    if (timerRef.current) clearTimeout(timerRef.current)
-    getEdgesSvg()?.unpauseAnimations()
-    traceResultRef.current = null
-    onAnimDoneRef.current = null
-    quietRef.current = false
-    isAnimatingRef.current = false
-    stepRef.current = 0
-    setTraceResult(null)
-    setTraceStep(-1)
-    setIsAnimating(false)
-    setIsPaused(false)
-    isPausedRef.current = false
-    setEdges(prev => prev.map(e => ({
-      ...e,
-      data: { ...e.data, packetState: (e.id === edgeId ? 'blocked' : 'idle') as PacketEdgeState, packetReversed: false },
-    })))
-    setNodes(prev => prev.map(n => ({
-      ...n,
-      data: { ...n.data, highlight: (n.id === nodeId ? 'blocked' : 'none') as NodeHighlight },
-    })))
-    notify('Packet dropped — a device or link on its route went down', 'warn')
-    window.setTimeout(() => clearStatus(), 3000)
-  }, [getEdgesSvg, setEdges, setNodes, setIsAnimating, setIsPaused, setTraceResult, setTraceStep, notify, clearStatus])
+  const dropTraceAt = useCallback(
+    (edgeId?: string, nodeId?: string) => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      getEdgesSvg()?.unpauseAnimations()
+      traceResultRef.current = null
+      onAnimDoneRef.current = null
+      quietRef.current = false
+      isAnimatingRef.current = false
+      stepRef.current = 0
+      setTraceResult(null)
+      setTraceStep(-1)
+      setIsAnimating(false)
+      setIsPaused(false)
+      isPausedRef.current = false
+      setEdges((prev) =>
+        prev.map((e) => ({
+          ...e,
+          data: {
+            ...e.data,
+            packetState: (e.id === edgeId ? 'blocked' : 'idle') as PacketEdgeState,
+            packetReversed: false,
+          },
+        })),
+      )
+      setNodes((prev) =>
+        prev.map((n) => ({
+          ...n,
+          data: { ...n.data, highlight: (n.id === nodeId ? 'blocked' : 'none') as NodeHighlight },
+        })),
+      )
+      notify('Packet dropped — a device or link on its route went down', 'warn')
+      window.setTimeout(() => clearStatus(), 3000)
+    },
+    [
+      getEdgesSvg,
+      setEdges,
+      setNodes,
+      setIsAnimating,
+      setIsPaused,
+      setTraceResult,
+      setTraceStep,
+      notify,
+      clearStatus,
+    ],
+  )
 
   // Fired whenever the topology signature changes (power / link edits): if a trace
   // is mid-flight and the hop it's on just died, drop the packet immediately.
@@ -828,20 +1238,24 @@ export default function NetworkBuilderPage() {
     const reversed = edgeReversedRef.current
     const animDuration = animSpeedRef.current
     const animVersion = animVersionRef.current
-    setEdges(prev => prev.map(e => ({
-      ...e,
-      data: {
-        ...e.data,
-        packetState: getEdgeState(e.id, result, step),
-        packetReversed: reversed.has(e.id),
-        animDuration,
-        animVersion,
-      },
-    })))
-    setNodes(prev => prev.map(n => ({
-      ...n,
-      data: { ...n.data, highlight: getNodeHighlight(n.id, result, step) },
-    })))
+    setEdges((prev) =>
+      prev.map((e) => ({
+        ...e,
+        data: {
+          ...e.data,
+          packetState: getEdgeState(e.id, result, step),
+          packetReversed: reversed.has(e.id),
+          animDuration,
+          animVersion,
+        },
+      })),
+    )
+    setNodes((prev) =>
+      prev.map((n) => ({
+        ...n,
+        data: { ...n.data, highlight: getNodeHighlight(n.id, result, step) },
+      })),
+    )
 
     if (step < result.hops.length) {
       stepStartRef.current = performance.now()
@@ -856,51 +1270,58 @@ export default function NetworkBuilderPage() {
     }
   }, [setEdges, setNodes, setIsAnimating, setTraceStep, hopAlive, dropTraceAt])
 
-  const startAnimation = useCallback((result: TraceResult, currentEdges: Edge<PacketEdgeData>[]) => {
-    if (timerRef.current) clearTimeout(timerRef.current)
-    getEdgesSvg()?.unpauseAnimations()
-    traceResultRef.current = result
-    stepRef.current = 0
-    animVersionRef.current++   // fresh remount for this trace
-    setTraceStep(0)
-    isAnimatingRef.current = true
-    if (!quietRef.current) setIsAnimating(true)
-    setIsPaused(false)
-    isPausedRef.current = false
+  const startAnimation = useCallback(
+    (result: TraceResult, currentEdges: Edge<PacketEdgeData>[]) => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      getEdgesSvg()?.unpauseAnimations()
+      traceResultRef.current = result
+      stepRef.current = 0
+      animVersionRef.current++ // fresh remount for this trace
+      setTraceStep(0)
+      isAnimatingRef.current = true
+      if (!quietRef.current) setIsAnimating(true)
+      setIsPaused(false)
+      isPausedRef.current = false
 
-    // Determine which path edges are traversed in reverse (target->source)
-    const reversed = new Set<string>()
-    result.edgePath.forEach((edgeId, idx) => {
-      const flowEdge = currentEdges.find(e => e.id === edgeId)
-      // path[idx] is the node the packet LEAVES from; if that's the edge's target, it's reversed
-      if (flowEdge && flowEdge.source !== result.path[idx]) {
-        reversed.add(edgeId)
-      }
-    })
-    edgeReversedRef.current = reversed
+      // Determine which path edges are traversed in reverse (target->source)
+      const reversed = new Set<string>()
+      result.edgePath.forEach((edgeId, idx) => {
+        const flowEdge = currentEdges.find((e) => e.id === edgeId)
+        // path[idx] is the node the packet LEAVES from; if that's the edge's target, it's reversed
+        if (flowEdge && flowEdge.source !== result.path[idx]) {
+          reversed.add(edgeId)
+        }
+      })
+      edgeReversedRef.current = reversed
 
-    // Apply step 0: source node active, rest of path dimmed
-    const initialDur = animSpeedRef.current
-    const initialVer = animVersionRef.current
-    setEdges(prev => prev.map(e => ({
-      ...e,
-      data: {
-        ...e.data,
-        packetState: getEdgeState(e.id, result, 0),
-        packetReversed: reversed.has(e.id),
-        animDuration: initialDur,
-        animVersion: initialVer,
-      },
-    })))
-    setNodes(prev => prev.map(n => ({
-      ...n,
-      data: { ...n.data, highlight: getNodeHighlight(n.id, result, 0) },
-    })))
+      // Apply step 0: source node active, rest of path dimmed
+      const initialDur = animSpeedRef.current
+      const initialVer = animVersionRef.current
+      setEdges((prev) =>
+        prev.map((e) => ({
+          ...e,
+          data: {
+            ...e.data,
+            packetState: getEdgeState(e.id, result, 0),
+            packetReversed: reversed.has(e.id),
+            animDuration: initialDur,
+            animVersion: initialVer,
+          },
+        })),
+      )
+      setNodes((prev) =>
+        prev.map((n) => ({
+          ...n,
+          data: { ...n.data, highlight: getNodeHighlight(n.id, result, 0) },
+        })),
+      )
 
-    stepStartRef.current = performance.now()
-    remainingRef.current = animSpeedRef.current
-    timerRef.current = setTimeout(runStep, animSpeedRef.current)
-  }, [setEdges, setNodes, runStep, getEdgesSvg, setIsAnimating, setIsPaused, setTraceStep])
+      stepStartRef.current = performance.now()
+      remainingRef.current = animSpeedRef.current
+      timerRef.current = setTimeout(runStep, animSpeedRef.current)
+    },
+    [setEdges, setNodes, runStep, getEdgesSvg, setIsAnimating, setIsPaused, setTraceStep],
+  )
 
   const clearTrace = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -915,20 +1336,30 @@ export default function NetworkBuilderPage() {
     setIsPaused(false)
     isPausedRef.current = false
     // Clear animation state on the *current* edges (don't restore a stale snapshot)
-    setEdges(prev => prev.map(e => ({ ...e, data: { ...e.data, packetState: 'idle' as PacketEdgeState, packetReversed: false } })))
-    setNodes(prev => prev.map(n => ({ ...n, data: { ...n.data, highlight: 'none' as NodeHighlight } })))
+    setEdges((prev) =>
+      prev.map((e) => ({
+        ...e,
+        data: { ...e.data, packetState: 'idle' as PacketEdgeState, packetReversed: false },
+      })),
+    )
+    setNodes((prev) =>
+      prev.map((n) => ({ ...n, data: { ...n.data, highlight: 'none' as NodeHighlight } })),
+    )
   }, [setEdges, setNodes, getEdgesSvg, setIsAnimating, setIsPaused, setTraceResult, setTraceStep])
 
-  const handleSpeedChange = useCallback((ms: number) => {
-    animSpeedRef.current = ms
-    setAnimSpeed(ms)
-    // Live rAF traffic retimes itself in place — the engine reads animSpeedRef on
-    // every frame, so all in-flight live dots change pace immediately and smoothly.
-    // The step-based trace can't retime an already-running SMIL hop without
-    // restarting it (which looked like a jarring reset), so the new speed simply
-    // takes effect from the next hop — runStep reads animSpeedRef when it schedules
-    // each one. No remount, no jump back to the start of the current hop.
-  }, [setAnimSpeed])
+  const handleSpeedChange = useCallback(
+    (ms: number) => {
+      animSpeedRef.current = ms
+      setAnimSpeed(ms)
+      // Live rAF traffic retimes itself in place — the engine reads animSpeedRef on
+      // every frame, so all in-flight live dots change pace immediately and smoothly.
+      // The step-based trace can't retime an already-running SMIL hop without
+      // restarting it (which looked like a jarring reset), so the new speed simply
+      // takes effect from the next hop — runStep reads animSpeedRef when it schedules
+      // each one. No remount, no jump back to the start of the current hop.
+    },
+    [setAnimSpeed],
+  )
 
   const handlePauseToggle = useCallback(() => {
     if (isPausedRef.current) {
@@ -950,114 +1381,246 @@ export default function NetworkBuilderPage() {
     }
   }, [runStep, getEdgesSvg, setIsPaused])
 
-  const handleTraceResult = useCallback((result: TraceResult) => {
-    // A user-initiated trace interrupts any background flow and shows the panel
-    onAnimDoneRef.current = null
-    quietRef.current = false
-    setSelectedNodeId(null)
-    setTraceResult(result)
-    startAnimation(result, edgesRef.current)
-  }, [startAnimation, setSelectedNodeId, setTraceResult])
+  const handleTraceResult = useCallback(
+    (result: TraceResult) => {
+      // A user-initiated trace interrupts any background flow and shows the panel
+      onAnimDoneRef.current = null
+      quietRef.current = false
+      setSelectedNodeId(null)
+      setTraceResult(result)
+      startAnimation(result, edgesRef.current)
+    },
+    [startAnimation, setSelectedNodeId, setTraceResult],
+  )
 
   // Launch one packet as an rAF flight along a path; the engine advances it,
   // retimes it live, drops it if a hop fails, and calls onDone / onAbort.
   // (Signature unchanged so every existing call site keeps working.)
-  const spawnAgent = useCallback((
-    path: string[], edgePath: string[], color: string, label?: string,
-    packet?: PacketInfo, onDone?: () => void, onAbort?: () => void,
-  ) => {
-    if (edgePath.length === 0) { onDone?.(); return }
-    flightsRef.current.push({
-      id: `fl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      path, edgePath, hop: 0, progress: 0, color, label, packet, onDone, onAbort, el: null,
-      family: ambientFamily(packet, label),
-    })
-    bumpFlights()
-    ensureRaf()
-  }, [ensureRaf])
+  const spawnAgent = useCallback(
+    (
+      path: string[],
+      edgePath: string[],
+      color: string,
+      label?: string,
+      packet?: PacketInfo,
+      onDone?: () => void,
+      onAbort?: () => void,
+    ) => {
+      if (edgePath.length === 0) {
+        onDone?.()
+        return
+      }
+      flightsRef.current.push({
+        id: `fl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        path,
+        edgePath,
+        hop: 0,
+        progress: 0,
+        color,
+        label,
+        packet,
+        onDone,
+        onAbort,
+        el: null,
+        family: ambientFamily(packet, label),
+      })
+      bumpFlights()
+      ensureRaf()
+    },
+    [ensureRaf],
+  )
 
   // ── Concurrent DHCP (DORA) for a single host ───────────────────────────────
   const dhcpInProgressRef = useRef<Set<string>>(new Set())
   const reservedIpsRef = useRef<Set<number>>(new Set())
 
-  const startDhcpForHost = useCallback((hostId: string) => {
-    if (dhcpInProgressRef.current.has(hostId)) return
-    const flowNodes = nodesRef.current
-    const data = (n: Node<NetworkNodeData>) => n.data as NetworkNodeData
-    const host = flowNodes.find(n => n.id === hostId)
-    if (!host) return
-    const hd = data(host)
-    if (hd.config.powered === false || hd.config.interfaces?.[0]?.ipAddress || !isDhcpClient(hd.type)) return
+  const startDhcpForHost = useCallback(
+    (hostId: string) => {
+      if (dhcpInProgressRef.current.has(hostId)) return
+      const flowNodes = nodesRef.current
+      const data = (n: Node<NetworkNodeData>) => n.data as NetworkNodeData
+      const host = flowNodes.find((n) => n.id === hostId)
+      if (!host) return
+      const hd = data(host)
+      if (
+        hd.config.powered === false ||
+        hd.config.interfaces?.[0]?.ipAddress ||
+        !isDhcpClient(hd.type)
+      )
+        return
 
-    // Only traverse links whose BOTH ends are powered on and which are up —
-    // a packet can't pass through a switch (or any device) that is off.
-    const poweredIds = new Set(flowNodes.filter(n => data(n).config.powered !== false).map(n => n.id))
-    const simpleEdges = edgesRef.current
-      .filter(e => poweredIds.has(e.source) && poweredIds.has(e.target) && (e.data?.linkStatus ?? 'up') !== 'down')
-      .map(e => ({ id: e.id, source: e.source, target: e.target }))
-    const reach = reachableFrom(hostId, simpleEdges)
-    const dhcpNode = flowNodes.find(n => reach.has(n.id) && data(n).type === 'dhcp'
-      && data(n).config.dhcp?.enabled && data(n).config.powered !== false)
-    if (!dhcpNode) return
+      // Only traverse links whose BOTH ends are powered on and which are up —
+      // a packet can't pass through a switch (or any device) that is off.
+      const poweredIds = new Set(
+        flowNodes.filter((n) => data(n).config.powered !== false).map((n) => n.id),
+      )
+      const simpleEdges = edgesRef.current
+        .filter(
+          (e) =>
+            poweredIds.has(e.source) &&
+            poweredIds.has(e.target) &&
+            (e.data?.linkStatus ?? 'up') !== 'down',
+        )
+        .map((e) => ({ id: e.id, source: e.source, target: e.target }))
+      const reach = reachableFrom(hostId, simpleEdges)
+      const dhcpNode = flowNodes.find(
+        (n) =>
+          reach.has(n.id) &&
+          data(n).type === 'dhcp' &&
+          data(n).config.dhcp?.enabled &&
+          data(n).config.powered !== false,
+      )
+      if (!dhcpNode) return
 
-    const cfg = data(dhcpNode).config.dhcp!
-    const mask = cfg.subnetMask || '255.255.255.0'
-    const cidr = `/${maskToCidr(mask)}`
-    const gw = cfg.gateway || '192.168.1.1'
-    const dns = cfg.dnsServers || '8.8.8.8'
-    // Reserve a free address so concurrent hosts never grab the same one
-    const used = new Set<number>(reservedIpsRef.current)
-    flowNodes.forEach(n => { const ip = data(n).config.interfaces?.[0]?.ipAddress; if (ip) used.add(ipToInt(ip)) })
-    let ipInt = ipToInt(cfg.poolStart || '192.168.1.100')
-    const end = ipToInt(cfg.poolEnd || '192.168.1.200')
-    while (used.has(ipInt) && ipInt <= end) ipInt++
-    if (ipInt > end) { notify('DHCP pool exhausted', 'error'); return }
-    const assignedIp = intToIp(ipInt)
-    reservedIpsRef.current.add(ipInt)
-    dhcpInProgressRef.current.add(hostId)
+      const cfg = data(dhcpNode).config.dhcp!
+      const mask = cfg.subnetMask || '255.255.255.0'
+      const cidr = `/${maskToCidr(mask)}`
+      const gw = cfg.gateway || '192.168.1.1'
+      const dns = cfg.dnsServers || '8.8.8.8'
+      // Reserve a free address so concurrent hosts never grab the same one
+      const used = new Set<number>(reservedIpsRef.current)
+      flowNodes.forEach((n) => {
+        const ip = data(n).config.interfaces?.[0]?.ipAddress
+        if (ip) used.add(ipToInt(ip))
+      })
+      let ipInt = ipToInt(cfg.poolStart || '192.168.1.100')
+      const end = ipToInt(cfg.poolEnd || '192.168.1.200')
+      while (used.has(ipInt) && ipInt <= end) ipInt++
+      if (ipInt > end) {
+        notify('DHCP pool exhausted', 'error')
+        return
+      }
+      const assignedIp = intToIp(ipInt)
+      reservedIpsRef.current.add(ipInt)
+      dhcpInProgressRef.current.add(hostId)
 
-    const dhcpId = dhcpNode.id
-    const hostName = hd.config.hostname ?? hd.label
-    const fwd = findPath(hostId, dhcpId, simpleEdges)
+      const dhcpId = dhcpNode.id
+      const hostName = hd.config.hostname ?? hd.label
+      const fwd = findPath(hostId, dhcpId, simpleEdges)
 
-    // Free the in-progress flag and the reserved address (idempotent). Called
-    // both on success and on abort, so an interrupted DORA simply retries later.
-    const release = () => {
-      dhcpInProgressRef.current.delete(hostId)
-      reservedIpsRef.current.delete(ipInt)
-    }
-    const onAbort = () => { release(); notify(`${hostName}: DHCP failed (link/device down) — will retry`, 'warn') }
+      // Free the in-progress flag and the reserved address (idempotent). Called
+      // both on success and on abort, so an interrupted DORA simply retries later.
+      const release = () => {
+        dhcpInProgressRef.current.delete(hostId)
+        reservedIpsRef.current.delete(ipInt)
+      }
+      const onAbort = () => {
+        release()
+        notify(`${hostName}: DHCP failed (link/device down) — will retry`, 'warn')
+      }
 
-    const applyLease = () => {
-      setNodes(prev => prev.map(n => {
-        const d = n.data as NetworkNodeData
-        if (n.id === hostId) return { ...n, data: { ...d, config: assignIface(d.config, assignedIp, mask, cidr, `DHCP lease — GW ${gw}, DNS ${dns}`) } }
-        if (d.type === 'router' && reach.has(n.id) && !d.config.interfaces?.[0]?.ipAddress) return { ...n, data: { ...d, config: assignIface(d.config, gw, mask, cidr, 'Default gateway') } }
-        if (n.id === dhcpId && !d.config.interfaces?.[0]?.ipAddress) return { ...n, data: { ...d, config: assignIface(d.config, setLastOctet(gw, 2), mask, cidr, 'DHCP server (static)') } }
-        return n
-      }))
-      release()
-      notify(`${hostName} obtained ${assignedIp} via DHCP`, 'success')
-    }
+      const applyLease = () => {
+        setNodes((prev) =>
+          prev.map((n) => {
+            const d = n.data as NetworkNodeData
+            if (n.id === hostId)
+              return {
+                ...n,
+                data: {
+                  ...d,
+                  config: assignIface(
+                    d.config,
+                    assignedIp,
+                    mask,
+                    cidr,
+                    `DHCP lease — GW ${gw}, DNS ${dns}`,
+                  ),
+                },
+              }
+            if (d.type === 'router' && reach.has(n.id) && !d.config.interfaces?.[0]?.ipAddress)
+              return {
+                ...n,
+                data: { ...d, config: assignIface(d.config, gw, mask, cidr, 'Default gateway') },
+              }
+            if (n.id === dhcpId && !d.config.interfaces?.[0]?.ipAddress)
+              return {
+                ...n,
+                data: {
+                  ...d,
+                  config: assignIface(
+                    d.config,
+                    setLastOctet(gw, 2),
+                    mask,
+                    cidr,
+                    'DHCP server (static)',
+                  ),
+                },
+              }
+            return n
+          }),
+        )
+        release()
+        notify(`${hostName} obtained ${assignedIp} via DHCP`, 'success')
+      }
 
-    if (!fwd) { applyLease(); return }
-    const back = { path: [...fwd.path].reverse(), edgePath: [...fwd.edgePath].reverse() }
-    notify(`${hostName}: DHCP Discover sent`)
-    // Decoded DHCP packets for the analyzer (client uses 0.0.0.0 -> broadcast).
-    const dhcpSrvIp = data(dhcpNode).config.interfaces?.[0]?.ipAddress || setLastOctet(gw, 2)
-    const dpkt = (mt: string, phase: 'request' | 'reply'): PacketInfo => phase === 'request'
-      ? buildPacket(hostName, '0.0.0.0', hostId, 'DHCP Server', '255.255.255.255', dhcpId, 'DHCP', { phase, dhcp: mt })
-      : buildPacket('DHCP Server', dhcpSrvIp, dhcpId, hostName, assignedIp, hostId, 'DHCP', { phase, dhcp: mt })
-    // Realistic DORA: Discover/Request (client->server), then Offer/ACK (server->client).
-    // Any leg can abort (link/device down) -> release() so the host retries.
-    spawnAgent(fwd.path, fwd.edgePath, '#2dd4bf', 'DHCP Discover', dpkt('Discover', 'request'), () => {
-      spawnAgent(back.path, back.edgePath, '#2dd4bf', 'DHCP Offer', dpkt('Offer', 'reply'), () => {
-        spawnAgent(fwd.path, fwd.edgePath, '#2dd4bf', 'DHCP Request', dpkt('Request', 'request'), () => {
-          spawnAgent(back.path, back.edgePath, '#3fb950', 'DHCP ACK', dpkt('ACK', 'reply'), applyLease, onAbort)
-        }, onAbort)
-      }, onAbort)
-    }, onAbort)
-  }, [spawnAgent, setNodes, notify])
+      if (!fwd) {
+        applyLease()
+        return
+      }
+      const back = { path: [...fwd.path].reverse(), edgePath: [...fwd.edgePath].reverse() }
+      notify(`${hostName}: DHCP Discover sent`)
+      // Decoded DHCP packets for the analyzer (client uses 0.0.0.0 -> broadcast).
+      const dhcpSrvIp = data(dhcpNode).config.interfaces?.[0]?.ipAddress || setLastOctet(gw, 2)
+      const dpkt = (mt: string, phase: 'request' | 'reply'): PacketInfo =>
+        phase === 'request'
+          ? buildPacket(
+              hostName,
+              '0.0.0.0',
+              hostId,
+              'DHCP Server',
+              '255.255.255.255',
+              dhcpId,
+              'DHCP',
+              { phase, dhcp: mt },
+            )
+          : buildPacket('DHCP Server', dhcpSrvIp, dhcpId, hostName, assignedIp, hostId, 'DHCP', {
+              phase,
+              dhcp: mt,
+            })
+      // Realistic DORA: Discover/Request (client->server), then Offer/ACK (server->client).
+      // Any leg can abort (link/device down) -> release() so the host retries.
+      spawnAgent(
+        fwd.path,
+        fwd.edgePath,
+        '#2dd4bf',
+        'DHCP Discover',
+        dpkt('Discover', 'request'),
+        () => {
+          spawnAgent(
+            back.path,
+            back.edgePath,
+            '#2dd4bf',
+            'DHCP Offer',
+            dpkt('Offer', 'reply'),
+            () => {
+              spawnAgent(
+                fwd.path,
+                fwd.edgePath,
+                '#2dd4bf',
+                'DHCP Request',
+                dpkt('Request', 'request'),
+                () => {
+                  spawnAgent(
+                    back.path,
+                    back.edgePath,
+                    '#3fb950',
+                    'DHCP ACK',
+                    dpkt('ACK', 'reply'),
+                    applyLease,
+                    onAbort,
+                  )
+                },
+                onAbort,
+              )
+            },
+            onAbort,
+          )
+        },
+        onAbort,
+      )
+    },
+    [spawnAgent, setNodes, notify],
+  )
 
   // Power button (node or properties panel) toggles a device; powering a host
   // on makes it immediately broadcast its own DHCP Discover (in parallel).
@@ -1065,12 +1628,16 @@ export default function NetworkBuilderPage() {
     const handler = (e: Event) => {
       const id = (e as CustomEvent<{ id: string }>).detail?.id
       if (!id) return
-      const node = nodesRef.current.find(n => n.id === id)
+      const node = nodesRef.current.find((n) => n.id === id)
       if (!node) return
       const d = node.data as NetworkNodeData
       const newPowered = !(d.config.powered !== false)
       const nextConfig = { ...d.config, powered: newPowered }
-      setNodes(prev => prev.map(n => n.id === id ? { ...n, data: { ...(n.data as NetworkNodeData), config: nextConfig } } : n))
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === id ? { ...n, data: { ...(n.data as NetworkNodeData), config: nextConfig } } : n,
+        ),
+      )
       syncNodeConfig(id, nextConfig)
       notify(`${d.config.hostname ?? d.label} powered ${newPowered ? 'on' : 'off'}`)
       if (newPowered) {
@@ -1078,9 +1645,13 @@ export default function NetworkBuilderPage() {
       } else {
         // Powering off resets any trace highlight on its links; the rAF engine
         // drops the in-flight packets touching this node on the next frame.
-        setEdges(prev => prev.map(e => (e.source === id || e.target === id)
-          ? { ...e, data: { ...e.data, packetState: 'idle' as PacketEdgeState } }
-          : e))
+        setEdges((prev) =>
+          prev.map((e) =>
+            e.source === id || e.target === id
+              ? { ...e, data: { ...e.data, packetState: 'idle' as PacketEdgeState } }
+              : e,
+          ),
+        )
       }
     }
     window.addEventListener('netviz:togglePower', handler)
@@ -1091,27 +1662,38 @@ export default function NetworkBuilderPage() {
   // generate ambient traffic between hosts and services.
   const runSimTickRef = useRef<() => void>(() => {})
   runSimTickRef.current = () => {
-    if (frozenRef.current) return   // analyzer froze the world — emit nothing new
+    if (frozenRef.current) return // analyzer froze the world — emit nothing new
     const flowNodes = nodesRef.current
     const data = (n: Node<NetworkNodeData>) => n.data as NetworkNodeData
     const isOn = (n: Node<NetworkNodeData>) => data(n).config.powered !== false
     const ipOf = (n: Node<NetworkNodeData>) => data(n).config.interfaces?.[0]?.ipAddress ?? ''
     const nameOf = (n: Node<NetworkNodeData>) => data(n).config.hostname ?? data(n).label
     const fqdn = (n: Node<NetworkNodeData>) => `${nameOf(n).toLowerCase().replace(/\s+/g, '-')}.lan`
-    const pkt = (s: Node<NetworkNodeData>, d: Node<NetworkNodeData>, app: AppProto, opts?: Parameters<typeof buildPacket>[7]) =>
-      buildPacket(nameOf(s), ipOf(s), s.id, nameOf(d), ipOf(d), d.id, app, opts)
+    const pkt = (
+      s: Node<NetworkNodeData>,
+      d: Node<NetworkNodeData>,
+      app: AppProto,
+      opts?: Parameters<typeof buildPacket>[7],
+    ) => buildPacket(nameOf(s), ipOf(s), s.id, nameOf(d), ipOf(d), d.id, app, opts)
     if (flowNodes.length < 2) return
     // Graph of only powered-on, up links (off devices block traffic)
-    const poweredIds = new Set(flowNodes.filter(isOn).map(n => n.id))
+    const poweredIds = new Set(flowNodes.filter(isOn).map((n) => n.id))
     const simpleEdges = edgesRef.current
-      .filter(e => poweredIds.has(e.source) && poweredIds.has(e.target) && (e.data?.linkStatus ?? 'up') !== 'down')
-      .map(e => ({ id: e.id, source: e.source, target: e.target }))
+      .filter(
+        (e) =>
+          poweredIds.has(e.source) &&
+          poweredIds.has(e.target) &&
+          (e.data?.linkStatus ?? 'up') !== 'down',
+      )
+      .map((e) => ({ id: e.id, source: e.source, target: e.target }))
     if (simpleEdges.length === 0) return
 
     // 1) Address ALL powered hosts that still need an IP — in parallel
     flowNodes
-      .filter(n => isOn(n) && isDhcpClient(data(n).type) && !data(n).config.interfaces?.[0]?.ipAddress)
-      .forEach(n => startDhcpForHost(n.id))
+      .filter(
+        (n) => isOn(n) && isDhcpClient(data(n).type) && !data(n).config.interfaces?.[0]?.ipAddress,
+      )
+      .forEach((n) => startDhcpForHost(n.id))
 
     // 2) Ambient traffic while Live is on — only from hosts that actually hold
     //    an IP (a device without an address can't make application requests).
@@ -1120,32 +1702,58 @@ export default function NetworkBuilderPage() {
 
     // Only real clients initiate ambient sessions. Printers, servers and
     // infrastructure are destinations — a printer never "browses".
-    const clients = flowNodes.filter(n => isOn(n) && hasIp(n) && ['pc', 'phone', 'laptop', 'iot'].includes(data(n).type))
+    const clients = flowNodes.filter(
+      (n) => isOn(n) && hasIp(n) && ['pc', 'phone', 'laptop', 'iot'].includes(data(n).type),
+    )
     if (clients.length === 0) return
-    const dnsServer = flowNodes.find(n => isOn(n) && hasIp(n) && data(n).type === 'dns')
-    const databases = flowNodes.filter(n => isOn(n) && hasIp(n) && data(n).type === 'database')
+    const dnsServer = flowNodes.find((n) => isOn(n) && hasIp(n) && data(n).type === 'dns')
+    const databases = flowNodes.filter((n) => isOn(n) && hasIp(n) && data(n).type === 'database')
 
     // What each server role actually speaks, so the label matches the device:
     // a printer gets IPP, a file server SMB, a mail server IMAP — not HTTP.
     // `group` is which "disable this protocol" toggle it falls under.
-    const SERVICE: Record<string, { label: string; color: string; usesDns: boolean; appTier?: boolean; group: AmbientProtocol }> = {
-      www:           { label: 'HTTPS', color: '#38bdf8', usesDns: true, appTier: true, group: 'https' },
-      server:        { label: 'HTTPS', color: '#3fb950', usesDns: true, appTier: true, group: 'https' },
-      proxy:         { label: 'HTTPS', color: '#bc8cff', usesDns: true, appTier: true, group: 'https' },
-      api_gateway:   { label: 'HTTPS', color: '#c297ff', usesDns: true, appTier: true, group: 'https' },
-      load_balancer: { label: 'HTTPS', color: '#d2a8ff', usesDns: true, appTier: true, group: 'https' },
-      mailserver:    { label: 'IMAP',  color: '#e3b341', usesDns: false, group: 'smb' },
-      fileserver:    { label: 'SMB',   color: '#56d4dd', usesDns: false, group: 'smb' },
-      nas:           { label: 'SMB',   color: '#56d4dd', usesDns: false, group: 'smb' },
-      storage:       { label: 'SMB',   color: '#56d4dd', usesDns: false, group: 'smb' },
-      printer:       { label: 'IPP',   color: '#f0a35e', usesDns: false, group: 'smb' },
+    const SERVICE: Record<
+      string,
+      { label: string; color: string; usesDns: boolean; appTier?: boolean; group: AmbientProtocol }
+    > = {
+      www: { label: 'HTTPS', color: '#38bdf8', usesDns: true, appTier: true, group: 'https' },
+      server: { label: 'HTTPS', color: '#3fb950', usesDns: true, appTier: true, group: 'https' },
+      proxy: { label: 'HTTPS', color: '#bc8cff', usesDns: true, appTier: true, group: 'https' },
+      api_gateway: {
+        label: 'HTTPS',
+        color: '#c297ff',
+        usesDns: true,
+        appTier: true,
+        group: 'https',
+      },
+      load_balancer: {
+        label: 'HTTPS',
+        color: '#d2a8ff',
+        usesDns: true,
+        appTier: true,
+        group: 'https',
+      },
+      mailserver: { label: 'IMAP', color: '#e3b341', usesDns: false, group: 'smb' },
+      fileserver: { label: 'SMB', color: '#56d4dd', usesDns: false, group: 'smb' },
+      nas: { label: 'SMB', color: '#56d4dd', usesDns: false, group: 'smb' },
+      storage: { label: 'SMB', color: '#56d4dd', usesDns: false, group: 'smb' },
+      printer: { label: 'IPP', color: '#f0a35e', usesDns: false, group: 'smb' },
     }
 
     // Cap concurrent dots so large topologies don't drown in re-renders
-    if (flightsRef.current.length > 30) return   // cap concurrent dots
+    if (flightsRef.current.length > 30) return // cap concurrent dots
 
-    const back = (q: { path: string[]; edgePath: string[] }) => ({ path: [...q.path].reverse(), edgePath: [...q.edgePath].reverse() })
-    const SQL_STMTS = ['SELECT * FROM users WHERE id = ?', 'SELECT token FROM sessions WHERE sid = ?', 'UPDATE carts SET qty = ? WHERE id = ?', 'INSERT INTO events (type, ts) VALUES (?, ?)', 'SELECT name, price FROM products LIMIT 20']
+    const back = (q: { path: string[]; edgePath: string[] }) => ({
+      path: [...q.path].reverse(),
+      edgePath: [...q.edgePath].reverse(),
+    })
+    const SQL_STMTS = [
+      'SELECT * FROM users WHERE id = ?',
+      'SELECT token FROM sessions WHERE sid = ?',
+      'UPDATE carts SET qty = ? WHERE id = ?',
+      'INSERT INTO events (type, ts) VALUES (?, ?)',
+      'SELECT name, price FROM products LIMIT 20',
+    ]
 
     const vol = VOLUME[trafficVolumeRef.current]
     const burst = vol.minBurst + Math.floor(Math.random() * (vol.maxBurst - vol.minBurst + 1))
@@ -1155,8 +1763,13 @@ export default function NetworkBuilderPage() {
 
       // Role-appropriate destination. IoT only sends telemetry to gateways/cloud.
       // Every protocol family is generated; the traffic panel filters what's shown.
-      let candidates = flowNodes.filter(n => isOn(n) && hasIp(n) && n.id !== src.id && SERVICE[data(n).type])
-      if (srcType === 'iot') candidates = candidates.filter(n => ['api_gateway', 'www', 'server'].includes(data(n).type))
+      let candidates = flowNodes.filter(
+        (n) => isOn(n) && hasIp(n) && n.id !== src.id && SERVICE[data(n).type],
+      )
+      if (srcType === 'iot')
+        candidates = candidates.filter((n) =>
+          ['api_gateway', 'www', 'server'].includes(data(n).type),
+        )
       if (candidates.length === 0) continue
       const dst = candidates[Math.floor(Math.random() * candidates.length)]
       const svc = SERVICE[data(dst).type]
@@ -1176,38 +1789,88 @@ export default function NetworkBuilderPage() {
         const q = findPath(dst.id, db.id, simpleEdges)
         if (!q) return
         const stmt = SQL_STMTS[Math.floor(Math.random() * SQL_STMTS.length)]
-        spawnAgent(q.path, q.edgePath, '#f778ba', 'SQL', pkt(dst, db, 'SQL', { phase: 'request', sql: stmt }),
-          () => spawnAgent(back(q).path, back(q).edgePath, '#f778ba', 'SQL', pkt(db, dst, 'SQL', { phase: 'reply', sql: `OK ${1 + Math.floor(Math.random() * 40)} rows` })))
+        spawnAgent(
+          q.path,
+          q.edgePath,
+          '#f778ba',
+          'SQL',
+          pkt(dst, db, 'SQL', { phase: 'request', sql: stmt }),
+          () =>
+            spawnAgent(
+              back(q).path,
+              back(q).edgePath,
+              '#f778ba',
+              'SQL',
+              pkt(db, dst, 'SQL', {
+                phase: 'reply',
+                sql: `OK ${1 + Math.floor(Math.random() * 40)} rows`,
+              }),
+            ),
+        )
       }
 
       // The application request/response itself.
       const sendApp = () => {
-        spawnAgent(p.path, p.edgePath, color, label, pkt(src, dst, appProto, { phase: 'request' }), () => {
-          const rb = back(p)
-          spawnAgent(rb.path, rb.edgePath, color, label, pkt(dst, src, appProto, { phase: 'reply' }), maybeBackend)
-        })
+        spawnAgent(
+          p.path,
+          p.edgePath,
+          color,
+          label,
+          pkt(src, dst, appProto, { phase: 'request' }),
+          () => {
+            const rb = back(p)
+            spawnAgent(
+              rb.path,
+              rb.edgePath,
+              color,
+              label,
+              pkt(dst, src, appProto, { phase: 'reply' }),
+              maybeBackend,
+            )
+          },
+        )
       }
 
       // Realistic TCP setup: SYN -> SYN/ACK -> ACK before the app exchange.
-      const ctl = (s: Node<NetworkNodeData>, d: Node<NetworkNodeData>, flags: 'SYN' | 'SYN, ACK' | 'ACK') =>
-        buildTcp(nameOf(s), ipOf(s), s.id, nameOf(d), ipOf(d), d.id, flags, appProto)
+      const ctl = (
+        s: Node<NetworkNodeData>,
+        d: Node<NetworkNodeData>,
+        flags: 'SYN' | 'SYN, ACK' | 'ACK',
+      ) => buildTcp(nameOf(s), ipOf(s), s.id, nameOf(d), ipOf(d), d.id, flags, appProto)
       const doApp = () => {
         if (Math.random() < 0.65) {
           const rb = back(p)
           spawnAgent(p.path, p.edgePath, '#8b949e', 'SYN', ctl(src, dst, 'SYN'), () =>
             spawnAgent(rb.path, rb.edgePath, '#8b949e', 'SYN, ACK', ctl(dst, src, 'SYN, ACK'), () =>
-              spawnAgent(p.path, p.edgePath, '#8b949e', 'ACK', ctl(src, dst, 'ACK'), sendApp)))
+              spawnAgent(p.path, p.edgePath, '#8b949e', 'ACK', ctl(src, dst, 'ACK'), sendApp),
+            ),
+          )
         } else sendApp()
       }
 
       // ARP resolves the next hop's MAC on the local segment before first contact.
       const startSession = () => {
         const nbId = p.path[1]
-        const nb = nbId ? flowNodes.find(n => n.id === nbId) : undefined
+        const nb = nbId ? flowNodes.find((n) => n.id === nbId) : undefined
         if (nb && Math.random() < 0.25) {
-          const seg = [src.id, nb.id], segE = [p.edgePath[0]]
-          spawnAgent(seg, segE, '#f0883e', 'ARP', buildArp(nameOf(src), ipOf(src), src.id, nameOf(nb), ipOf(nb), nb.id, true), () =>
-            spawnAgent([nb.id, src.id], segE, '#f0883e', 'ARP', buildArp(nameOf(nb), ipOf(nb), nb.id, nameOf(src), ipOf(src), src.id, false), doApp))
+          const seg = [src.id, nb.id],
+            segE = [p.edgePath[0]]
+          spawnAgent(
+            seg,
+            segE,
+            '#f0883e',
+            'ARP',
+            buildArp(nameOf(src), ipOf(src), src.id, nameOf(nb), ipOf(nb), nb.id, true),
+            () =>
+              spawnAgent(
+                [nb.id, src.id],
+                segE,
+                '#f0883e',
+                'ARP',
+                buildArp(nameOf(nb), ipOf(nb), nb.id, nameOf(src), ipOf(src), src.id, false),
+                doApp,
+              ),
+          )
         } else doApp()
       }
 
@@ -1216,9 +1879,27 @@ export default function NetworkBuilderPage() {
       if (svc.usesDns && dnsServer && dnsServer.id !== dst.id && Math.random() < 0.6) {
         const dq = findPath(src.id, dnsServer.id, simpleEdges)
         if (dq) {
-          spawnAgent(dq.path, dq.edgePath, '#a371f7', 'DNS query', pkt(src, dnsServer, 'DNS', { phase: 'request', query: fqdn(dst), answer: ipOf(dst) }), () => {
-            spawnAgent(back(dq).path, back(dq).edgePath, '#a371f7', 'DNS reply', pkt(dnsServer!, src, 'DNS', { phase: 'reply', query: fqdn(dst), answer: ipOf(dst) }), startSession)
-          })
+          spawnAgent(
+            dq.path,
+            dq.edgePath,
+            '#a371f7',
+            'DNS query',
+            pkt(src, dnsServer, 'DNS', { phase: 'request', query: fqdn(dst), answer: ipOf(dst) }),
+            () => {
+              spawnAgent(
+                back(dq).path,
+                back(dq).edgePath,
+                '#a371f7',
+                'DNS reply',
+                pkt(dnsServer!, src, 'DNS', {
+                  phase: 'reply',
+                  query: fqdn(dst),
+                  answer: ipOf(dst),
+                }),
+                startSession,
+              )
+            },
+          )
           continue
         }
       }
@@ -1229,17 +1910,30 @@ export default function NetworkBuilderPage() {
     // of the client/service roles above (a PC pinging a switch's management IP,
     // a server pinging the gateway, etc.). Hidden by default via the traffic panel.
     if (flightsRef.current.length <= 30 && Math.random() < 0.35) {
-      const pingable = flowNodes.filter(n => isOn(n) && hasIp(n))
+      const pingable = flowNodes.filter((n) => isOn(n) && hasIp(n))
       if (pingable.length >= 2) {
         const pSrc = pingable[Math.floor(Math.random() * pingable.length)]
-        const pTargets = pingable.filter(n => n.id !== pSrc.id)
+        const pTargets = pingable.filter((n) => n.id !== pSrc.id)
         const pDst = pTargets[Math.floor(Math.random() * pTargets.length)]
         const pp = findPath(pSrc.id, pDst.id, simpleEdges)
         if (pp) {
-          spawnAgent(pp.path, pp.edgePath, '#79c0ff', 'ICMP', pkt(pSrc, pDst, 'ICMP', { phase: 'request' }), () => {
-            const rb = back(pp)
-            spawnAgent(rb.path, rb.edgePath, '#79c0ff', 'ICMP', pkt(pDst, pSrc, 'ICMP', { phase: 'reply' }))
-          })
+          spawnAgent(
+            pp.path,
+            pp.edgePath,
+            '#79c0ff',
+            'ICMP',
+            pkt(pSrc, pDst, 'ICMP', { phase: 'request' }),
+            () => {
+              const rb = back(pp)
+              spawnAgent(
+                rb.path,
+                rb.edgePath,
+                '#79c0ff',
+                'ICMP',
+                pkt(pDst, pSrc, 'ICMP', { phase: 'reply' }),
+              )
+            },
+          )
         }
       }
     }
@@ -1253,30 +1947,39 @@ export default function NetworkBuilderPage() {
     let timer: ReturnType<typeof setTimeout>
     const schedule = () => {
       const { minMs, maxMs } = VOLUME[trafficVolumeRef.current]
-      timer = setTimeout(() => {
-        if (cancelled) return
-        runSimTickRef.current()
-        schedule()
-      }, minMs + Math.random() * (maxMs - minMs))
+      timer = setTimeout(
+        () => {
+          if (cancelled) return
+          runSimTickRef.current()
+          schedule()
+        },
+        minMs + Math.random() * (maxMs - minMs),
+      )
     }
     schedule()
-    return () => { cancelled = true; clearTimeout(timer) }
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
   }, [])
 
   // ── Node/edge management ────────────────────────────────────────────────────
-  const onConnect = useCallback((connection: Connection) => {
-    pushHistory()
-    const newEdge: Edge<PacketEdgeData> = {
-      ...connection,
-      id: `e-${Date.now()}`,
-      type: 'packet',
-      data: { packetState: 'idle', linkStatus: 'up' },
-    }
-    setEdges(eds => addEdge(newEdge, eds))
-    // Select the fresh link so the user can name it right away
-    setSelectedNodeId(null)
-    setSelectedEdgeId(newEdge.id)
-  }, [setEdges, pushHistory, setSelectedNodeId, setSelectedEdgeId])
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      pushHistory()
+      const newEdge: Edge<PacketEdgeData> = {
+        ...connection,
+        id: `e-${Date.now()}`,
+        type: 'packet',
+        data: { packetState: 'idle', linkStatus: 'up' },
+      }
+      setEdges((eds) => addEdge(newEdge, eds))
+      // Select the fresh link so the user can name it right away
+      setSelectedNodeId(null)
+      setSelectedEdgeId(newEdge.id)
+    },
+    [setEdges, pushHistory, setSelectedNodeId, setSelectedEdgeId],
+  )
 
   const onConnectStart = useCallback((_: unknown, params: OnConnectStartParams) => {
     connectingNodeId.current = params.nodeId
@@ -1285,51 +1988,107 @@ export default function NetworkBuilderPage() {
   // Snapshot before a drag so undo restores the previous position
   const onNodeDragStart = useCallback(() => pushHistory(), [pushHistory])
 
-  const onDrop = useCallback((event: React.DragEvent) => {
-    event.preventDefault()
-    const type = event.dataTransfer.getData('application/reactflow') as NodeType
-    if (!type || !reactFlowWrapper.current) return
-    pushHistory()
-    const rect = reactFlowWrapper.current.getBoundingClientRect()
-    const position = { x: event.clientX - rect.left - 60, y: event.clientY - rect.top - 40 }
-    const id = `${type}-${++nodeCounter}`
-    const label = `${type.charAt(0).toUpperCase() + type.slice(1)}-${nodeCounter}`
-    const noIface = type === 'cloud' || type === 'www'
-    const config: NetworkNodeConfig = {
-      hostname: label,
-      description: '',
-      interfaces: noIface ? [] : [{ name: 'eth0', ipAddress: '', subnetMask: '255.255.255.0', status: 'up', speed: '1 Gbps' }],
-      routingTable: ['router', 'firewall', 'server'].includes(type) ? [] : undefined,
-      firewallRules: ['router', 'firewall'].includes(type) ? [] : undefined,
-      dhcp: type === 'dhcp'
-        ? { enabled: true, poolStart: '192.168.1.100', poolEnd: '192.168.1.200', subnetMask: '255.255.255.0', gateway: '192.168.1.1', dnsServers: '8.8.8.8, 1.1.1.1', leaseHours: 24 }
-        : undefined,
-      dns: type === 'dns' || type === 'www'
-        ? { enabled: true, forwarders: '8.8.8.8, 1.1.1.1', records: [] }
-        : undefined,
-      services:
-        type === 'server' ? [
-          { id: `svc-${id}-80`, name: 'HTTP', port: 80, protocol: 'tcp' as const, enabled: true },
-          { id: `svc-${id}-22`, name: 'SSH', port: 22, protocol: 'tcp' as const, enabled: true },
-        ]
-        : type === 'www' ? [
-          { id: `svc-${id}-443`, name: 'HTTPS', port: 443, protocol: 'tcp' as const, enabled: true },
-        ]
-        : type === 'dns' ? [
-          { id: `svc-${id}-53`, name: 'DNS', port: 53, protocol: 'udp' as const, enabled: true },
-        ]
-        : undefined,
-      webPage: type === 'server' || type === 'www'
-        ? { title: `${label} home page`, body: '<h1>It works!</h1>' }
-        : undefined,
-      powered: false,   // new devices start powered off — turn on to join the network
-    }
-    setNodes(nds => [...nds, {
-      id, type, position,
-      data: { type, label, highlight: 'none', config },
-    }])
-    notify(`Added ${label} — power it on to join the network`)
-  }, [setNodes, pushHistory, notify])
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+      const type = event.dataTransfer.getData('application/reactflow') as NodeType
+      if (!type || !reactFlowWrapper.current) return
+      pushHistory()
+      const rect = reactFlowWrapper.current.getBoundingClientRect()
+      const position = { x: event.clientX - rect.left - 60, y: event.clientY - rect.top - 40 }
+      const id = `${type}-${++nodeCounter}`
+      const label = `${type.charAt(0).toUpperCase() + type.slice(1)}-${nodeCounter}`
+      const noIface = type === 'cloud' || type === 'www'
+      const config: NetworkNodeConfig = {
+        hostname: label,
+        description: '',
+        interfaces: noIface
+          ? []
+          : [
+              {
+                name: 'eth0',
+                ipAddress: '',
+                subnetMask: '255.255.255.0',
+                status: 'up',
+                speed: '1 Gbps',
+              },
+            ],
+        routingTable: ['router', 'firewall', 'server'].includes(type) ? [] : undefined,
+        firewallRules: ['router', 'firewall'].includes(type) ? [] : undefined,
+        dhcp:
+          type === 'dhcp'
+            ? {
+                enabled: true,
+                poolStart: '192.168.1.100',
+                poolEnd: '192.168.1.200',
+                subnetMask: '255.255.255.0',
+                gateway: '192.168.1.1',
+                dnsServers: '8.8.8.8, 1.1.1.1',
+                leaseHours: 24,
+              }
+            : undefined,
+        dns:
+          type === 'dns' || type === 'www'
+            ? { enabled: true, forwarders: '8.8.8.8, 1.1.1.1', records: [] }
+            : undefined,
+        services:
+          type === 'server'
+            ? [
+                {
+                  id: `svc-${id}-80`,
+                  name: 'HTTP',
+                  port: 80,
+                  protocol: 'tcp' as const,
+                  enabled: true,
+                },
+                {
+                  id: `svc-${id}-22`,
+                  name: 'SSH',
+                  port: 22,
+                  protocol: 'tcp' as const,
+                  enabled: true,
+                },
+              ]
+            : type === 'www'
+              ? [
+                  {
+                    id: `svc-${id}-443`,
+                    name: 'HTTPS',
+                    port: 443,
+                    protocol: 'tcp' as const,
+                    enabled: true,
+                  },
+                ]
+              : type === 'dns'
+                ? [
+                    {
+                      id: `svc-${id}-53`,
+                      name: 'DNS',
+                      port: 53,
+                      protocol: 'udp' as const,
+                      enabled: true,
+                    },
+                  ]
+                : undefined,
+        webPage:
+          type === 'server' || type === 'www'
+            ? { title: `${label} home page`, body: '<h1>It works!</h1>' }
+            : undefined,
+        powered: false, // new devices start powered off — turn on to join the network
+      }
+      setNodes((nds) => [
+        ...nds,
+        {
+          id,
+          type,
+          position,
+          data: { type, label, highlight: 'none', config },
+        },
+      ])
+      notify(`Added ${label} — power it on to join the network`)
+    },
+    [setNodes, pushHistory, notify],
+  )
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault()
@@ -1341,17 +2100,23 @@ export default function NetworkBuilderPage() {
     event.dataTransfer.effectAllowed = 'move'
   }, [])
 
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    if (traceResult) clearTrace()
-    setSelectedEdgeId(null)
-    setSelectedNodeId(node.id)
-  }, [traceResult, clearTrace, setSelectedEdgeId, setSelectedNodeId])
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      if (traceResult) clearTrace()
+      setSelectedEdgeId(null)
+      setSelectedNodeId(node.id)
+    },
+    [traceResult, clearTrace, setSelectedEdgeId, setSelectedNodeId],
+  )
 
-  const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
-    if (traceResult) clearTrace()
-    setSelectedNodeId(null)
-    setSelectedEdgeId(edge.id)
-  }, [traceResult, clearTrace, setSelectedNodeId, setSelectedEdgeId])
+  const onEdgeClick = useCallback(
+    (_: React.MouseEvent, edge: Edge) => {
+      if (traceResult) clearTrace()
+      setSelectedNodeId(null)
+      setSelectedEdgeId(edge.id)
+    },
+    [traceResult, clearTrace, setSelectedNodeId, setSelectedEdgeId],
+  )
 
   const onPaneClick = useCallback(() => {
     setSelectedNodeId(null)
@@ -1362,112 +2127,192 @@ export default function NetworkBuilderPage() {
   // The rAF engine reads each link's latency/bandwidth/status every frame, so a
   // change here retimes packets crossing it instantly (or drops them if it goes
   // down) with no extra bookkeeping.
-  const handleEdgeDataChange = useCallback((edgeId: string, partial: Partial<PacketEdgeData>) => {
-    setEdges(prev => prev.map(e => e.id === edgeId ? { ...e, data: { ...e.data, ...partial } } : e))
-  }, [setEdges])
+  const handleEdgeDataChange = useCallback(
+    (edgeId: string, partial: Partial<PacketEdgeData>) => {
+      setEdges((prev) =>
+        prev.map((e) => (e.id === edgeId ? { ...e, data: { ...e.data, ...partial } } : e)),
+      )
+    },
+    [setEdges],
+  )
 
-  const handleDeleteEdge = useCallback((edgeId: string) => {
-    pushHistory()
-    setEdges(prev => prev.filter(e => e.id !== edgeId))
-    setSelectedEdgeId(null)
-  }, [setEdges, pushHistory, setSelectedEdgeId])
+  const handleDeleteEdge = useCallback(
+    (edgeId: string) => {
+      pushHistory()
+      setEdges((prev) => prev.filter((e) => e.id !== edgeId))
+      setSelectedEdgeId(null)
+    },
+    [setEdges, pushHistory, setSelectedEdgeId],
+  )
 
   // ── PropertiesPanel onChange ─────────────────────────────────────────────
-  const handleNodeConfigChange = useCallback((nodeId: string, config: NetworkNodeConfig) => {
-    setNodes(prev => prev.map(n => n.id !== nodeId ? n : {
-      ...n,
-      data: { ...n.data as NetworkNodeData, config },
-    }))
-    // Persist to backend in the background (404-safe for unsaved local nodes)
-    syncNodeConfig(nodeId, config)
-  }, [syncNodeConfig, setNodes])
+  const handleNodeConfigChange = useCallback(
+    (nodeId: string, config: NetworkNodeConfig) => {
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id !== nodeId
+            ? n
+            : {
+                ...n,
+                data: { ...(n.data as NetworkNodeData), config },
+              },
+        ),
+      )
+      // Persist to backend in the background (404-safe for unsaved local nodes)
+      syncNodeConfig(nodeId, config)
+    },
+    [syncNodeConfig, setNodes],
+  )
 
   // ── Connect two private networks: configure a router<->router edge as a WAN
   //    site-link (assign a /30, install cross static routes between the LANs). ──
-  const configureWanLink = useCallback((edgeId: string) => {
-    const data = (n: Node<NetworkNodeData>) => n.data as NetworkNodeData
-    const wanEdge = edgesRef.current.find(e => e.id === edgeId)
-    if (!wanEdge) return
-    const aNode = nodesRef.current.find(n => n.id === wanEdge.source)
-    const bNode = nodesRef.current.find(n => n.id === wanEdge.target)
-    if (!aNode || !bNode) return
-    const isRouter = (n: Node<NetworkNodeData>) => ['router', 'l3switch'].includes(data(n).type)
-    if (!isRouter(aNode) || !isRouter(bNode)) {
-      notify('WAN link needs a router (or L3 switch) on both ends', 'error')
-      setTimeout(() => clearStatus(), 2500)
-      return
-    }
-
-    const priv = (ip?: string) => !!ip && (ip.startsWith('10.') || /^172\.(1[6-9]|2\d|3[01])\./.test(ip) || ip.startsWith('192.168.'))
-    const prefixOf = (i?: NetworkInterface) => {
-      if (i?.cidr) { const p = parseInt(i.cidr.replace('/', ''), 10); if (!isNaN(p)) return p }
-      if (i?.subnetMask) return maskToCidr(i.subnetMask)
-      return 24
-    }
-    const maskInt = (p: number) => (p === 0 ? 0 : (0xffffffff << (32 - p)) >>> 0)
-    const maskStr = (p: number) => intToIp(maskInt(p))
-    const netStr = (ip: string, p: number) => intToIp((ipToInt(ip) & maskInt(p)) >>> 0)
-
-    // Subnets a router serves = private subnets of IP-bearing devices reachable
-    // from it WITHOUT crossing the WAN edge.
-    const simpleEdges = edgesRef.current.filter(e => e.id !== edgeId).map(e => ({ source: e.source, target: e.target }))
-    type Sub = { net: string; mask: string }
-    const lanSubnets = (routerId: string): Sub[] => {
-      const out = new Map<string, Sub>()
-      for (const id of reachableFrom(routerId, simpleEdges)) {
-        const n = nodesRef.current.find(x => x.id === id)
-        const iface = n && data(n).config.interfaces?.[0]
-        const ip = iface?.ipAddress
-        if (!priv(ip)) continue
-        const prefix = prefixOf(iface || undefined)
-        out.set(`${netStr(ip!, prefix)}/${prefix}`, { net: netStr(ip!, prefix), mask: maskStr(prefix) })
+  const configureWanLink = useCallback(
+    (edgeId: string) => {
+      const data = (n: Node<NetworkNodeData>) => n.data as NetworkNodeData
+      const wanEdge = edgesRef.current.find((e) => e.id === edgeId)
+      if (!wanEdge) return
+      const aNode = nodesRef.current.find((n) => n.id === wanEdge.source)
+      const bNode = nodesRef.current.find((n) => n.id === wanEdge.target)
+      if (!aNode || !bNode) return
+      const isRouter = (n: Node<NetworkNodeData>) => ['router', 'l3switch'].includes(data(n).type)
+      if (!isRouter(aNode) || !isRouter(bNode)) {
+        notify('WAN link needs a router (or L3 switch) on both ends', 'error')
+        setTimeout(() => clearStatus(), 2500)
+        return
       }
-      return [...out.values()]
-    }
-    const aLans = lanSubnets(aNode.id)
-    const bLans = lanSubnets(bNode.id)
-    if (aLans.length === 0 || bLans.length === 0) {
-      notify('Power on / address the hosts on both sides first (no subnets found)', 'warn')
+
+      const priv = (ip?: string) =>
+        !!ip &&
+        (ip.startsWith('10.') || /^172\.(1[6-9]|2\d|3[01])\./.test(ip) || ip.startsWith('192.168.'))
+      const prefixOf = (i?: NetworkInterface) => {
+        if (i?.cidr) {
+          const p = parseInt(i.cidr.replace('/', ''), 10)
+          if (!isNaN(p)) return p
+        }
+        if (i?.subnetMask) return maskToCidr(i.subnetMask)
+        return 24
+      }
+      const maskInt = (p: number) => (p === 0 ? 0 : (0xffffffff << (32 - p)) >>> 0)
+      const maskStr = (p: number) => intToIp(maskInt(p))
+      const netStr = (ip: string, p: number) => intToIp((ipToInt(ip) & maskInt(p)) >>> 0)
+
+      // Subnets a router serves = private subnets of IP-bearing devices reachable
+      // from it WITHOUT crossing the WAN edge.
+      const simpleEdges = edgesRef.current
+        .filter((e) => e.id !== edgeId)
+        .map((e) => ({ source: e.source, target: e.target }))
+      type Sub = { net: string; mask: string }
+      const lanSubnets = (routerId: string): Sub[] => {
+        const out = new Map<string, Sub>()
+        for (const id of reachableFrom(routerId, simpleEdges)) {
+          const n = nodesRef.current.find((x) => x.id === id)
+          const iface = n && data(n).config.interfaces?.[0]
+          const ip = iface?.ipAddress
+          if (!priv(ip)) continue
+          const prefix = prefixOf(iface || undefined)
+          out.set(`${netStr(ip!, prefix)}/${prefix}`, {
+            net: netStr(ip!, prefix),
+            mask: maskStr(prefix),
+          })
+        }
+        return [...out.values()]
+      }
+      const aLans = lanSubnets(aNode.id)
+      const bLans = lanSubnets(bNode.id)
+      if (aLans.length === 0 || bLans.length === 0) {
+        notify('Power on / address the hosts on both sides first (no subnets found)', 'warn')
+        setTimeout(() => clearStatus(), 3500)
+        return
+      }
+
+      // Pick a free /30 for the WAN point-to-point link.
+      const used = new Set<string>()
+      nodesRef.current.forEach((n) =>
+        data(n).config.interfaces?.forEach((i) => i.ipAddress && used.add(i.ipAddress)),
+      )
+      let base = ipToInt('172.16.255.0')
+      for (let k = 0; k < 64; k++) {
+        if (!used.has(intToIp(base + 1)) && !used.has(intToIp(base + 2))) break
+        base += 4
+      }
+      const aWan = intToIp(base + 1),
+        bWan = intToIp(base + 2)
+
+      const buildConfig = (
+        node: Node<NetworkNodeData>,
+        selfLans: Sub[],
+        peerLans: Sub[],
+        selfWan: string,
+        peerWan: string,
+      ): NetworkNodeConfig => {
+        const cfg = data(node).config
+        const wanIface: NetworkInterface = {
+          name: 'WAN',
+          ipAddress: selfWan,
+          subnetMask: '255.255.255.252',
+          cidr: '/30',
+          status: 'up',
+          description: 'WAN site-link',
+        }
+        const interfaces = [...(cfg.interfaces ?? []).filter((i) => i.name !== 'WAN'), wanIface]
+        const routes: RoutingTableEntry[] = [...(cfg.routingTable ?? [])]
+        const add = (r: RoutingTableEntry) => {
+          if (!routes.some((x) => x.destination === r.destination && x.mask === r.mask))
+            routes.push(r)
+        }
+        add({
+          id: crypto.randomUUID(),
+          destination: netStr(selfWan, 30),
+          mask: '255.255.255.252',
+          gateway: '0.0.0.0',
+          interface: 'WAN',
+          metric: 0,
+          type: 'connected',
+        })
+        selfLans.forEach((s) =>
+          add({
+            id: crypto.randomUUID(),
+            destination: s.net,
+            mask: s.mask,
+            gateway: '0.0.0.0',
+            interface: 'LAN',
+            metric: 0,
+            type: 'connected',
+          }),
+        )
+        peerLans.forEach((s) =>
+          add({
+            id: crypto.randomUUID(),
+            destination: s.net,
+            mask: s.mask,
+            gateway: peerWan,
+            interface: 'WAN',
+            metric: 1,
+            type: 'static',
+          }),
+        )
+        return { ...cfg, interfaces, routingTable: routes }
+      }
+
+      pushHistory()
+      handleNodeConfigChange(aNode.id, buildConfig(aNode, aLans, bLans, aWan, bWan))
+      handleNodeConfigChange(bNode.id, buildConfig(bNode, bLans, aLans, bWan, aWan))
+      handleEdgeDataChange(edgeId, { edgeLabel: 'WAN link', bandwidth: '100 Mbps', latencyMs: 10 })
+      notify(
+        `WAN link up: ${aLans.length} <-> ${bLans.length} subnet(s) routed (static routes added)`,
+        'success',
+      )
       setTimeout(() => clearStatus(), 3500)
-      return
-    }
-
-    // Pick a free /30 for the WAN point-to-point link.
-    const used = new Set<string>()
-    nodesRef.current.forEach(n => data(n).config.interfaces?.forEach(i => i.ipAddress && used.add(i.ipAddress)))
-    let base = ipToInt('172.16.255.0')
-    for (let k = 0; k < 64; k++) {
-      if (!used.has(intToIp(base + 1)) && !used.has(intToIp(base + 2))) break
-      base += 4
-    }
-    const aWan = intToIp(base + 1), bWan = intToIp(base + 2)
-
-    const buildConfig = (node: Node<NetworkNodeData>, selfLans: Sub[], peerLans: Sub[], selfWan: string, peerWan: string): NetworkNodeConfig => {
-      const cfg = data(node).config
-      const wanIface: NetworkInterface = { name: 'WAN', ipAddress: selfWan, subnetMask: '255.255.255.252', cidr: '/30', status: 'up', description: 'WAN site-link' }
-      const interfaces = [...(cfg.interfaces ?? []).filter(i => i.name !== 'WAN'), wanIface]
-      const routes: RoutingTableEntry[] = [...(cfg.routingTable ?? [])]
-      const add = (r: RoutingTableEntry) => { if (!routes.some(x => x.destination === r.destination && x.mask === r.mask)) routes.push(r) }
-      add({ id: crypto.randomUUID(), destination: netStr(selfWan, 30), mask: '255.255.255.252', gateway: '0.0.0.0', interface: 'WAN', metric: 0, type: 'connected' })
-      selfLans.forEach(s => add({ id: crypto.randomUUID(), destination: s.net, mask: s.mask, gateway: '0.0.0.0', interface: 'LAN', metric: 0, type: 'connected' }))
-      peerLans.forEach(s => add({ id: crypto.randomUUID(), destination: s.net, mask: s.mask, gateway: peerWan, interface: 'WAN', metric: 1, type: 'static' }))
-      return { ...cfg, interfaces, routingTable: routes }
-    }
-
-    pushHistory()
-    handleNodeConfigChange(aNode.id, buildConfig(aNode, aLans, bLans, aWan, bWan))
-    handleNodeConfigChange(bNode.id, buildConfig(bNode, bLans, aLans, bWan, aWan))
-    handleEdgeDataChange(edgeId, { edgeLabel: 'WAN link', bandwidth: '100 Mbps', latencyMs: 10 })
-    notify(`WAN link up: ${aLans.length} <-> ${bLans.length} subnet(s) routed (static routes added)`, 'success')
-    setTimeout(() => clearStatus(), 3500)
-  }, [handleNodeConfigChange, handleEdgeDataChange, pushHistory, notify, clearStatus])
+    },
+    [handleNodeConfigChange, handleEdgeDataChange, pushHistory, notify, clearStatus],
+  )
 
   // ── Save/Delete/Reset ────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!topology) return
     setSaving(true)
     try {
-      const updatedNodes = nodes.map(n => {
+      const updatedNodes = nodes.map((n) => {
         const d = n.data as NetworkNodeData
         return { id: n.id, type: d.type, label: d.label, position: n.position, config: d.config }
       })
@@ -1475,27 +2320,39 @@ export default function NetworkBuilderPage() {
       await networkApi.update(topology.id, { nodes: updatedNodes, edges: updatedEdges })
       notify('Saved', 'success')
       setTimeout(() => clearStatus(), 2000)
-    } catch { notify('Save failed', 'error') }
-    finally { setSaving(false) }
+    } catch {
+      notify('Save failed', 'error')
+    } finally {
+      setSaving(false)
+    }
   }, [topology, nodes, edges, setSaving, notify, clearStatus])
 
   const handleDeleteSelected = useCallback(() => {
     if (!selectedNodeId) return
     pushHistory()
-    setNodes(nds => nds.filter(n => n.id !== selectedNodeId))
-    setEdges(prev => prev.filter(e => e.source !== selectedNodeId && e.target !== selectedNodeId))
+    setNodes((nds) => nds.filter((n) => n.id !== selectedNodeId))
+    setEdges((prev) =>
+      prev.filter((e) => e.source !== selectedNodeId && e.target !== selectedNodeId),
+    )
     setSelectedNodeId(null)
   }, [selectedNodeId, setNodes, setEdges, pushHistory, setSelectedNodeId])
 
   const handleReset = useCallback(() => {
     pushHistory()
-    try { localStorage.removeItem(AUTOSAVE_KEY) } catch { /* ignore */ }
-    networkApi.getDefault().then(({ data }) => {
-      setTopology(data)
-      setNodes(data.nodes.map(toFlowNode))
-      setEdges(data.edges.map(toFlowEdge))
-      clearTrace()
-    }).catch(() => {})
+    try {
+      localStorage.removeItem(AUTOSAVE_KEY)
+    } catch {
+      /* ignore */
+    }
+    networkApi
+      .getDefault()
+      .then(({ data }) => {
+        setTopology(data)
+        setNodes(data.nodes.map(toFlowNode))
+        setEdges(data.edges.map(toFlowEdge))
+        clearTrace()
+      })
+      .catch(() => {})
   }, [setNodes, setEdges, clearTrace, pushHistory, setTopology])
 
   // Blank slate for the guided build exercise
@@ -1515,70 +2372,98 @@ export default function NetworkBuilderPage() {
   }, [setShowTutorial, setGuidedActive])
 
   // Compute net nodes for PacketSender and PropertiesPanel
-  const allNetNodes = nodes.map(n => {
+  const allNetNodes = nodes.map((n) => {
     const d = n.data as NetworkNodeData
     return { id: n.id, type: d.type, label: d.label, position: n.position, config: d.config }
   })
 
   const selectedNode = selectedNodeId
-    ? (allNetNodes.find(n => n.id === selectedNodeId) ?? null)
+    ? (allNetNodes.find((n) => n.id === selectedNodeId) ?? null)
     : null
 
-  const selectedEdge = selectedEdgeId
-    ? (edges.find(e => e.id === selectedEdgeId) ?? null)
-    : null
+  const selectedEdge = selectedEdgeId ? (edges.find((e) => e.id === selectedEdgeId) ?? null) : null
 
-  const nodeName = useCallback((nid: string) => {
-    const n = allNetNodes.find(x => x.id === nid)
-    return n?.config.hostname ?? n?.label ?? nid
-  }, [allNetNodes])
+  const nodeName = useCallback(
+    (nid: string) => {
+      const n = allNetNodes.find((x) => x.id === nid)
+      return n?.config.hostname ?? n?.label ?? nid
+    },
+    [allNetNodes],
+  )
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar — kept to a handful of controls; everything occasional lives in "More" */}
       <div className="relative z-30 flex flex-wrap items-center justify-between gap-2 px-3 py-2 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)] shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs font-semibold text-[var(--text-primary)] truncate">{topology?.name ?? 'Network Builder'}</span>
+          <span className="text-xs font-semibold text-[var(--text-primary)] truncate">
+            {topology?.name ?? 'Network Builder'}
+          </span>
           {status && <StatusPill status={status} />}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button onClick={undo} disabled={historyRef.current.past.length === 0} className="btn-ghost !px-2" title="Undo (Ctrl+Z)">
+          <button
+            onClick={undo}
+            disabled={historyRef.current.past.length === 0}
+            className="btn-ghost !px-2"
+            title="Undo (Ctrl+Z)"
+          >
             <Undo2 size={12} />
           </button>
-          <button onClick={redo} disabled={historyRef.current.future.length === 0} className="btn-ghost !px-2" title="Redo (Ctrl+Shift+Z)">
+          <button
+            onClick={redo}
+            disabled={historyRef.current.future.length === 0}
+            className="btn-ghost !px-2"
+            title="Redo (Ctrl+Shift+Z)"
+          >
             <Redo2 size={12} />
           </button>
           <button
-            onClick={() => setLiveMode(v => !v)}
+            onClick={() => setLiveMode((v) => !v)}
             className={liveMode ? 'btn-primary' : 'btn-ghost'}
             title="Toggle live background traffic (hosts request DHCP automatically either way)"
           >
-            <Activity size={12} />Live{liveMode && <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />}
+            <Activity size={12} />
+            Live{liveMode && <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />}
           </button>
           <div className="relative">
             <button
-              onClick={() => setTrafficPanelOpen(v => !v)}
-              className={['btn-ghost !px-2', trafficPanelOpen ? 'bg-white/15 border-white/25 text-[var(--text-primary)]' : ''].join(' ')}
+              onClick={() => setTrafficPanelOpen((v) => !v)}
+              className={[
+                'btn-ghost !px-2',
+                trafficPanelOpen ? 'bg-white/15 border-white/25 text-[var(--text-primary)]' : '',
+              ].join(' ')}
               title="Ambient traffic settings — volume & protocol mix"
             >
               <SlidersHorizontal size={12} />
             </button>
             {trafficPanelOpen && (
               <>
-                <div onClick={() => setTrafficPanelOpen(false)} aria-hidden="true" className="fixed inset-0 z-40" />
+                <div
+                  onClick={() => setTrafficPanelOpen(false)}
+                  aria-hidden="true"
+                  className="fixed inset-0 z-40"
+                />
                 <div
                   className="rounded-lg shadow-2xl p-3"
                   style={{
-                    position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50,
-                    width: 256, background: 'var(--bg-800)', border: '1px solid var(--border)',
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    right: 0,
+                    zIndex: 50,
+                    width: 256,
+                    background: 'var(--bg-800)',
+                    border: '1px solid var(--border)',
                   }}
                 >
-                  <div className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Live traffic</div>
+                  <div className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
+                    Live traffic
+                  </div>
 
                   <div className="flex items-center gap-1.5 mb-3">
                     <span className="text-[10px] text-[var(--text-muted)] shrink-0">Volume</span>
                     <div className="flex rounded overflow-hidden border border-white/10 flex-1">
-                      {(['low', 'medium', 'high'] as const).map(v => (
+                      {(['low', 'medium', 'high'] as const).map((v) => (
                         <button
                           key={v}
                           onClick={() => setTrafficVolume(v)}
@@ -1597,11 +2482,16 @@ export default function NetworkBuilderPage() {
 
                   <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
                     {AMBIENT_PROTOCOLS.map(({ key, label }) => (
-                      <label key={key} className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] cursor-pointer select-none">
+                      <label
+                        key={key}
+                        className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] cursor-pointer select-none"
+                      >
                         <input
                           type="checkbox"
                           checked={enabledProtocols[key]}
-                          onChange={() => setEnabledProtocols(prev => ({ ...prev, [key]: !prev[key] }))}
+                          onChange={() =>
+                            setEnabledProtocols((prev) => ({ ...prev, [key]: !prev[key] }))
+                          }
                           className="w-3 h-3 accent-[var(--accent)]"
                         />
                         {label}
@@ -1613,41 +2503,104 @@ export default function NetworkBuilderPage() {
             )}
           </div>
           <button
-            onClick={() => setInspectorOpen(v => !v)}
+            onClick={() => setInspectorOpen((v) => !v)}
             className={inspectorOpen ? 'btn-primary' : 'btn-ghost'}
             title="Packet analyzer — freeze traffic and click any packet to decode it (Wireshark-style)"
           >
-            <Layers size={12} />Analyze
+            <Layers size={12} />
+            Analyze
           </button>
           <div data-tour="toolbar" className="flex items-center gap-2">
-            <button onClick={handleSave} disabled={saving} className="btn-primary"><Save size={11} />{saving ? 'Saving…' : 'Save'}</button>
-            {selectedNode && <button onClick={handleDeleteSelected} className="btn-danger"><Trash2 size={11} />Delete</button>}
+            <button onClick={handleSave} disabled={saving} className="btn-primary">
+              <Save size={11} />
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            {selectedNode && (
+              <button onClick={handleDeleteSelected} className="btn-danger">
+                <Trash2 size={11} />
+                Delete
+              </button>
+            )}
 
             {/* More: Tutorial, Build, Validate, State, Versions, Export, Reset */}
             <div className="relative pl-2 ml-0.5 border-l border-white/10">
               <button
-                onClick={() => setMenuOpen(v => !v)}
-                className={['btn-ghost !px-2', menuOpen ? 'bg-white/15 border-white/25 text-[var(--text-primary)]' : ''].join(' ')}
+                onClick={() => setMenuOpen((v) => !v)}
+                className={[
+                  'btn-ghost !px-2',
+                  menuOpen ? 'bg-white/15 border-white/25 text-[var(--text-primary)]' : '',
+                ].join(' ')}
                 title="More actions"
               >
                 <MoreHorizontal size={14} />
               </button>
               {menuOpen && (
                 <>
-                  <div onClick={() => setMenuOpen(false)} aria-hidden="true" className="fixed inset-0 z-40" />
+                  <div
+                    onClick={() => setMenuOpen(false)}
+                    aria-hidden="true"
+                    className="fixed inset-0 z-40"
+                  />
                   <div
                     className="rounded-lg shadow-2xl p-1.5 flex flex-col gap-0.5"
                     style={{
-                      position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50,
-                      width: 224, background: 'var(--bg-800)', border: '1px solid var(--border)',
+                      position: 'absolute',
+                      top: 'calc(100% + 6px)',
+                      right: 0,
+                      zIndex: 50,
+                      width: 224,
+                      background: 'var(--bg-800)',
+                      border: '1px solid var(--border)',
                     }}
                   >
-                    <MenuItem icon={GraduationCap} label="Tutorial" onClick={() => { setShowTutorial(true); setMenuOpen(false) }} />
-                    <MenuItem icon={Hammer} label="Guided build" disabled={guidedActive} onClick={() => { handleStartBuild(); setMenuOpen(false) }} />
+                    <MenuItem
+                      icon={GraduationCap}
+                      label="Tutorial"
+                      onClick={() => {
+                        setShowTutorial(true)
+                        setMenuOpen(false)
+                      }}
+                    />
+                    <MenuItem
+                      icon={Hammer}
+                      label="Guided build"
+                      disabled={guidedActive}
+                      onClick={() => {
+                        handleStartBuild()
+                        setMenuOpen(false)
+                      }}
+                    />
                     <div className="my-1 border-t border-[var(--glass-border)]" />
-                    <MenuItem icon={ShieldCheck} label="Validate" active={showValidation} onClick={() => { handleSave(); setShowValidation(v => !v); setMenuOpen(false) }} />
-                    <MenuItem icon={TerminalSquare} label="Device state" active={showState} onClick={() => { handleSave(); setShowState(v => !v); setMenuOpen(false) }} />
-                    <MenuItem icon={History} label="Versions" active={showVersions} onClick={() => { handleSave(); setShowVersions(v => !v); setMenuOpen(false) }} />
+                    <MenuItem
+                      icon={ShieldCheck}
+                      label="Validate"
+                      active={showValidation}
+                      onClick={() => {
+                        handleSave()
+                        setShowValidation((v) => !v)
+                        setMenuOpen(false)
+                      }}
+                    />
+                    <MenuItem
+                      icon={TerminalSquare}
+                      label="Device state"
+                      active={showState}
+                      onClick={() => {
+                        handleSave()
+                        setShowState((v) => !v)
+                        setMenuOpen(false)
+                      }}
+                    />
+                    <MenuItem
+                      icon={History}
+                      label="Versions"
+                      active={showVersions}
+                      onClick={() => {
+                        handleSave()
+                        setShowVersions((v) => !v)
+                        setMenuOpen(false)
+                      }}
+                    />
                     <div className="my-1 border-t border-[var(--glass-border)]" />
                     <MenuItem
                       icon={Download}
@@ -1665,7 +2618,15 @@ export default function NetworkBuilderPage() {
                         URL.revokeObjectURL(url)
                       }}
                     />
-                    <MenuItem icon={RefreshCw} label="Reset canvas" danger onClick={() => { setMenuOpen(false); handleReset() }} />
+                    <MenuItem
+                      icon={RefreshCw}
+                      label="Reset canvas"
+                      danger
+                      onClick={() => {
+                        setMenuOpen(false)
+                        handleReset()
+                      }}
+                    />
                   </div>
                 </>
               )}
@@ -1691,13 +2652,15 @@ export default function NetworkBuilderPage() {
       {/* Main area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Palette: static column on `md`+, a toggleable drawer over the canvas below it */}
-        <div className="hidden md:block md:w-44 md:shrink-0"><NodePalette onDragStart={onDragStart} /></div>
+        <div className="hidden md:block md:w-44 md:shrink-0">
+          <NodePalette onDragStart={onDragStart} />
+        </div>
 
         {/* Canvas */}
         <div ref={reactFlowWrapper} data-tour="canvas" className="flex-1 relative">
           {/* Mobile-only palette toggle */}
           <button
-            onClick={() => setPaletteOpen(v => !v)}
+            onClick={() => setPaletteOpen((v) => !v)}
             title="Toggle device palette"
             className="md:hidden absolute top-3 left-3 z-30 glass rounded-md p-2 shadow-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
@@ -1745,8 +2708,12 @@ export default function NetworkBuilderPage() {
           >
             <Background variant={BackgroundVariant.Dots} color="#21262d" gap={20} size={1} />
             <Controls />
-            <MiniMap nodeColor={n => meta(n.type ?? '').color} />
-            <PacketFlightLayer flights={flightsRef.current} version={flightVersion} enabled={enabledProtocols} />
+            <MiniMap nodeColor={(n) => meta(n.type ?? '').color} />
+            <PacketFlightLayer
+              flights={flightsRef.current}
+              version={flightVersion}
+              enabled={enabledProtocols}
+            />
           </ReactFlow>
 
           {/* Result overlay — shown when animation finishes */}
@@ -1758,7 +2725,7 @@ export default function NetworkBuilderPage() {
           <GuidedBuild
             active={guidedActive}
             nodes={allNetNodes}
-            edges={edges.map(e => ({ source: e.source, target: e.target }))}
+            edges={edges.map((e) => ({ source: e.source, target: e.target }))}
             onClearCanvas={handleClearCanvas}
             onClose={() => setGuidedActive(false)}
           />
@@ -1769,8 +2736,13 @@ export default function NetworkBuilderPage() {
               topologyId={topology?.id}
               onClose={() => setShowValidation(false)}
               onFocus={(nodeId, edgeId) => {
-                if (edgeId) { setSelectedNodeId(null); setSelectedEdgeId(edgeId) }
-                else if (nodeId) { setSelectedEdgeId(null); setSelectedNodeId(nodeId) }
+                if (edgeId) {
+                  setSelectedNodeId(null)
+                  setSelectedEdgeId(edgeId)
+                } else if (nodeId) {
+                  setSelectedEdgeId(null)
+                  setSelectedNodeId(nodeId)
+                }
               }}
             />
           )}
@@ -1804,15 +2776,26 @@ export default function NetworkBuilderPage() {
 
         {/* Right inspector (resizable): packet analyzer > trace > edge > node */}
         {inspectorOpen && (
-          <ResizablePanel onBackdropClick={() => { setInspectorOpen(false); if (frozenRef.current) applyFreeze(false) }}>
+          <ResizablePanel
+            onBackdropClick={() => {
+              setInspectorOpen(false)
+              if (frozenRef.current) applyFreeze(false)
+            }}
+          >
             <PacketInspector
               packets={capturedPackets}
               selectedId={selectedCaptureId}
               frozen={frozen}
               onSelect={setSelectedCaptureId}
-              onClear={() => { setCapturedPackets([]); setSelectedCaptureId(null) }}
+              onClear={() => {
+                setCapturedPackets([])
+                setSelectedCaptureId(null)
+              }}
               onToggleFreeze={() => applyFreeze(!frozen)}
-              onClose={() => { setInspectorOpen(false); if (frozenRef.current) applyFreeze(false) }}
+              onClose={() => {
+                setInspectorOpen(false)
+                if (frozenRef.current) applyFreeze(false)
+              }}
             />
           </ResizablePanel>
         )}
@@ -1828,8 +2811,12 @@ export default function NetworkBuilderPage() {
               sourceName={nodeName(selectedEdge.source)}
               targetName={nodeName(selectedEdge.target)}
               canConfigureWan={
-                ['router', 'l3switch'].includes(allNetNodes.find(n => n.id === selectedEdge.source)?.type ?? '') &&
-                ['router', 'l3switch'].includes(allNetNodes.find(n => n.id === selectedEdge.target)?.type ?? '')
+                ['router', 'l3switch'].includes(
+                  allNetNodes.find((n) => n.id === selectedEdge.source)?.type ?? '',
+                ) &&
+                ['router', 'l3switch'].includes(
+                  allNetNodes.find((n) => n.id === selectedEdge.target)?.type ?? '',
+                )
               }
               onConfigureWanLink={() => configureWanLink(selectedEdge.id)}
               onChange={handleEdgeDataChange}
@@ -1849,7 +2836,11 @@ export default function NetworkBuilderPage() {
         )}
       </div>
 
-      <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} onStartBuild={handleStartBuild} />
+      <Tutorial
+        open={showTutorial}
+        onClose={() => setShowTutorial(false)}
+        onStartBuild={handleStartBuild}
+      />
     </div>
   )
 }

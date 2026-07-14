@@ -22,10 +22,16 @@ interface SelectMenuProps {
  * Linux Chrome always shows a plain white GTK listbox) and largely ignore our
  * CSS, so anywhere a select needs to look right we build the list ourselves.
  */
-export default function SelectMenu({ value, onChange, options, placeholder = 'Select…', className = '' }: SelectMenuProps) {
+export default function SelectMenu({
+  value,
+  onChange,
+  options,
+  placeholder = 'Select…',
+  className = '',
+}: SelectMenuProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const current = options.find(o => o.value === value)
+  const current = options.find((o) => o.value === value)
 
   useEffect(() => {
     if (!open) return
@@ -40,13 +46,24 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
     <div ref={ref} className={['relative', className].join(' ')}>
       <button
         type="button"
-        onClick={() => setOpen(v => !v)}
+        onClick={() => setOpen((v) => !v)}
         className="select flex items-center justify-between gap-1.5 w-full text-left"
       >
-        <span className={['truncate', current ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'].join(' ')}>
+        <span
+          className={[
+            'truncate',
+            current ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]',
+          ].join(' ')}
+        >
           {current ? current.label : placeholder}
         </span>
-        <ChevronDown size={11} className={['shrink-0 text-[var(--text-muted)] transition-transform', open ? 'rotate-180' : ''].join(' ')} />
+        <ChevronDown
+          size={11}
+          className={[
+            'shrink-0 text-[var(--text-muted)] transition-transform',
+            open ? 'rotate-180' : '',
+          ].join(' ')}
+        />
       </button>
       {open && (
         // Plain inline styles for position/size/background here — deliberately
@@ -70,15 +87,20 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
           {options.length === 0 && (
             <div className="px-2 py-1.5 text-xs text-[var(--text-muted)]">No options</div>
           )}
-          {options.map(o => (
+          {options.map((o) => (
             <button
               key={o.value}
               type="button"
               disabled={o.disabled}
-              onClick={() => { onChange(o.value); setOpen(false) }}
+              onClick={() => {
+                onChange(o.value)
+                setOpen(false)
+              }}
               className={[
                 'block text-left px-2 py-1.5 rounded-md text-xs truncate transition-colors disabled:opacity-40',
-                o.value === value ? 'bg-white/10 text-[var(--accent)]' : 'text-[var(--text-secondary)] hover:bg-white/10 hover:text-[var(--text-primary)]',
+                o.value === value
+                  ? 'bg-white/10 text-[var(--accent)]'
+                  : 'text-[var(--text-secondary)] hover:bg-white/10 hover:text-[var(--text-primary)]',
               ].join(' ')}
               style={{ width: '100%', display: 'block' }}
             >

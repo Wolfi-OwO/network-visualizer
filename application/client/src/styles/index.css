@@ -26,7 +26,7 @@
     --glass-bg: #161b22;
     --glass-border: #30363d;
     --glow-accent: rgba(88, 166, 255, 0.35);
-    --glow-accent-2: rgba(163, 113, 247, 0.30);
+    --glow-accent-2: rgba(163, 113, 247, 0.3);
 
     /* Motion — a single easing for the few transitions we keep. Restrained. */
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -45,7 +45,9 @@
     color-scheme: dark;
   }
 
-  html, body, #root {
+  html,
+  body,
+  #root {
     height: 100%;
     width: 100%;
     margin: 0;
@@ -53,7 +55,8 @@
     overflow: hidden;
   }
 
-  select, option {
+  select,
+  option {
     background-color: var(--bg-800);
     color: var(--text-primary);
   }
@@ -82,9 +85,14 @@
     pointer-events: none;
   }
 
-  * { box-sizing: border-box; }
+  * {
+    box-sizing: border-box;
+  }
 
-  ::selection { background: rgba(88, 166, 255, 0.28); color: var(--text-primary); }
+  ::selection {
+    background: rgba(88, 166, 255, 0.28);
+    color: var(--text-primary);
+  }
 
   /* Keyboard focus ring — consistent, visible, on-brand (never removed). */
   :focus-visible {
@@ -93,18 +101,28 @@
     border-radius: 6px;
   }
 
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
   ::-webkit-scrollbar-thumb {
     background: var(--bg-600);
     border-radius: 8px;
     border: 2px solid transparent;
     background-clip: padding-box;
   }
-  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+    background-clip: padding-box;
+  }
 
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.001ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.001ms !important;
@@ -116,7 +134,11 @@
 @layer components {
   .btn {
     @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer select-none border disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98];
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease,
+      transform 0.1s ease;
   }
   .btn-primary {
     @apply btn bg-[var(--accent)] text-[var(--bg-950)] font-semibold border-transparent hover:brightness-110;
@@ -137,7 +159,9 @@
     box-shadow: var(--shadow-card);
   }
   .card-hover {
-    transition: border-color 0.15s ease, background-color 0.15s ease;
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease;
   }
   .card-hover:hover {
     border-color: var(--border-strong);
@@ -152,11 +176,15 @@
      in every browser/renderer and these can't afford to ever look broken. */
   .popover {
     @apply bg-[var(--bg-800)] border border-white/10;
-    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 24px 50px -20px rgba(0, 0, 0, 0.85);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
+      0 24px 50px -20px rgba(0, 0, 0, 0.85);
   }
   .input {
     @apply bg-[var(--bg-950)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent)] focus:shadow-[0_0_0_2px_rgba(88,166,255,0.15)] placeholder:text-[var(--text-muted)] w-full;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
   }
   .select {
     @apply bg-[var(--bg-950)] border border-[var(--border)] rounded-md px-2 py-1.5 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent)] cursor-pointer transition-colors;
@@ -173,15 +201,23 @@
    Add `.animate-rise` to a container; stagger children with an inline
    `animation-delay`. */
 @keyframes rise {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .animate-rise {
   animation: rise 0.4s var(--ease-out-expo) both;
 }
 
 /* ReactFlow overrides */
-.react-flow__background { background-color: transparent !important; }
+.react-flow__background {
+  background-color: transparent !important;
+}
 .react-flow__edge-path {
   stroke: #58a6ff !important;
   stroke-width: 2 !important;
@@ -202,9 +238,14 @@
   border-bottom: 1px solid var(--glass-border) !important;
   fill: var(--text-secondary) !important;
   color: var(--text-secondary) !important;
-  transition: background 0.2s ease, fill 0.2s ease;
+  transition:
+    background 0.2s ease,
+    fill 0.2s ease;
 }
-.react-flow__controls-button:hover { background: rgba(255, 255, 255, 0.08) !important; fill: var(--text-primary) !important; }
+.react-flow__controls-button:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  fill: var(--text-primary) !important;
+}
 .react-flow__minimap {
   background: var(--glass-bg) !important;
   backdrop-filter: blur(16px);
@@ -212,65 +253,180 @@
   border-radius: 10px !important;
   box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
 }
-.react-flow__minimap-mask { fill: rgba(88,166,255,0.1) !important; }
-.react-flow__edge-label { font-size: 10px; fill: var(--text-secondary); }
+.react-flow__minimap-mask {
+  fill: rgba(88, 166, 255, 0.1) !important;
+}
+.react-flow__edge-label {
+  font-size: 10px;
+  fill: var(--text-secondary);
+}
 
 /* Packet rows */
-.proto-HTTP   { background: rgba(63,185,80,0.1);   border-left: 2px solid #3fb950; }
-.proto-HTTPS  { background: rgba(63,185,80,0.07);  border-left: 2px solid #238636; }
-.proto-DNS    { background: rgba(88,166,255,0.1);  border-left: 2px solid #58a6ff; }
-.proto-TCP    { background: rgba(139,148,158,0.06);border-left: 2px solid #484f58; }
-.proto-UDP    { background: rgba(210,153,34,0.1);  border-left: 2px solid #d29922; }
-.proto-ICMP   { background: rgba(248,81,73,0.1);   border-left: 2px solid #f85149; }
-.proto-ARP    { background: rgba(188,140,255,0.1); border-left: 2px solid #bc8cff; }
-.proto-TLS    { background: rgba(255,166,87,0.1);  border-left: 2px solid #ffa657; }
-.proto-SSH    { background: rgba(63,185,80,0.07);  border-left: 2px solid #2ea043; }
-.proto-mDNS   { background: rgba(121,192,255,0.08);border-left: 2px solid #79c0ff; }
-.proto-DHCP   { background: rgba(45,212,191,0.1);  border-left: 2px solid #2dd4bf; }
-.proto-STP    { background: rgba(227,179,65,0.1);  border-left: 2px solid #e3b341; }
-.proto-NTP    { background: rgba(86,212,221,0.09); border-left: 2px solid #56d4dd; }
-.proto-LLDP   { background: rgba(163,113,247,0.1); border-left: 2px solid #a371f7; }
-.proto-SNMP   { background: rgba(247,120,186,0.1); border-left: 2px solid #f778ba; }
-.proto-OSPF   { background: rgba(63,185,80,0.08);  border-left: 2px solid #3fb950; }
-.proto-SSDP   { background: rgba(156,163,175,0.07);border-left: 2px solid #9ca3af; }
-.proto-SIP    { background: rgba(255,123,114,0.1); border-left: 2px solid #ff7b72; }
-.proto-default{ background: rgba(110,118,129,0.05);border-left: 2px solid #6e7681; }
-.row-selected { background: rgba(88,166,255,0.14) !important; box-shadow: inset 2px 0 0 var(--accent); }
+.proto-HTTP {
+  background: rgba(63, 185, 80, 0.1);
+  border-left: 2px solid #3fb950;
+}
+.proto-HTTPS {
+  background: rgba(63, 185, 80, 0.07);
+  border-left: 2px solid #238636;
+}
+.proto-DNS {
+  background: rgba(88, 166, 255, 0.1);
+  border-left: 2px solid #58a6ff;
+}
+.proto-TCP {
+  background: rgba(139, 148, 158, 0.06);
+  border-left: 2px solid #484f58;
+}
+.proto-UDP {
+  background: rgba(210, 153, 34, 0.1);
+  border-left: 2px solid #d29922;
+}
+.proto-ICMP {
+  background: rgba(248, 81, 73, 0.1);
+  border-left: 2px solid #f85149;
+}
+.proto-ARP {
+  background: rgba(188, 140, 255, 0.1);
+  border-left: 2px solid #bc8cff;
+}
+.proto-TLS {
+  background: rgba(255, 166, 87, 0.1);
+  border-left: 2px solid #ffa657;
+}
+.proto-SSH {
+  background: rgba(63, 185, 80, 0.07);
+  border-left: 2px solid #2ea043;
+}
+.proto-mDNS {
+  background: rgba(121, 192, 255, 0.08);
+  border-left: 2px solid #79c0ff;
+}
+.proto-DHCP {
+  background: rgba(45, 212, 191, 0.1);
+  border-left: 2px solid #2dd4bf;
+}
+.proto-STP {
+  background: rgba(227, 179, 65, 0.1);
+  border-left: 2px solid #e3b341;
+}
+.proto-NTP {
+  background: rgba(86, 212, 221, 0.09);
+  border-left: 2px solid #56d4dd;
+}
+.proto-LLDP {
+  background: rgba(163, 113, 247, 0.1);
+  border-left: 2px solid #a371f7;
+}
+.proto-SNMP {
+  background: rgba(247, 120, 186, 0.1);
+  border-left: 2px solid #f778ba;
+}
+.proto-OSPF {
+  background: rgba(63, 185, 80, 0.08);
+  border-left: 2px solid #3fb950;
+}
+.proto-SSDP {
+  background: rgba(156, 163, 175, 0.07);
+  border-left: 2px solid #9ca3af;
+}
+.proto-SIP {
+  background: rgba(255, 123, 114, 0.1);
+  border-left: 2px solid #ff7b72;
+}
+.proto-default {
+  background: rgba(110, 118, 129, 0.05);
+  border-left: 2px solid #6e7681;
+}
+.row-selected {
+  background: rgba(88, 166, 255, 0.14) !important;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
 
 /* Hex dump */
-.hex-line { font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.7; white-space: pre; }
-.hex-line:nth-child(even) { background: rgba(255,255,255,0.02); }
-.hex-offset { color: var(--text-muted); }
-.hex-bytes  { color: var(--accent); }
-.hex-ascii  { color: var(--green); }
+.hex-line {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  white-space: pre;
+}
+.hex-line:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+.hex-offset {
+  color: var(--text-muted);
+}
+.hex-bytes {
+  color: var(--accent);
+}
+.hex-ascii {
+  color: var(--green);
+}
 
 /* Result overlay slide-in */
 @keyframes slideDown {
-  from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 /* Node glow pulse */
 @keyframes pulse-ring {
-  0%   { transform: scale(1);    opacity: 0.7; }
-  50%  { transform: scale(1.06); opacity: 0.3; }
-  100% { transform: scale(1);    opacity: 0.7; }
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
 }
 @keyframes pulse-ring-red {
-  0%   { transform: scale(1);    opacity: 0.8; }
-  50%  { transform: scale(1.08); opacity: 0.4; }
-  100% { transform: scale(1);    opacity: 0.8; }
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
 }
 
 /* Packet travel animation */
 @keyframes packet-travel {
-  from { stroke-dashoffset: 24; }
-  to   { stroke-dashoffset: 0; }
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 @keyframes packet-travel-blocked {
-  0%   { stroke-dashoffset: 24; opacity: 1; }
-  80%  { stroke-dashoffset: 0;  opacity: 1; }
-  100% { stroke-dashoffset: 0;  opacity: 0.4; }
+  0% {
+    stroke-dashoffset: 24;
+    opacity: 1;
+  }
+  80% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.4;
+  }
 }
 .edge-active {
   animation: packet-travel 0.45s linear infinite !important;
@@ -282,8 +438,31 @@
 }
 
 /* Tree */
-.tree-item { display: flex; align-items: flex-start; padding: 1px 8px; cursor: pointer; border-radius: 3px; }
-.tree-item:hover { background: var(--bg-700); }
-.tree-key { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 11px; white-space: nowrap; }
-.tree-val { color: var(--text-primary); font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-left: 4px; }
-.tree-comment { color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-left: 4px; }
+.tree-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 1px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.tree-item:hover {
+  background: var(--bg-700);
+}
+.tree-key {
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.tree-val {
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  margin-left: 4px;
+}
+.tree-comment {
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  margin-left: 4px;
+}

@@ -17,9 +17,19 @@ const STEPS: Step[] = [
     title: 'Welcome to the Network Builder',
     body: (
       <>
-        <p>This is an interactive lab where you design a network the way real ones are built, then watch real packets travel through it hop by hop.</p>
-        <p className="mt-2">This quick tour shows you how a real network is <b>layered</b>, and how to <b>add devices</b>, <b>connect &amp; name links</b>, <b>configure services</b> (routing, firewall, DHCP, DNS) and <b>send packets</b>.</p>
-        <p className="mt-2 text-[var(--text-muted)]">Use <b>Next</b> / <b>Back</b> to move, or <b>Skip</b> to jump straight in — you can reopen this any time from the <GraduationCap size={11} className="inline -mt-0.5" /> button.</p>
+        <p>
+          This is an interactive lab where you design a network the way real ones are built, then
+          watch real packets travel through it hop by hop.
+        </p>
+        <p className="mt-2">
+          This quick tour shows you how a real network is <b>layered</b>, and how to{' '}
+          <b>add devices</b>, <b>connect &amp; name links</b>, <b>configure services</b> (routing,
+          firewall, DHCP, DNS) and <b>send packets</b>.
+        </p>
+        <p className="mt-2 text-[var(--text-muted)]">
+          Use <b>Next</b> / <b>Back</b> to move, or <b>Skip</b> to jump straight in — you can reopen
+          this any time from the <GraduationCap size={11} className="inline -mt-0.5" /> button.
+        </p>
       </>
     ),
   },
@@ -33,12 +43,25 @@ const STEPS: Step[] = [
           {'Internet <-> Edge router <-> Firewall <-> Core switch <-> Access switch <-> Devices'}
         </p>
         <ul className="mt-2 space-y-1 list-disc list-inside text-[var(--text-secondary)]">
-          <li>The <b>edge router</b> terminates the ISP uplink and does the routing (NAT, BGP, multi-WAN)</li>
-          <li>The <b>perimeter firewall</b> sits right behind it — every packet in or out of the LAN is inspected before it reaches anything internal</li>
-          <li><b>DHCP / DNS servers</b> live in a server segment on the core switch</li>
-          <li>Anything the public may reach (a web server) goes in a <b>DMZ</b> — its own firewall leg, isolated from the LAN</li>
+          <li>
+            The <b>edge router</b> terminates the ISP uplink and does the routing (NAT, BGP,
+            multi-WAN)
+          </li>
+          <li>
+            The <b>perimeter firewall</b> sits right behind it — every packet in or out of the LAN
+            is inspected before it reaches anything internal
+          </li>
+          <li>
+            <b>DHCP / DNS servers</b> live in a server segment on the core switch
+          </li>
+          <li>
+            Anything the public may reach (a web server) goes in a <b>DMZ</b> — its own firewall
+            leg, isolated from the LAN
+          </li>
         </ul>
-        <p className="mt-2 text-[var(--text-muted)]">The guided <b>Build</b> exercise walks you through exactly this layout.</p>
+        <p className="mt-2 text-[var(--text-muted)]">
+          The guided <b>Build</b> exercise walks you through exactly this layout.
+        </p>
       </>
     ),
   },
@@ -49,13 +72,25 @@ const STEPS: Step[] = [
       <>
         <p>Every building block lives here, grouped into categories:</p>
         <ul className="mt-2 space-y-1 list-disc list-inside text-[var(--text-secondary)]">
-          <li><b>Routing &amp; Switching</b> — router, L3/L2 switch, hub</li>
-          <li><b>Security</b> — firewall, IDS/IPS, VPN gateway</li>
-          <li><b>Traffic &amp; Delivery</b> — load balancer, reverse proxy, API gateway</li>
-          <li><b>Servers &amp; Services</b> — server, DNS, DHCP, mail, file, database, VM host</li>
-          <li><b>Storage / Endpoints / Internet</b> — NAS, PC, laptop, phone, IoT, ISP, WWW…</li>
+          <li>
+            <b>Routing &amp; Switching</b> — router, L3/L2 switch, hub
+          </li>
+          <li>
+            <b>Security</b> — firewall, IDS/IPS, VPN gateway
+          </li>
+          <li>
+            <b>Traffic &amp; Delivery</b> — load balancer, reverse proxy, API gateway
+          </li>
+          <li>
+            <b>Servers &amp; Services</b> — server, DNS, DHCP, mail, file, database, VM host
+          </li>
+          <li>
+            <b>Storage / Endpoints / Internet</b> — NAS, PC, laptop, phone, IoT, ISP, WWW…
+          </li>
         </ul>
-        <p className="mt-2 text-[var(--text-muted)]">Each device has real icons, capabilities (NIC, Wi-Fi card…) and its own configuration.</p>
+        <p className="mt-2 text-[var(--text-muted)]">
+          Each device has real icons, capabilities (NIC, Wi-Fi card…) and its own configuration.
+        </p>
       </>
     ),
   },
@@ -64,9 +99,16 @@ const STEPS: Step[] = [
     target: '[data-tour="palette"]',
     body: (
       <>
-        <p><b>Drag</b> a device from the palette and <b>drop</b> it on the canvas.</p>
-        <p className="mt-2">New devices arrive <b>powered off</b> and with no IP — just like unboxing real hardware. They show a grey <b>“needs IP”</b> hint until they join a network.</p>
-        <p className="mt-2 text-[var(--text-muted)]">To remove a device, select it and press <b>Delete</b> in the toolbar.</p>
+        <p>
+          <b>Drag</b> a device from the palette and <b>drop</b> it on the canvas.
+        </p>
+        <p className="mt-2">
+          New devices arrive <b>powered off</b> and with no IP — just like unboxing real hardware.
+          They show a grey <b>“needs IP”</b> hint until they join a network.
+        </p>
+        <p className="mt-2 text-[var(--text-muted)]">
+          To remove a device, select it and press <b>Delete</b> in the toolbar.
+        </p>
       </>
     ),
   },
@@ -75,9 +117,18 @@ const STEPS: Step[] = [
     target: '[data-tour="canvas"]',
     body: (
       <>
-        <p>Hover a device — four <b>connection dots</b> appear (top, bottom, left, right).</p>
-        <p className="mt-2"><b>Click &amp; drag from any dot</b> to another device to draw a link (a cable). Start from any side, drop on any side — the finished link automatically attaches to the sides that face each other.</p>
-        <p className="mt-2 text-[var(--text-muted)]">Links are how packets flow. A device with no link — or behind a powered-off switch — can't be reached.</p>
+        <p>
+          Hover a device — four <b>connection dots</b> appear (top, bottom, left, right).
+        </p>
+        <p className="mt-2">
+          <b>Click &amp; drag from any dot</b> to another device to draw a link (a cable). Start
+          from any side, drop on any side — the finished link automatically attaches to the sides
+          that face each other.
+        </p>
+        <p className="mt-2 text-[var(--text-muted)]">
+          Links are how packets flow. A device with no link — or behind a powered-off switch — can't
+          be reached.
+        </p>
       </>
     ),
   },
@@ -86,10 +137,20 @@ const STEPS: Step[] = [
     target: '[data-tour="canvas"]',
     body: (
       <>
-        <p>Every device has a <b>power button</b> (top-left corner, and in its panel).</p>
-        <p className="mt-2">Power a client on and — if it's wired to a network with a <b>DHCP server</b> — it automatically broadcasts a real <b>DORA</b> exchange:</p>
-        <p className="mt-1 font-mono text-[11px] text-[var(--text-secondary)]">{'Discover -> Offer -> Request -> ACK'}</p>
-        <p className="mt-2">…and receives its IP, gateway and DNS. Power on several at once — they all request <b>in parallel</b>. A device without an IP never sends application traffic.</p>
+        <p>
+          Every device has a <b>power button</b> (top-left corner, and in its panel).
+        </p>
+        <p className="mt-2">
+          Power a client on and — if it's wired to a network with a <b>DHCP server</b> — it
+          automatically broadcasts a real <b>DORA</b> exchange:
+        </p>
+        <p className="mt-1 font-mono text-[11px] text-[var(--text-secondary)]">
+          {'Discover -> Offer -> Request -> ACK'}
+        </p>
+        <p className="mt-2">
+          …and receives its IP, gateway and DNS. Power on several at once — they all request{' '}
+          <b>in parallel</b>. A device without an IP never sends application traffic.
+        </p>
       </>
     ),
   },
@@ -98,11 +159,19 @@ const STEPS: Step[] = [
     target: '[data-tour="canvas"]',
     body: (
       <>
-        <p><b>Click a line</b> to open its panel on the right. There you can:</p>
+        <p>
+          <b>Click a line</b> to open its panel on the right. There you can:
+        </p>
         <ul className="mt-2 space-y-1 list-disc list-inside text-[var(--text-secondary)]">
-          <li>Give it a <b>name / label</b> (e.g. “LAN trunk”, “WAN uplink”) — shown on the diagram</li>
-          <li>Set <b>bandwidth</b> and <b>latency</b> (latency is added to each hop crossing it)</li>
-          <li>Toggle the link <b>up / down</b></li>
+          <li>
+            Give it a <b>name / label</b> (e.g. “LAN trunk”, “WAN uplink”) — shown on the diagram
+          </li>
+          <li>
+            Set <b>bandwidth</b> and <b>latency</b> (latency is added to each hop crossing it)
+          </li>
+          <li>
+            Toggle the link <b>up / down</b>
+          </li>
         </ul>
       </>
     ),
@@ -112,14 +181,28 @@ const STEPS: Step[] = [
     target: '[data-tour="canvas"]',
     body: (
       <>
-        <p><b>Click a device</b> to open its (resizable) Properties panel. Tabs depend on the device type:</p>
+        <p>
+          <b>Click a device</b> to open its (resizable) Properties panel. Tabs depend on the device
+          type:
+        </p>
         <ul className="mt-2 space-y-1 list-disc list-inside text-[var(--text-secondary)]">
-          <li><b>Info</b> — name, model, and its <b>hardware</b> (NIC, Wi-Fi card, CPU…)</li>
-          <li><b>Interfaces</b> — IP, mask, MAC, speed</li>
-          <li><b>Services</b> — open ports &amp; run services (HTTP, SSH, DB…) — <i>servers only</i></li>
-          <li><b>Routing / Firewall / DHCP / DNS</b> — for the devices that support them</li>
+          <li>
+            <b>Info</b> — name, model, and its <b>hardware</b> (NIC, Wi-Fi card, CPU…)
+          </li>
+          <li>
+            <b>Interfaces</b> — IP, mask, MAC, speed
+          </li>
+          <li>
+            <b>Services</b> — open ports &amp; run services (HTTP, SSH, DB…) — <i>servers only</i>
+          </li>
+          <li>
+            <b>Routing / Firewall / DHCP / DNS</b> — for the devices that support them
+          </li>
         </ul>
-        <p className="mt-2 text-[var(--text-muted)]">Drag the panel's left edge to resize it. A normal PC can't host services — only server-class devices can.</p>
+        <p className="mt-2 text-[var(--text-muted)]">
+          Drag the panel's left edge to resize it. A normal PC can't host services — only
+          server-class devices can.
+        </p>
       </>
     ),
   },
@@ -128,13 +211,24 @@ const STEPS: Step[] = [
     target: '[data-tour="canvas"]',
     body: (
       <>
-        <p>Select a <b>server</b> -&gt; <b>Services</b> tab to control it like the real thing:</p>
+        <p>
+          Select a <b>server</b> -&gt; <b>Services</b> tab to control it like the real thing:
+        </p>
         <ul className="mt-2 space-y-1 list-disc list-inside text-[var(--text-secondary)]">
-          <li><b>Quick-add</b> common services, or <b>add a custom service</b> on any port</li>
-          <li>Edit each service's <b>name, port, protocol, version, description</b></li>
-          <li>Toggle a service to <b>open/close its port</b>; host a <b>web page</b> for HTTP</li>
+          <li>
+            <b>Quick-add</b> common services, or <b>add a custom service</b> on any port
+          </li>
+          <li>
+            Edit each service's <b>name, port, protocol, version, description</b>
+          </li>
+          <li>
+            Toggle a service to <b>open/close its port</b>; host a <b>web page</b> for HTTP
+          </li>
         </ul>
-        <p className="mt-2 text-[var(--text-muted)]">In a trace, an open port answers with a real banner; a closed port returns <b>connection refused (RST)</b>.</p>
+        <p className="mt-2 text-[var(--text-muted)]">
+          In a trace, an open port answers with a real banner; a closed port returns{' '}
+          <b>connection refused (RST)</b>.
+        </p>
       </>
     ),
   },
@@ -145,12 +239,24 @@ const STEPS: Step[] = [
       <>
         <p>Real networks run on dedicated service devices — place them where they belong:</p>
         <ul className="mt-2 space-y-1 list-disc list-inside text-[var(--text-secondary)]">
-          <li><b>DHCP</b> — pool, gateway, DNS &amp; lease time; lives in the server segment and hands every endpoint its address</li>
-          <li><b>DNS</b> — A / CNAME / MX records and upstream forwarders</li>
-          <li><b>Firewall</b> — allow/deny rules at the perimeter (and in front of the DMZ)</li>
-          <li><b>WWW / Cloud</b> — represents the public Internet</li>
+          <li>
+            <b>DHCP</b> — pool, gateway, DNS &amp; lease time; lives in the server segment and hands
+            every endpoint its address
+          </li>
+          <li>
+            <b>DNS</b> — A / CNAME / MX records and upstream forwarders
+          </li>
+          <li>
+            <b>Firewall</b> — allow/deny rules at the perimeter (and in front of the DMZ)
+          </li>
+          <li>
+            <b>WWW / Cloud</b> — represents the public Internet
+          </li>
         </ul>
-        <p className="mt-2 text-[var(--text-muted)]">Their config lives in the <b>DHCP</b>, <b>DNS</b> and <b>Firewall</b> tabs of the Properties panel.</p>
+        <p className="mt-2 text-[var(--text-muted)]">
+          Their config lives in the <b>DHCP</b>, <b>DNS</b> and <b>Firewall</b> tabs of the
+          Properties panel.
+        </p>
       </>
     ),
   },
@@ -159,8 +265,15 @@ const STEPS: Step[] = [
     target: '[data-tour="sender"]',
     body: (
       <>
-        <p>Pick a <b>From</b> and <b>To</b> device, choose a <b>protocol</b> (ICMP / TCP / UDP) and an optional <b>port</b>, then hit <b>Send</b>.</p>
-        <p className="mt-2">The packet is routed hop by hop through your topology, evaluating routing tables and firewall rules at each device — try tracing a PC out to the Internet and watch it cross the firewall and the edge router.</p>
+        <p>
+          Pick a <b>From</b> and <b>To</b> device, choose a <b>protocol</b> (ICMP / TCP / UDP) and
+          an optional <b>port</b>, then hit <b>Send</b>.
+        </p>
+        <p className="mt-2">
+          The packet is routed hop by hop through your topology, evaluating routing tables and
+          firewall rules at each device — try tracing a PC out to the Internet and watch it cross
+          the firewall and the edge router.
+        </p>
       </>
     ),
   },
@@ -169,8 +282,13 @@ const STEPS: Step[] = [
     target: '[data-tour="speed"]',
     body: (
       <>
-        <p>Packets can move fast — use <b>Fast / Normal / Slow</b> to set the pace, and <b>Pause</b> to freeze the dot mid-flight so you can study a hop.</p>
-        <p className="mt-2 text-[var(--text-muted)]">Resume continues from exactly where it stopped.</p>
+        <p>
+          Packets can move fast — use <b>Fast / Normal / Slow</b> to set the pace, and <b>Pause</b>{' '}
+          to freeze the dot mid-flight so you can study a hop.
+        </p>
+        <p className="mt-2 text-[var(--text-muted)]">
+          Resume continues from exactly where it stopped.
+        </p>
       </>
     ),
   },
@@ -179,8 +297,15 @@ const STEPS: Step[] = [
     target: '[data-tour="canvas"]',
     body: (
       <>
-        <p>Watch the dot travel each link. The right panel lists every <b>hop</b> with the action taken (L2 forward, L3 route, firewall allow/deny, delivered).</p>
-        <p className="mt-2">A <span className="text-[var(--green)] font-semibold">green</span> path means delivered. A <span className="text-[var(--red)] font-semibold">red</span> stop shows exactly where — and why — a packet was blocked.</p>
+        <p>
+          Watch the dot travel each link. The right panel lists every <b>hop</b> with the action
+          taken (L2 forward, L3 route, firewall allow/deny, delivered).
+        </p>
+        <p className="mt-2">
+          A <span className="text-[var(--green)] font-semibold">green</span> path means delivered. A{' '}
+          <span className="text-[var(--red)] font-semibold">red</span> stop shows exactly where —
+          and why — a packet was blocked.
+        </p>
       </>
     ),
   },
@@ -189,8 +314,15 @@ const STEPS: Step[] = [
     target: '[data-tour="speed"]',
     body: (
       <>
-        <p>The <b>Live</b> button keeps the network alive: addressed hosts continuously exchange realistic, labelled traffic — <b>DNS</b> lookups, <b>HTTPS</b>, <b>SMTP</b>, <b>SQL</b>, pings — many packets flowing <b>at once</b>.</p>
-        <p className="mt-2 text-[var(--text-muted)]">A request to a server is preceded by a <b>DNS query</b>, just like real life. Only powered hosts that already hold an IP generate traffic.</p>
+        <p>
+          The <b>Live</b> button keeps the network alive: addressed hosts continuously exchange
+          realistic, labelled traffic — <b>DNS</b> lookups, <b>HTTPS</b>, <b>SMTP</b>, <b>SQL</b>,
+          pings — many packets flowing <b>at once</b>.
+        </p>
+        <p className="mt-2 text-[var(--text-muted)]">
+          A request to a server is preceded by a <b>DNS query</b>, just like real life. Only powered
+          hosts that already hold an IP generate traffic.
+        </p>
       </>
     ),
   },
@@ -199,8 +331,13 @@ const STEPS: Step[] = [
     target: '[data-tour="toolbar"]',
     body: (
       <>
-        <p><b>Save</b> persists your topology to the backend. <b>Reset</b> reloads the sample enterprise network.</p>
-        <p className="mt-3 font-semibold text-[var(--text-primary)]">That's it — you're ready to build!</p>
+        <p>
+          <b>Save</b> persists your topology to the backend. <b>Reset</b> reloads the sample
+          enterprise network.
+        </p>
+        <p className="mt-3 font-semibold text-[var(--text-primary)]">
+          That's it — you're ready to build!
+        </p>
       </>
     ),
   },
@@ -208,19 +345,34 @@ const STEPS: Step[] = [
 
 const PAD = 8
 
-export default function Tutorial({ open, onClose, onStartBuild }: { open: boolean; onClose: () => void; onStartBuild?: () => void }) {
+export default function Tutorial({
+  open,
+  onClose,
+  onStartBuild,
+}: {
+  open: boolean
+  onClose: () => void
+  onStartBuild?: () => void
+}) {
   const [i, setI] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
 
   const step = STEPS[i]
 
   const finish = useCallback(() => {
-    try { localStorage.setItem(TUTORIAL_SEEN_KEY, '1') } catch { /* ignore */ }
+    try {
+      localStorage.setItem(TUTORIAL_SEEN_KEY, '1')
+    } catch {
+      /* ignore */
+    }
     onClose()
   }, [onClose])
 
   const measure = useCallback(() => {
-    if (!step?.target) { setRect(null); return }
+    if (!step?.target) {
+      setRect(null)
+      return
+    }
     const el = document.querySelector(step.target)
     setRect(el ? el.getBoundingClientRect() : null)
   }, [step])
@@ -240,15 +392,17 @@ export default function Tutorial({ open, onClose, onStartBuild }: { open: boolea
   }, [open, measure])
 
   // Reset to first step whenever reopened
-  useEffect(() => { if (open) setI(0) }, [open])
+  useEffect(() => {
+    if (open) setI(0)
+  }, [open])
 
   // Keyboard navigation
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') finish()
-      else if (e.key === 'ArrowRight') setI(v => Math.min(STEPS.length - 1, v + 1))
-      else if (e.key === 'ArrowLeft') setI(v => Math.max(0, v - 1))
+      else if (e.key === 'ArrowRight') setI((v) => Math.min(STEPS.length - 1, v + 1))
+      else if (e.key === 'ArrowLeft') setI((v) => Math.max(0, v - 1))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -272,7 +426,9 @@ export default function Tutorial({ open, onClose, onStartBuild }: { open: boolea
     cardStyle = { top, left, width: cardW }
   } else {
     cardStyle = {
-      top: '50%', left: '50%', width: cardW,
+      top: '50%',
+      left: '50%',
+      width: cardW,
       transform: 'translate(-50%, -50%)',
     }
   }
@@ -284,8 +440,10 @@ export default function Tutorial({ open, onClose, onStartBuild }: { open: boolea
         <div
           style={{
             position: 'absolute',
-            top: rect.top - PAD, left: rect.left - PAD,
-            width: rect.width + PAD * 2, height: rect.height + PAD * 2,
+            top: rect.top - PAD,
+            left: rect.left - PAD,
+            width: rect.width + PAD * 2,
+            height: rect.height + PAD * 2,
             borderRadius: 10,
             boxShadow: '0 0 0 9999px rgba(2,6,12,0.78)',
             border: '2px solid var(--accent)',
@@ -313,13 +471,18 @@ export default function Tutorial({ open, onClose, onStartBuild }: { open: boolea
           padding: 0,
           animation: 'slideDown 0.2s ease-out',
         }}
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)]">
           <GraduationCap size={15} className="text-[var(--accent)]" />
-          <span className="text-[13px] font-semibold text-[var(--text-primary)] flex-1">{step.title}</span>
-          <button onClick={finish} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+          <span className="text-[13px] font-semibold text-[var(--text-primary)] flex-1">
+            {step.title}
+          </span>
+          <button
+            onClick={finish}
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+          >
             <X size={15} />
           </button>
         </div>
@@ -333,7 +496,10 @@ export default function Tutorial({ open, onClose, onStartBuild }: { open: boolea
         {onStartBuild && (isFirst || isLast) && (
           <div className="px-4 pb-1 -mt-1">
             <button
-              onClick={() => { finish(); onStartBuild() }}
+              onClick={() => {
+                finish()
+                onStartBuild()
+              }}
               className="btn-success w-full justify-center text-[11px]"
             >
               <GraduationCap size={12} /> Build it yourself — guided exercise
@@ -355,7 +521,9 @@ export default function Tutorial({ open, onClose, onStartBuild }: { open: boolea
                 className="rounded-full transition-all"
                 style={{
                   flex: idx === i ? '0 0 16px' : '1 1 0',
-                  minWidth: 0, maxWidth: 6, height: 6,
+                  minWidth: 0,
+                  maxWidth: 6,
+                  height: 6,
                   background: idx === i ? 'var(--accent)' : 'var(--bg-600)',
                 }}
                 aria-label={`Step ${idx + 1}`}
@@ -363,17 +531,27 @@ export default function Tutorial({ open, onClose, onStartBuild }: { open: boolea
             ))}
           </div>
 
-          <span className="shrink-0 text-[10px] text-[var(--text-muted)] font-mono">{i + 1}/{STEPS.length}</span>
+          <span className="shrink-0 text-[10px] text-[var(--text-muted)] font-mono">
+            {i + 1}/{STEPS.length}
+          </span>
 
           {!isFirst && (
-            <button onClick={() => setI(v => v - 1)} className="btn-ghost shrink-0 text-[11px] h-7 px-2.5">
+            <button
+              onClick={() => setI((v) => v - 1)}
+              className="btn-ghost shrink-0 text-[11px] h-7 px-2.5"
+            >
               <ChevronLeft size={12} /> Back
             </button>
           )}
           {isLast ? (
-            <button onClick={finish} className="btn-primary shrink-0 text-[11px] h-7 px-3">Got it</button>
+            <button onClick={finish} className="btn-primary shrink-0 text-[11px] h-7 px-3">
+              Got it
+            </button>
           ) : (
-            <button onClick={() => setI(v => v + 1)} className="btn-primary shrink-0 text-[11px] h-7 px-3">
+            <button
+              onClick={() => setI((v) => v + 1)}
+              className="btn-primary shrink-0 text-[11px] h-7 px-3"
+            >
               Next <ChevronRight size={12} />
             </button>
           )}

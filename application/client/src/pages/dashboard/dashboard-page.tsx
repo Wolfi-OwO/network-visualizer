@@ -6,18 +6,37 @@ import { capture as captureApi, network as networkApi } from '../../lib/api/inde
 import { meta as deviceMeta } from '../network/device-catalog.tsx'
 
 const PROTO_COLORS: Record<string, string> = {
-  HTTP: '#3fb950', DNS: '#58a6ff', TCP: '#8b949e',
-  UDP: '#d29922', ICMP: '#f85149', ARP: '#bc8cff', TLS: '#ffa657',
+  HTTP: '#3fb950',
+  DNS: '#58a6ff',
+  TCP: '#8b949e',
+  UDP: '#d29922',
+  ICMP: '#f85149',
+  ARP: '#bc8cff',
+  TLS: '#ffa657',
 }
 
 // A small tinted chip for an icon — flat fill + hairline border in the accent
 // color. No glow: it should read as a printed label, not a light source.
-function IconChip({ color, children, size = 9 }: { color: string; children: React.ReactNode; size?: number }) {
+function IconChip({
+  color,
+  children,
+  size = 9,
+}: {
+  color: string
+  children: React.ReactNode
+  size?: number
+}) {
   const dim = size * 4 // tailwind unit -> px, kept in sync with w-/h- below
   return (
     <div
       className="flex items-center justify-center rounded-md shrink-0"
-      style={{ width: dim, height: dim, background: color + '14', border: `1px solid ${color}33`, color }}
+      style={{
+        width: dim,
+        height: dim,
+        background: color + '14',
+        border: `1px solid ${color}33`,
+        color,
+      }}
     >
       {children}
     </div>
@@ -35,15 +54,26 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-function StatCard({ label, value, sub, icon, color }: {
-  label: string; value: string | number; sub?: string
-  icon: React.ReactNode; color: string
+function StatCard({
+  label,
+  value,
+  sub,
+  icon,
+  color,
+}: {
+  label: string
+  value: string | number
+  sub?: string
+  icon: React.ReactNode
+  color: string
 }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-[11px] text-[var(--text-secondary)]">{label}</span>
-        <IconChip color={color} size={7}>{icon}</IconChip>
+        <IconChip color={color} size={7}>
+          {icon}
+        </IconChip>
       </div>
       <div className="font-mono text-3xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)] leading-none">
         {value}
@@ -53,20 +83,35 @@ function StatCard({ label, value, sub, icon, color }: {
   )
 }
 
-function QuickAction({ label, desc, icon, color, onClick }: {
-  label: string; desc: string; icon: React.ReactNode; color: string; onClick: () => void
+function QuickAction({
+  label,
+  desc,
+  icon,
+  color,
+  onClick,
+}: {
+  label: string
+  desc: string
+  icon: React.ReactNode
+  color: string
+  onClick: () => void
 }) {
   return (
     <button
       onClick={onClick}
       className="card card-hover p-3 flex items-center gap-3 text-left w-full group active:scale-[0.99]"
     >
-      <IconChip color={color} size={9}>{icon}</IconChip>
+      <IconChip color={color} size={9}>
+        {icon}
+      </IconChip>
       <div className="flex-1 min-w-0">
         <div className="text-xs font-semibold text-[var(--text-primary)]">{label}</div>
         <div className="text-[11px] text-[var(--text-muted)] mt-0.5">{desc}</div>
       </div>
-      <ArrowRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors shrink-0" />
+      <ArrowRight
+        size={14}
+        className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors shrink-0"
+      />
     </button>
   )
 }
@@ -77,8 +122,14 @@ export default function DashboardPage() {
   const [topology, setTopology] = useState<NetworkTopology | null>(null)
 
   useEffect(() => {
-    captureApi.get().then(r => setStats(r.data.stats)).catch(() => {})
-    networkApi.getDefault().then(r => setTopology(r.data)).catch(() => {})
+    captureApi
+      .get()
+      .then((r) => setStats(r.data.stats))
+      .catch(() => {})
+    networkApi
+      .getDefault()
+      .then((r) => setTopology(r.data))
+      .catch(() => {})
   }, [])
 
   const nodeTypes = topology
@@ -89,21 +140,47 @@ export default function DashboardPage() {
     : {}
 
   const protoData = stats
-    ? Object.entries(stats.byProtocol).sort((a, b) => b[1] - a[1]).slice(0, 6)
+    ? Object.entries(stats.byProtocol)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
     : []
 
   const features = [
     {
-      icon: <Activity size={15} />, color: '#58a6ff', title: 'Packet Capture',
-      items: ['Live SSE packet stream', 'Wireshark-style packet table', 'Protocol tree / hex dump', 'Filter by IP, protocol, port', 'Export as JSON'],
+      icon: <Activity size={15} />,
+      color: '#58a6ff',
+      title: 'Packet Capture',
+      items: [
+        'Live SSE packet stream',
+        'Wireshark-style packet table',
+        'Protocol tree / hex dump',
+        'Filter by IP, protocol, port',
+        'Export as JSON',
+      ],
     },
     {
-      icon: <Network size={15} />, color: '#3fb950', title: 'Network Builder',
-      items: ['Drag-and-drop topology', 'Routers, switches, firewalls', 'VLAN configuration', 'Routing table editor', 'Firewall rule manager'],
+      icon: <Network size={15} />,
+      color: '#3fb950',
+      title: 'Network Builder',
+      items: [
+        'Drag-and-drop topology',
+        'Routers, switches, firewalls',
+        'VLAN configuration',
+        'Routing table editor',
+        'Firewall rule manager',
+      ],
     },
     {
-      icon: <Calculator size={15} />, color: '#d29922', title: 'CIDR Calculator',
-      items: ['Network / broadcast / hosts', 'Binary representation', 'Subnet splitter', 'Supernet calculator', 'Private range detection'],
+      icon: <Calculator size={15} />,
+      color: '#d29922',
+      title: 'CIDR Calculator',
+      items: [
+        'Network / broadcast / hosts',
+        'Binary representation',
+        'Subnet splitter',
+        'Supernet calculator',
+        'Private range detection',
+      ],
     },
   ]
 
@@ -112,7 +189,9 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">Dashboard</h1>
+          <h1 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">
+            Dashboard
+          </h1>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
             Network visualization, packet analysis and subnet tools
           </p>
@@ -148,7 +227,9 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Firewall rules"
-          value={topology?.nodes.reduce((s, n) => s + (n.config.firewallRules?.length ?? 0), 0) ?? '—'}
+          value={
+            topology?.nodes.reduce((s, n) => s + (n.config.firewallRules?.length ?? 0), 0) ?? '—'
+          }
           sub="Across all devices"
           icon={<Shield size={13} />}
           color="#f85149"
@@ -198,8 +279,12 @@ export default function DashboardPage() {
                 return (
                   <div key={proto}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-mono text-[var(--text-secondary)]">{proto}</span>
-                      <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)]">{count} ({pct.toFixed(1)}%)</span>
+                      <span className="text-[11px] font-mono text-[var(--text-secondary)]">
+                        {proto}
+                      </span>
+                      <span className="text-[11px] font-mono tabular-nums text-[var(--text-muted)]">
+                        {count} ({pct.toFixed(1)}%)
+                      </span>
                     </div>
                     <div className="h-1.5 bg-[var(--bg-800)] rounded-full overflow-hidden">
                       <div
@@ -223,9 +308,13 @@ export default function DashboardPage() {
                 const { Icon, color, label } = deviceMeta(type)
                 return (
                   <div key={type} className="flex items-center gap-2">
-                    <IconChip color={color} size={5}><Icon size={12} /></IconChip>
+                    <IconChip color={color} size={5}>
+                      <Icon size={12} />
+                    </IconChip>
                     <span className="text-[11px] text-[var(--text-secondary)] flex-1">{label}</span>
-                    <span className="text-[11px] font-mono tabular-nums text-[var(--text-primary)]">{count}</span>
+                    <span className="text-[11px] font-mono tabular-nums text-[var(--text-primary)]">
+                      {count}
+                    </span>
                   </div>
                 )
               })}
@@ -250,12 +339,17 @@ export default function DashboardPage() {
           {features.map(({ icon, color, title, items }) => (
             <div key={title}>
               <div className="flex items-center gap-2 mb-2.5">
-                <IconChip color={color} size={7}>{icon}</IconChip>
+                <IconChip color={color} size={7}>
+                  {icon}
+                </IconChip>
                 <span className="text-xs font-semibold text-[var(--text-primary)]">{title}</span>
               </div>
               <ul className="space-y-1.5">
-                {items.map(item => (
-                  <li key={item} className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+                {items.map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)]"
+                  >
                     <span className="h-1 w-1 rounded-full bg-[var(--text-muted)] shrink-0" /> {item}
                   </li>
                 ))}

@@ -17,7 +17,7 @@ const HANDLED = new Set([401, 403, 404])
 function createClient(baseURL: string): AxiosInstance {
   const instance = axios.create({ baseURL, withCredentials: true })
   instance.interceptors.response.use(
-    res => res,
+    (res) => res,
     (err: { response?: { status?: number }; config?: { silent?: boolean } }) => {
       const status = err?.response?.status
       if (status && HANDLED.has(status) && !err?.config?.silent) {

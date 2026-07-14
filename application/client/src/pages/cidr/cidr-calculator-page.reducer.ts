@@ -32,7 +32,9 @@ export const initialCidrState: CidrState = {
 type Updater<T> = T | ((prev: T) => T)
 
 export type CidrAction =
-  | { [K in keyof CidrState]: { type: 'set'; key: K; value: Updater<CidrState[K]> } }[keyof CidrState]
+  | {
+      [K in keyof CidrState]: { type: 'set'; key: K; value: Updater<CidrState[K]> }
+    }[keyof CidrState]
   | { type: 'patch'; values: Partial<CidrState> }
   | { type: 'reset' }
 
@@ -44,8 +46,11 @@ export function cidrReducer(state: CidrState, action: CidrAction): CidrState {
       const next = typeof value === 'function' ? (value as (p: unknown) => unknown)(prev) : value
       return { ...state, [action.key]: next }
     }
-    case 'patch': return { ...state, ...action.values }
-    case 'reset': return initialCidrState
-    default: return state
+    case 'patch':
+      return { ...state, ...action.values }
+    case 'reset':
+      return initialCidrState
+    default:
+      return state
   }
 }

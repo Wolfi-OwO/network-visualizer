@@ -11,11 +11,15 @@ export default function Footer() {
     appConfig.created && `built ${appConfig.created}`,
     `by ${appConfig.authors}`,
     appConfig.licenses && `${appConfig.licenses} license`,
-  ].filter(Boolean).join(' · ')
+  ]
+    .filter(Boolean)
+    .join(' · ')
   return (
     <footer className="flex items-center justify-between gap-4 px-4 h-9 shrink-0 backdrop-blur-xl bg-[var(--glass-bg)] border-t border-[var(--glass-border)] text-[11px] text-[var(--text-muted)]">
       {/* Left — copyright */}
-      <span className="truncate">© {year} {appConfig.company}. All Rights Reserved.</span>
+      <span className="truncate">
+        © {year} {appConfig.company}. All Rights Reserved.
+      </span>
 
       {/* Center — project / version (hover for full build metadata) */}
       <a
@@ -27,12 +31,21 @@ export default function Footer() {
       >
         <Code2 size={11} className="text-[var(--accent)]" />
         <span className="font-medium text-[var(--text-secondary)]">{appConfig.repoLabel}</span>
-        <span>· {appConfig.mode === 'production' ? `v${appConfig.version}` : (shortRev || 'dev')}</span>
+        <span>
+          · {appConfig.mode === 'production' ? `v${appConfig.version}` : shortRev || 'dev'}
+        </span>
       </a>
 
       {/* Right — links */}
       <nav className="flex items-center gap-4 font-medium text-[var(--text-secondary)] whitespace-nowrap">
-        <a href={appConfig.repoUrl} target="_blank" rel="noreferrer" className="hover:text-[var(--text-primary)] transition-colors">About</a>
+        <a
+          href={appConfig.repoUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="hover:text-[var(--text-primary)] transition-colors"
+        >
+          About
+        </a>
       </nav>
     </footer>
   )
