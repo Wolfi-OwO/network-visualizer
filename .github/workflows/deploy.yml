@@ -88,6 +88,15 @@ jobs:
           # stay in multiple-revision mode and traffic must be shifted by hand.
           az containerapp revision set-mode -g "$RG" -n "$APP" --mode multiple -o none
 
+          # Cap the revision history. Container Apps has no API to delete a revision —
+          # deactivating one only stops it, it stays in the list forever — so without a
+          # cap the list grows without bound (it reached 20 here, most of them dead PR
+          # previews). This is a config-only change that creates no revision; the cap is
+          # garbage-collected when a revision IS created, which the copy below does, so
+          # every deploy trims the history to the five most recent as a side effect.
+          # Asserted here rather than once by hand so it survives the app being recreated.
+          az containerapp update -g "$RG" -n "$APP" --max-inactive-revisions 5 -o none
+
           # The production revision is, by definition, the one currently serving all
           # the traffic. Copy the new revision FROM it rather than from `latest`:
           # `latest` may well be a PR preview, and copying that would drag the
