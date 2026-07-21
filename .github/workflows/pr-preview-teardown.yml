@@ -38,9 +38,16 @@ concurrency:
 jobs:
   teardown:
     name: Tear down preview
+    # These conditions must stay identical to the `prep` job in pr-preview.yml.
+    # Teardown is only meaningful for branches that actually built a preview: on
+    # release and dependabot PRs there is nothing to tear down, yet this job still
+    # logged in to Azure and issued revision/ACR deletes. Whenever a branch is
+    # excluded from building a preview, exclude it here too, or previews leak.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
-      vars.PREVIEW_ENABLED == 'true'
+      github.actor != 'dependabot[bot]' &&
+      vars.PREVIEW_ENABLED == 'true' &&
+      !startsWith(github.head_ref, 'chore/release-')
     runs-on: ubuntu-latest
     environment: staging
     steps:
