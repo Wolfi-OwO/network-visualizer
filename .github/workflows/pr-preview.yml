@@ -58,9 +58,14 @@ jobs:
     # Racing teardown against an image build is unwinnable, so don't enter the race.
     # There is nothing to preview anyway: the bump is a mechanical version stamp, and
     # the code it carries is previewed on the PR that actually changed it.
+    # Dependabot runs get no access to repository secrets (GitHub withholds them
+    # so a malicious dependency can't exfiltrate credentials), so the ACR login
+    # inside package.yml always fails. Skipping the chain here keeps dependency
+    # PRs from carrying a permanent red X for a preview they can never build.
     if: >-
       github.event.action != 'closed' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]' &&
       vars.PREVIEW_ENABLED == 'true' &&
       !startsWith(github.head_ref, 'chore/release-')
     runs-on: ubuntu-latest
