@@ -1,0 +1,54 @@
+version: 2
+
+# Monthly, grouped, one open PR per ecosystem. Majors are a decision, not a chore.
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /application
+      - /application/*
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      npm:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    labels:
+      - ci
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: docker
+    directory: /application
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    labels:
+      - docker
+    commit-message:
+      prefix: chore
+    groups:
+      docker:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
