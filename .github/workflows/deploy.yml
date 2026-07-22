@@ -67,7 +67,7 @@ jobs:
           [ "$miss" = 0 ] || { echo "Azure IDs must be SECRETS; RESOURCE_GROUP/ACR_NAME/CONTAINERAPP_NAME/IMAGE_NAME must be VARIABLES (scope them to the '${{ inputs.environment }}' environment)."; exit 1; }
 
       - name: Azure Login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
