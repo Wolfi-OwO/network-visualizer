@@ -223,23 +223,52 @@ gh variable set PREVIEW_ENABLED -R <owner>/<repo> --body true
 2. Register an app + service principal and federate it to **both** GitHub
    environments — `production` (releases) and `staging` (PR previews). Both point
    at the same Container App; the two subjects just let each job mint an OIDC
-   token:
+   token.
+
+   **Read the subject out of GitHub rather than composing it by hand.** The token
+   GitHub mints does not necessarily say `repo:OWNER/REPO` — it may say
+   `repo:OWNER@<ownerId>/REPO@<repoId>`, which pins the trust to numeric IDs so
+   that renaming the repo or the account cannot silently hand the credential to
+   somebody else. Entra matches the `subject` string exactly, character for
+   character, so a credential written in the other form never matches and every
+   login fails with `AADSTS700213: No matching federated identity record found`.
+   That is what happened here, and it grounded every Azure job in the repo — the
+   error names Entra, so it reads like a missing credential rather than a
+   correctly-registered one in the wrong format.
+
+   `sub_claim_prefix` is authoritative; use it:
 
    ```bash
    GH_REPO="OWNER/REPO"                       # your GitHub repo
-   APP_ID=$(az ad app create --display-name "gh-routing-visualizer-cd" --query appId -o tsv)
+   # Whatever GitHub will actually present. Falls back to the plain form on an
+   # older GitHub that does not expose the field.
+   SUB_PREFIX=$(gh api "repos/${GH_REPO}/actions/oidc/customization/sub" \
+     --jq '.sub_claim_prefix // empty') || SUB_PREFIX=""
+   [ -n "$SUB_PREFIX" ] || SUB_PREFIX="repo:${GH_REPO}"
+   echo "Federating on: ${SUB_PREFIX}:environment:<env>"
+
+   APP_ID=$(az ad app create --display-name "gh-routing-visualizer" --query appId -o tsv)
    az ad sp create --id "$APP_ID"
    for ENV in production staging; do
      az ad app federated-credential create --id "$APP_ID" --parameters "{
        \"name\": \"gh-routing-visualizer-${ENV}\",
        \"issuer\": \"https://token.actions.githubusercontent.com\",
-       \"subject\": \"repo:${GH_REPO}:environment:${ENV}\",
+       \"subject\": \"${SUB_PREFIX}:environment:${ENV}\",
        \"audiences\": [\"api://AzureADTokenExchange\"]
      }"
    done
    SUB_ID=$(az account show --query id -o tsv)
    az role assignment create --assignee "$APP_ID" --role Contributor \
      --scope "/subscriptions/${SUB_ID}/resourceGroups/${RG}"
+   ```
+
+   To check an existing app registration against what GitHub sends — the two
+   lists must match exactly, and this is worth running before blaming anything
+   else for a failed login:
+
+   ```bash
+   az ad app federated-credential list --id "$APP_ID" --query "[].subject" -o tsv
+   gh api "repos/${GH_REPO}/actions/oidc/customization/sub" --jq .sub_claim_prefix
    ```
 
 3. Add repo **Secrets** (Settings -> Secrets and variables -> Actions -> *Secrets*):

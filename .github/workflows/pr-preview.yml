@@ -62,10 +62,16 @@ jobs:
     # so a malicious dependency can't exfiltrate credentials), so the ACR login
     # inside package.yml always fails. Skipping the chain here keeps dependency
     # PRs from carrying a permanent red X for a preview they can never build.
+    #
+    # The dependabot check reads the PR's AUTHOR, not `github.actor`. On this
+    # workflow's events they happen to be the same, but on teardown's `closed`
+    # event `github.actor` is whoever closed the PR — see pr-preview-teardown.yml.
+    # These two conditions have to stay identical, so both use the form that is
+    # correct on both events.
     if: >-
       github.event.action != 'closed' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      github.actor != 'dependabot[bot]' &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
       vars.PREVIEW_ENABLED == 'true' &&
       !startsWith(github.head_ref, 'chore/release-')
     runs-on: ubuntu-latest

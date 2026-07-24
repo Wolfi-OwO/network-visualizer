@@ -129,9 +129,15 @@ az containerapp ingress traffic set -g netviz-rg -n netviz \
 - **Environments**: `staging` (no gate — used only for preview OIDC) and
   `production` (**Required reviewers** = the go-live gate).
 - **OIDC**: one federated credential per environment on the app registration,
-  subjects `repo:<owner>/<repo>:environment:staging` and
-  `repo:<owner>/<repo>:environment:production` (the service principal is
-  Contributor on the resource group).
+  subjects `<prefix>:environment:staging` and `<prefix>:environment:production`
+  (the service principal is Contributor on the resource group). Take `<prefix>`
+  from `gh api repos/<owner>/<repo>/actions/oidc/customization/sub --jq
+  .sub_claim_prefix` — it is **not** always `repo:<owner>/<repo>`; GitHub may
+  present `repo:<owner>@<ownerId>/<repo>@<repoId>`, and Entra matches the string
+  exactly. A credential in the other form fails every login with
+  `AADSTS700213`, which names Entra and so reads like a missing credential
+  rather than a mismatched one. See
+  [azure-container-apps.md](azure-container-apps.md).
 - **Revision mode**: the app must be in multiple-revision mode. Both workflows
   enforce it, but you can set it by hand once:
   `az containerapp revision set-mode -g netviz-rg -n netviz --mode multiple`
