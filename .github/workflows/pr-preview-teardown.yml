@@ -43,9 +43,23 @@ jobs:
     # release and dependabot PRs there is nothing to tear down, yet this job still
     # logged in to Azure and issued revision/ACR deletes. Whenever a branch is
     # excluded from building a preview, exclude it here too, or previews leak.
+    #
+    # WHY THE DEPENDABOT CHECK READS THE PR AUTHOR AND NOT github.actor
+    # It used to be `github.actor != 'dependabot[bot]'`, copied verbatim from
+    # pr-preview.yml, where it is correct: those events are raised by the push
+    # that opened or updated the PR, so the actor IS dependabot.
+    #
+    # This workflow's event is `closed`, and its actor is whoever CLOSED the PR —
+    # you, merging it. So the check passed on every dependabot PR and teardown ran
+    # on branches that had no preview to tear down, which is precisely what the
+    # comment above says must not happen. Both of the only two runs this workflow
+    # has ever had were dependabot PRs, and both failed.
+    #
+    # `github.event.pull_request.user.login` is the PR's author on both events, so
+    # it is the form that can safely be kept identical between the two files.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
-      github.actor != 'dependabot[bot]' &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
       vars.PREVIEW_ENABLED == 'true' &&
       !startsWith(github.head_ref, 'chore/release-')
     runs-on: ubuntu-latest
