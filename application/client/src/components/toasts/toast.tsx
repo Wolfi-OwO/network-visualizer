@@ -29,6 +29,7 @@ export default function Toast({
       <button
         type="button"
         onClick={() => onClose(toast.id)}
+        aria-label="Dismiss notification"
         className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
       >
         <X size={12} />
