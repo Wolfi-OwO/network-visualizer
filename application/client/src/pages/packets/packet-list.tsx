@@ -86,6 +86,12 @@ export default function PacketList({ packets, selectedId, onSelect, autoScroll }
                   protoClass(p.protocol),
                   selectedId === p.id ? 'row-selected' : '',
                 ].join(' ')}
+                // Live capture can hold up to 5000 rows (see the slice(-5000) cap in
+                // packet-capture-page.tsx); rendering all of them as full DOM subtrees
+                // stalls the tab during a busy capture. content-visibility skips
+                // layout/paint for rows outside the viewport without needing a
+                // virtualization library or restructuring this list.
+                style={{ contentVisibility: 'auto', containIntrinsicSize: '0 21px' }}
               >
                 <Cell width={COL_WIDTHS[0]} mono>
                   {p.id}

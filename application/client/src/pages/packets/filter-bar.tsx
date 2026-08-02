@@ -25,6 +25,7 @@ export default function FilterBar({ value, onChange }: FilterBarProps) {
       <div
         className={[
           'flex items-center flex-1 min-w-[140px] gap-2 px-2 py-1 rounded border transition-colors',
+          'focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_2px_rgba(88,166,255,0.15)]',
           isActive
             ? 'border-[var(--accent)] bg-[var(--bg-800)]'
             : 'border-[var(--border)] bg-[var(--bg-800)]',
@@ -37,6 +38,7 @@ export default function FilterBar({ value, onChange }: FilterBarProps) {
         <input
           className="flex-1 bg-transparent text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] font-mono"
           placeholder="Filter… e.g. TCP, DNS, HTTP, 10.0.0.1"
+          aria-label="Filter captured packets"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           spellCheck={false}

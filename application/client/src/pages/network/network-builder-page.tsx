@@ -1988,14 +1988,11 @@ export default function NetworkBuilderPage() {
   // Snapshot before a drag so undo restores the previous position
   const onNodeDragStart = useCallback(() => pushHistory(), [pushHistory])
 
-  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault()
-      const type = event.dataTransfer.getData('application/reactflow') as NodeType
-      if (!type || !reactFlowWrapper.current) return
+  // Shared by pointer drag-and-drop and the keyboard/click fallback below —
+  // both need the exact same freshly-configured node, just placed differently.
+  const addNodeOfType = useCallback(
+    (type: NodeType, position: { x: number; y: number }) => {
       pushHistory()
-      const rect = reactFlowWrapper.current.getBoundingClientRect()
-      const position = { x: event.clientX - rect.left - 60, y: event.clientY - rect.top - 40 }
       const id = `${type}-${++nodeCounter}`
       const label = `${type.charAt(0).toUpperCase() + type.slice(1)}-${nodeCounter}`
       const noIface = type === 'cloud' || type === 'www'
@@ -2090,6 +2087,17 @@ export default function NetworkBuilderPage() {
     [setNodes, pushHistory, notify],
   )
 
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+      const type = event.dataTransfer.getData('application/reactflow') as NodeType
+      if (!type || !reactFlowWrapper.current) return
+      const rect = reactFlowWrapper.current.getBoundingClientRect()
+      addNodeOfType(type, { x: event.clientX - rect.left - 60, y: event.clientY - rect.top - 40 })
+    },
+    [addNodeOfType],
+  )
+
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
@@ -2099,6 +2107,25 @@ export default function NetworkBuilderPage() {
     event.dataTransfer.setData('application/reactflow', type)
     event.dataTransfer.effectAllowed = 'move'
   }, [])
+
+  // Keyboard/click fallback for the palette — dragging is the primary path,
+  // but Enter/Space on a focused palette entry must work too, or adding a
+  // device to the canvas is entirely impossible for keyboard-only users
+  // (WCAG 2.1.1). Places the node at the current viewport center with a
+  // small cascade so repeated adds don't stack exactly on top of each other.
+  const keyboardAddCounter = useRef(0)
+  const onPaletteActivate = useCallback(
+    (type: NodeType) => {
+      if (!reactFlowWrapper.current) return
+      // Same rect-relative convention onDrop uses above (no zoom/pan
+      // transform) — keeps a keyboard add land in the same spot a pointer
+      // drop to the canvas center would.
+      const rect = reactFlowWrapper.current.getBoundingClientRect()
+      const offset = (keyboardAddCounter.current++ % 6) * 24
+      addNodeOfType(type, { x: rect.width / 2 - 60 + offset, y: rect.height / 2 - 40 + offset })
+    },
+    [addNodeOfType],
+  )
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -2653,7 +2680,7 @@ export default function NetworkBuilderPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Palette: static column on `md`+, a toggleable drawer over the canvas below it */}
         <div className="hidden md:block md:w-44 md:shrink-0">
-          <NodePalette onDragStart={onDragStart} />
+          <NodePalette onDragStart={onDragStart} onActivate={onPaletteActivate} />
         </div>
 
         {/* Canvas */}
@@ -2681,7 +2708,7 @@ export default function NetworkBuilderPage() {
               paletteOpen ? 'translate-x-0' : '-translate-x-full',
             ].join(' ')}
           >
-            <NodePalette onDragStart={onDragStart} />
+            <NodePalette onDragStart={onDragStart} onActivate={onPaletteActivate} />
           </div>
 
           <ReactFlow

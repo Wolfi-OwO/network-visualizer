@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId, isValidElement, cloneElement } from 'react'
+import type { ReactElement } from 'react'
 import {
   X,
   Server,
@@ -63,11 +64,22 @@ interface PropertiesPanelProps {
 }
 
 // ── Small reusable field ────────────────────────────────────────────────────
+// Every Field wraps exactly one form control (TinyInput or a <select>), so
+// cloning an id onto that single child gives every one of the ~40 fields in
+// this panel a real <label htmlFor> association instead of a decorative
+// <span> that screen readers never connect to the input.
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const id = useId()
   return (
     <div className="flex gap-2 items-start">
-      <span className="text-[10px] text-[var(--text-muted)] w-20 shrink-0 pt-1.5">{label}</span>
-      <div className="flex-1">{children}</div>
+      <label htmlFor={id} className="text-[10px] text-[var(--text-muted)] w-20 shrink-0 pt-1.5">
+        {label}
+      </label>
+      <div className="flex-1">
+        {isValidElement(children)
+          ? cloneElement(children as ReactElement<{ id?: string }>, { id })
+          : children}
+      </div>
     </div>
   )
 }
@@ -78,15 +90,18 @@ function TinyInput({
   placeholder,
   type = 'text',
   className = '',
+  id,
 }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
   type?: string
   className?: string
+  id?: string
 }) {
   return (
     <input
+      id={id}
       className={`input text-[11px] h-6 py-0 px-2 font-mono ${className}`}
       value={value}
       onChange={(e) => onChange(e.target.value)}
