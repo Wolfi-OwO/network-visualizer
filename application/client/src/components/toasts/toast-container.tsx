@@ -9,7 +9,11 @@ export default function ToastContainer({
   onClose: (id: string) => void
 }) {
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 w-64">
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 w-64"
+    >
       {toasts.map((t) => (
         <Toast key={t.id} toast={t} onClose={onClose} />
       ))}

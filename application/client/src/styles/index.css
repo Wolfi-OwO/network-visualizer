@@ -11,7 +11,11 @@
     --bg-600: #484f58;
     --text-primary: #e6edf3;
     --text-secondary: #8b949e;
-    --text-muted: #6e7681;
+    /* Lightened from #6e7681 — the original measured 4.12:1 on --bg-950 and
+       dropped to 3.31:1 on --bg-800 (the lightest surface it sits on, e.g.
+       card headers), both below the 4.5:1 AA floor for normal-size text.
+       #868d97 clears 4.5:1 against every surface tone in use. */
+    --text-muted: #868d97;
     --border: #30363d;
     --border-strong: #444c56;
     --accent: #58a6ff;
@@ -30,7 +34,6 @@
 
     /* Motion — a single easing for the few transitions we keep. Restrained. */
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-    --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
     /* Elevation — quiet single-layer shadows. Depth, not drama. No glow. */
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
@@ -87,6 +90,14 @@
 
   * {
     box-sizing: border-box;
+  }
+
+  /* Plain <button>s default to `cursor: default` in most browsers — only
+     `.btn` carried the pointer affordance, so the many icon-only and
+     unstyled buttons throughout the panels (close, delete, toggle, tab)
+     looked inert on hover. One rule instead of touching every call site. */
+  button:not(:disabled) {
+    cursor: pointer;
   }
 
   ::selection {
@@ -146,11 +157,15 @@
   .btn-ghost {
     @apply btn bg-[var(--bg-800)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-700)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)];
   }
+  /* Dark-on-bright text, same convention .btn-primary already uses on
+     --accent — white-on-red measured 3.35:1 and white-on-green 2.54:1
+     against these saturated backgrounds, both well under the 4.5:1 AA floor.
+     --bg-950 text clears 5.6:1 / 7.4:1 respectively. */
   .btn-danger {
-    @apply btn bg-[var(--red)] text-white border-transparent hover:brightness-110;
+    @apply btn bg-[var(--red)] text-[var(--bg-950)] font-semibold border-transparent hover:brightness-110;
   }
   .btn-success {
-    @apply btn bg-[var(--green)] text-white border-transparent hover:brightness-110;
+    @apply btn bg-[var(--green)] text-[var(--bg-950)] font-semibold border-transparent hover:brightness-110;
   }
   /* Solid panel: opaque surface, hairline border, one quiet shadow. Reads as a
      physical card on the board rather than a pane of frosted glass. */
