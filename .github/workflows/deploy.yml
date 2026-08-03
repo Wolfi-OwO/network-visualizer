@@ -73,6 +73,16 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      # --max-inactive-revisions below is a preview flag, and the containerapp
+      # extension baked into the runner's az image predates it: "ERROR:
+      # unrecognized arguments: --max-inactive-revisions 5" on a deploy that
+      # otherwise had nothing wrong with it. `az` does not auto-update
+      # extensions on use, so pin nothing and always take the latest here
+      # rather than caching a version this workflow will silently drift behind
+      # again.
+      - name: Upgrade the containerapp CLI extension
+        run: az extension add --name containerapp --upgrade -y -o none
+
       - name: Create the new revision
         id: rev
         env:
