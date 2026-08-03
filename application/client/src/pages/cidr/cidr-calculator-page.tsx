@@ -192,6 +192,7 @@ export default function CIDRCalculatorPage() {
               onChange={(e) => dispatch({ type: 'set', key: 'input', value: e.target.value })}
               onKeyDown={(e) => e.key === 'Enter' && calculate()}
               placeholder="192.168.1.0/24 or 10.0.0.1 255.255.255.0"
+              aria-label="Network address or CIDR block"
               spellCheck={false}
             />
             <button onClick={() => calculate()} disabled={loading} className="btn-primary px-4">
@@ -374,6 +375,7 @@ export default function CIDRCalculatorPage() {
                     })
                   }
                   placeholder="count"
+                  aria-label="Number of subnets to split into"
                 />
                 <span className="text-xs text-[var(--text-muted)]">subnets — or use prefix</span>
                 <input
@@ -386,6 +388,7 @@ export default function CIDRCalculatorPage() {
                     })
                   }
                   placeholder="/26"
+                  aria-label="Subnet prefix length"
                 />
                 <button onClick={calcSubnets} disabled={subnetLoading} className="btn-ghost">
                   {subnetLoading ? 'Calculating…' : 'Generate Subnets'}
@@ -469,6 +472,7 @@ export default function CIDRCalculatorPage() {
                     })
                   }
                   placeholder="192.168.0.0/24"
+                  aria-label={`Network ${i + 1} for supernet calculation`}
                 />
                 {supernetInputs.length > 2 && (
                   <button
