@@ -1,3 +1,15 @@
+## [v2.5.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.5.1) — 2026-08-03
+
+Accessibility and a few polish fixes found during a full audit of the client:
+
+- Keyboard access to the device palette — dragging was the only way to add a device to the topology, with no keyboard path at all
+- Real labels on the 37 properties-panel fields (screen readers ignored the placeholder-only labels that stood in for them)
+- A visible focus ring on the packet filter input, which had `outline-none` and nothing replacing it
+- Toasts now announce to screen readers
+- Two color-contrast fixes below WCAG AA
+- The live packet-capture list no longer renders all 5000 rows unvirtualized
+- A dead CSS token removed, and the correct cursor affordance on icon-only buttons
+
 ## [v2.5.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.5.0) — 2026-07-14
 
 ## Production environment is now asserted, not inherited
