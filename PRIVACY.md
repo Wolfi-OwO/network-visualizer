@@ -96,9 +96,9 @@ Diese Datenschutzerklärung erklärt, wie NetViz („die Anwendung") personenbez
 
 ### 6.2 Cloud-Infrastruktur
 
-- **Hosting-Provider:** [PLACEHOLDER — Azure, AWS, etc.]
-- **Datenbank:** MongoDB (Cloud-gehostet)
-- **Backups:** [PLACEHOLDER]
+- **Hosting-Provider:** Microsoft Azure (Azure Container Apps, über Azure Container Registry deployed)
+- **Datenbank:** MongoDB (Cloud-gehostet, Connection String als Azure Container Apps Secret verwaltet)
+- **Backups:** Contact operator for details <!-- TODO: Customize before production deployment: konkretes Backup-Verfahren und -Intervall für die MongoDB-Instanz dokumentieren -->
 - Standard Contractual Clauses (SCCs) in place für EU-Transfers
 
 ### 6.3 Optional: Analytics & Monitoring
