@@ -3,7 +3,7 @@
 Diese Dokumentation beschreibt die zentralen Anwendungsfälle (Use Cases) von
 **NetViz**, einem Werkzeug zum Entwerfen, Visualisieren und Simulieren von
 Netzwerken im Browser. Sie ergänzt die technische [API-Referenz](../api.md) um
-eine fachliche Sicht: *wer* nutzt das System *wofür* und *wie* läuft das ab.
+eine fachliche Sicht: _wer_ nutzt das System _wofür_ und _wie_ läuft das ab.
 
 Die einzelnen Use Cases sind nach der vorgegebenen Vorlage strukturiert
 (Beschreibung, Akteure, Vor-/Nachbedingungen, Trigger, normaler Ablauf,
@@ -11,13 +11,13 @@ alternative Abläufe, UML-Diagramme, relevante Anforderungen).
 
 ## Akteure
 
-| Akteur | Beschreibung |
-| --- | --- |
-| **Gast** | Nicht angemeldeter Benutzer. Arbeitet im gemeinsamen lokalen Arbeitsbereich und kann Netzwerk-Builder, Paket-Mitschnitt und CIDR-Rechner ohne Konto nutzen. |
-| **Bearbeiter** | Angemeldeter Benutzer mit der Rolle `editor`. Erstellt und bearbeitet seine eigenen, isolierten Netzwerke. |
-| **Betrachter** | Angemeldeter Benutzer mit der Rolle `viewer`. Nur-Lese-Zugriff auf Daten. |
+| Akteur            | Beschreibung                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Gast**          | Nicht angemeldeter Benutzer. Arbeitet im gemeinsamen lokalen Arbeitsbereich und kann Netzwerk-Builder, Paket-Mitschnitt und CIDR-Rechner ohne Konto nutzen.                    |
+| **Bearbeiter**    | Angemeldeter Benutzer mit der Rolle `editor`. Erstellt und bearbeitet seine eigenen, isolierten Netzwerke.                                                                     |
+| **Betrachter**    | Angemeldeter Benutzer mit der Rolle `viewer`. Nur-Lese-Zugriff auf Daten.                                                                                                      |
 | **Administrator** | Angemeldeter Benutzer mit der Rolle `admin`. Verwaltet Benutzer und Rollen, liest Audit-Log und Systemmetriken. Der erste angemeldete Benutzer wird automatisch Administrator. |
-| **System** | Sekundärer Akteur. Führt automatisierte Abläufe aus (DHCP-Vergabe beim Einschalten, kontinuierliche Verkehrssimulation, Paket-Trace-Auswertung). |
+| **System**        | Sekundärer Akteur. Führt automatisierte Abläufe aus (DHCP-Vergabe beim Einschalten, kontinuierliche Verkehrssimulation, Paket-Trace-Auswertung).                               |
 
 Die Rollen sind hierarchisch: `admin` schließt die Rechte von `editor` ein,
 `editor` die von `viewer`. Details in
@@ -96,13 +96,13 @@ Die Rollen sind hierarchisch: `admin` schließt die Rechte von `editor` ein,
 
 ## Detaillierte Use Cases
 
-| Use Case | Bereich | Primärer Akteur |
-| --- | --- | --- |
-| [UC: Netzwerktopologie erstellen](uc-topologie-erstellen.md) | Netzwerk-Design | Bearbeiter |
-| [UC: Paket senden und Pfad verfolgen](uc-paket-senden.md) | Simulation & Analyse | Bearbeiter |
-| [UC: Paket-Mitschnitt durchführen](uc-paket-mitschnitt.md) | Paket-Mitschnitt | Gast |
-| [UC: Subnetz berechnen](uc-subnetz-berechnen.md) | Subnetz-Berechnung | Gast |
-| [UC: Benutzerrollen verwalten](uc-benutzerrollen-verwalten.md) | Administration | Administrator |
+| Use Case                                                       | Bereich              | Primärer Akteur |
+| -------------------------------------------------------------- | -------------------- | --------------- |
+| [UC: Netzwerktopologie erstellen](uc-topologie-erstellen.md)   | Netzwerk-Design      | Bearbeiter      |
+| [UC: Paket senden und Pfad verfolgen](uc-paket-senden.md)      | Simulation & Analyse | Bearbeiter      |
+| [UC: Paket-Mitschnitt durchführen](uc-paket-mitschnitt.md)     | Paket-Mitschnitt     | Gast            |
+| [UC: Subnetz berechnen](uc-subnetz-berechnen.md)               | Subnetz-Berechnung   | Gast            |
+| [UC: Benutzerrollen verwalten](uc-benutzerrollen-verwalten.md) | Administration       | Administrator   |
 
 Die referenzierten Anforderungen sind im
 [Anforderungskatalog](requirements.md) gesammelt.

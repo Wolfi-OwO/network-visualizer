@@ -34,8 +34,8 @@ Where the tool gets more valuable rather than merely bigger.
   actually hurt, and where the "why didn't my packet arrive" lesson lands hardest.
 - **Explain-the-verdict.** Every drop already carries a reason. Turning that into a
   step-by-step "here is the routing table it consulted, here is the rule that
-  matched" panel is the difference between a tool that tells you *that* it failed
-  and one that teaches you *why*.
+  matched" panel is the difference between a tool that tells you _that_ it failed
+  and one that teaches you _why_.
 
 ## Later — collaboration and scale
 

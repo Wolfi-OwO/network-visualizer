@@ -56,14 +56,14 @@ really does contain the version on its label.
 
 ## What a release rewrites
 
-| File | Why it exists |
-| --- | --- |
-| `version.txt` | **The source of truth.** Plain-text version, trivially readable by any script. |
-| `CHANGELOG.md` | Your release notes, prepended. One source — they cannot disagree. |
-| `application/package.json` | Backend package version. |
-| `application/package-lock.json` (`.version` **and** `.packages[""].version`) | npm records the version twice; both must move. |
-| `application/client/package.json` | Frontend package version. |
-| `application/client/package-lock.json` (both fields) | Same. |
+| File                                                                         | Why it exists                                                                  |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `version.txt`                                                                | **The source of truth.** Plain-text version, trivially readable by any script. |
+| `CHANGELOG.md`                                                               | Your release notes, prepended. One source — they cannot disagree.              |
+| `application/package.json`                                                   | Backend package version.                                                       |
+| `application/package-lock.json` (`.version` **and** `.packages[""].version`) | npm records the version twice; both must move.                                 |
+| `application/client/package.json`                                            | Frontend package version.                                                      |
+| `application/client/package-lock.json` (both fields)                         | Same.                                                                          |
 
 All of it is written by [`scripts/set-version.mjs`](../scripts/set-version.mjs).
 You can run it yourself:
@@ -75,7 +75,7 @@ node scripts/set-version.mjs 2.5.0
 **And if they ever drift**, CI catches it. Every push and PR runs a **Version
 consistency** job ([`scripts/check-version-sync.mjs`](../scripts/check-version-sync.mjs))
 that compares all seven fields against `version.txt` and fails the build on any
-mismatch. Adding a new file that records the version means adding it to *both*
+mismatch. Adding a new file that records the version means adding it to _both_
 scripts.
 
 ## Why the version bump can touch a protected branch
@@ -84,7 +84,7 @@ It doesn't push to `main` directly — the ruleset forbids that, and we are not
 weakening it.
 
 `sync-version` opens a **real pull request** and merges it with `gh pr merge
---admin`. Your repository-admin role is explicitly granted a *pull-request*
+--admin`. Your repository-admin role is explicitly granted a _pull-request_
 bypass in the `main-protection` ruleset, which is precisely the permission to
 merge a PR without waiting on its checks. Nothing else is bypassed, and branch
 protection stays on throughout.
@@ -159,7 +159,7 @@ stages.
 ## Troubleshooting
 
 **I created a tag and nothing happened.**
-Correct. A tag is only a pointer. Publish a *Release* on it.
+Correct. A tag is only a pointer. Publish a _Release_ on it.
 
 **The release failed at `Set version …` with "not a vX.Y.Z tag".**
 The tag must look like `v2.5.0`. Delete the release and re-publish with a valid
@@ -186,10 +186,10 @@ https://github.com/settings/tokens with the `repo` and `workflow` scopes.
 
 ## Files involved
 
-| File | Role |
-| --- | --- |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | The whole pipeline |
-| [`scripts/set-version.mjs`](../scripts/set-version.mjs) | Writes the version into every file |
-| [`scripts/check-version-sync.mjs`](../scripts/check-version-sync.mjs) | The CI guard against drift |
-| [`version.txt`](../version.txt) | The source of truth |
+| File                                                                    | Role                                        |
+| ----------------------------------------------------------------------- | ------------------------------------------- |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml)     | The whole pipeline                          |
+| [`scripts/set-version.mjs`](../scripts/set-version.mjs)                 | Writes the version into every file          |
+| [`scripts/check-version-sync.mjs`](../scripts/check-version-sync.mjs)   | The CI guard against drift                  |
+| [`version.txt`](../version.txt)                                         | The source of truth                         |
 | [`organizational/deploy/README.md`](../organizational/deploy/README.md) | What the deploy step actually does to Azure |

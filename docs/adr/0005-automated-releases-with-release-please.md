@@ -4,7 +4,7 @@
 - **Date:** 2026-07-11
 
 > **Superseded 2026-07-13.** release-please fixed the version-drift bug this ADR was
-> written for, and that fix survives. What did not survive is the *release model*: a
+> written for, and that fix survives. What did not survive is the _release model_: a
 > permanently-open bot PR whose version came from commit prefixes. Releases are now cut
 > by publishing a GitHub Release, and the version is taken from the tag you publish.
 > See [ADR 0006](0006-releases-are-cut-by-publishing-a-github-release.md) for why.
@@ -18,15 +18,15 @@ Releases were manual: a maintainer created a GitHub Release by hand, and
 That worked, but the version number was never written down anywhere in the repo.
 Nothing in the pipeline updated a `package.json`. By `v2.3.0`, the repo said:
 
-| File | Said | Should have said |
-| --- | --- | --- |
-| git tag / GitHub Release | `v2.3.0` | — |
-| `application/package.json` | `1.0.0` | `2.3.0` |
-| `application/package-lock.json` | `1.0.0` | `2.3.0` |
-| `application/client/package.json` | `0.0.0` | `2.3.0` |
-| `application/client/package-lock.json` | `0.0.0` | `2.3.0` |
+| File                                   | Said     | Should have said |
+| -------------------------------------- | -------- | ---------------- |
+| git tag / GitHub Release               | `v2.3.0` | —                |
+| `application/package.json`             | `1.0.0`  | `2.3.0`          |
+| `application/package-lock.json`        | `1.0.0`  | `2.3.0`          |
+| `application/client/package.json`      | `0.0.0`  | `2.3.0`          |
+| `application/client/package-lock.json` | `0.0.0`  | `2.3.0`          |
 
-The drift went unnoticed because the *deployed* app looked right: `package.yml`
+The drift went unnoticed because the _deployed_ app looked right: `package.yml`
 injects `VITE_APP_VERSION` into the client bundle from the git tag at build time,
 so the footer showed `2.3.0` while the source of truth said `1.0.0`. The bug was
 invisible from the outside — which is the worst kind.
@@ -42,7 +42,7 @@ is exactly the artifact that rots when it depends on someone remembering.
   failed. A checklist is not automation.
 - **`semantic-release`.** Mature, and fully automatic — it tags and publishes with
   no human in the loop at all. That last property is the problem: this project
-  wants a human to *choose the moment* to ship, because shipping moves production
+  wants a human to _choose the moment_ to ship, because shipping moves production
   traffic. semantic-release would release on every qualifying merge to `main`.
 - **`release-please`.** Derives the version from Conventional Commits like
   semantic-release, but stages it as a **pull request** rather than releasing
@@ -79,18 +79,18 @@ PR opened by `GITHUB_TOKEN` does not trigger `pull_request` workflows.** Combine
 with branch protection, that is a deadlock — the release PR requires CI, Lint and
 the version check, but those workflows never start, so the PR can never merge.
 v2.4.0 had to be unblocked by hand, by closing and reopening the PR so a human event
-would start the checks. The token additionally decides the release commit's *author*:
+would start the checks. The token additionally decides the release commit's _author_:
 `GITHUB_TOKEN` makes it `github-actions[bot]`, which adds the bot to the contributor
 list and puts a bot `Co-authored-by` trailer on the squash commit.
 
-Keeping the ship stages in one run (above) solves the *publish* half of the guard; it
-does not solve the *pull request* half. Only a PAT or a GitHub App does. A PAT is the
+Keeping the ship stages in one run (above) solves the _publish_ half of the guard; it
+does not solve the _pull request_ half. Only a PAT or a GitHub App does. A PAT is the
 cheaper of the two here: one secret, no app to install or maintain. The cost is real —
 it expires and must be rotated — so the workflow falls back to `GITHUB_TOKEN` rather
 than failing the release outright, degrading to the old manual behaviour instead.
 
 **`scripts/check-version-sync.mjs` runs in CI on every push and PR.** release-please
-makes the files agree *by construction*, so this guard should never fire. It exists
+makes the files agree _by construction_, so this guard should never fire. It exists
 because the original bug was silent for three minor versions, and the cost of
 catching it is one 10-second job.
 

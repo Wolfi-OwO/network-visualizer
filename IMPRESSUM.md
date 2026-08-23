@@ -8,16 +8,17 @@ Offenlegung gemäß § 5 E-Commerce-Gesetz (ECG) und § 25 Mediengesetz (MedienG
 
 ## Diensteanbieter
 
-| | |
-|---|---|
-| **Name** | Phillip Kofler |
-| **Wohnort** | Villach, Kärnten, Österreich |
+|                        |                                                           |
+| ---------------------- | --------------------------------------------------------- |
+| **Name**               | Phillip Kofler                                            |
+| **Wohnort**            | Villach, Kärnten, Österreich                              |
 | **Geschäftstätigkeit** | Softwareentwicklung, Webentwicklung und digitale Lösungen |
-| **Email** | koflerphillip@outlook.com |
+| **Email**              | koflerphillip@outlook.com                                 |
 
 ### Geschäftsbeschreibung
 
 NetViz ist eine **Browser-basierte Netzwerk-Simulations- und Visualisierungssoftware** für:
+
 - Entwurf und Visualisierung von Enterprise-Netzwerk-Topologien
 - Live-Simulation von Netzwerk-Traffic und Packet Flow
 - CIDR-Berechnung und Subnetz-Management
@@ -42,6 +43,7 @@ Phillip Kofler ist verantwortlich für die Inhalte dieser Anwendung.
 ## Haftungsbeschränkung
 
 Der Betreiber übernimmt volle Verantwortung für eigene Inhalte. Keine Haftung für:
+
 - Verlinktes Fremdmaterial
 - Nutzer-erstellte Netzwerk-Topologien
 - Inhalte, auf die verlinkt wird

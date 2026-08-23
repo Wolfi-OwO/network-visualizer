@@ -43,6 +43,6 @@ flowchart TD
 - **Only an `admin` can change roles** — exactly like a super-admin in Google
   Workspace / Microsoft 365.
 - **Data is isolated per user**: each signed-in person has their own saved
-  networks. Roles gate *capabilities*, not visibility into other people's data.
+  networks. Roles gate _capabilities_, not visibility into other people's data.
 
 See [roles-and-permissions.md](./roles-and-permissions.md) for the exact matrix.

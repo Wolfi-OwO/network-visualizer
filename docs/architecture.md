@@ -4,7 +4,7 @@ How NetViz fits together — the shape of the system, what each layer is allowed
 do, and how a request travels from a click in the browser to a document in
 MongoDB and back.
 
-For *why* the big choices were made, see the [decision records](adr/README.md).
+For _why_ the big choices were made, see the [decision records](adr/README.md).
 For the endpoint-by-endpoint contract, see the [API reference](api.md).
 
 ---
@@ -34,9 +34,9 @@ get wrong in production.
 
 Two independent npm packages live in the repo:
 
-| Package | Path | Builds to |
-| --- | --- | --- |
-| Backend | `application/` | `application/dist/` (compiled TS) |
+| Package  | Path                  | Builds to                                  |
+| -------- | --------------------- | ------------------------------------------ |
+| Backend  | `application/`        | `application/dist/` (compiled TS)          |
 | Frontend | `application/client/` | `application/client/dist/` (static bundle) |
 
 The image bakes the frontend bundle into the backend image
@@ -72,7 +72,7 @@ Cross-cutting concerns sit beside the chain rather than inside it:
   `error-handler`.
 - **`lib/`** — `logger`, `errors` (HTTP error classes), `hateoas` (link builders),
   `health-checks`, `jwt`, `ip`.
-- **`config/`** — the *only* place `process.env` is read. Everything else imports
+- **`config/`** — the _only_ place `process.env` is read. Everything else imports
   the typed `config` object. Production refuses to start if a required secret is
   missing or too short.
 - **`types/`** — shared domain types (`packet`, `network`, `cidr`).
@@ -103,7 +103,7 @@ load-bearing:
 ### The API is hypermedia (RMM level 3)
 
 `GET /api` is the entry point and every representation carries `_links`. Clients
-are meant to *follow* links rather than string-concatenate URLs. `lib/hateoas.ts`
+are meant to _follow_ links rather than string-concatenate URLs. `lib/hateoas.ts`
 is the single place link shapes are defined, so a URL change is a one-file change.
 
 Liveness and readiness are separate — `/api/live` and `/api/ready` (via
@@ -116,16 +116,16 @@ be genuinely healthy before shifting traffic to it.
 
 This is the interesting part, and it is deliberately **in-memory and
 stateless-per-request**. Nothing about a simulated packet is persisted; only the
-*topology* is.
+_topology_ is.
 
 Two distinct things are often confused:
 
-| | `packet-simulator.ts` | `packet-sender-service.ts` |
-| --- | --- | --- |
-| Answers | "what does live traffic look like?" | "where would *this one packet* go?" |
-| Drives | the Wireshark-style capture feed + the ambient animation | the hop-by-hop trace in the Network Builder |
-| Output | a stream of synthetic packets over **SSE** | a single deterministic path + verdict |
-| Realism | 16+ protocols generated with plausible timing and framing | full forwarding decision per hop |
+|         | `packet-simulator.ts`                                     | `packet-sender-service.ts`                  |
+| ------- | --------------------------------------------------------- | ------------------------------------------- |
+| Answers | "what does live traffic look like?"                       | "where would _this one packet_ go?"         |
+| Drives  | the Wireshark-style capture feed + the ambient animation  | the hop-by-hop trace in the Network Builder |
+| Output  | a stream of synthetic packets over **SSE**                | a single deterministic path + verdict       |
+| Realism | 16+ protocols generated with plausible timing and framing | full forwarding decision per hop            |
 
 The **sender** is what makes NetViz a simulator rather than a diagram tool. For
 each hop it evaluates, in order:
@@ -138,7 +138,7 @@ each hop it evaluates, in order:
 5. **NAT** — translation at the Internet edge.
 6. **TTL** — decrement, and drop at zero.
 
-Every drop carries a *reason*, which is what the UI surfaces. That is the whole
+Every drop carries a _reason_, which is what the UI surfaces. That is the whole
 pedagogical point of the tool: not "the packet didn't arrive", but "the packet was
 denied by an egress ACL on fw-1".
 
@@ -153,12 +153,12 @@ and plain-HTTP proxy compatibility for free. See
 
 Four Mongoose models, all in `db/models/`:
 
-| Model | Holds | Notes |
-| --- | --- | --- |
-| `topology` | The network: nodes, edges, per-device config | Scoped to an owner. The only large document. |
-| `topology-version` | Point-in-time snapshots of a topology | Powers undo/restore. Auto-snapshots before a restore. |
-| `user` | Identity, role, OAuth subject | First account to sign in becomes `admin`. |
-| `audit` | Mutating actions by signed-in users | **TTL-expired** (`AUDIT_RETENTION_DAYS`, default 90) — MongoDB deletes old entries itself. |
+| Model              | Holds                                        | Notes                                                                                      |
+| ------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `topology`         | The network: nodes, edges, per-device config | Scoped to an owner. The only large document.                                               |
+| `topology-version` | Point-in-time snapshots of a topology        | Powers undo/restore. Auto-snapshots before a restore.                                      |
+| `user`             | Identity, role, OAuth subject                | First account to sign in becomes `admin`.                                                  |
+| `audit`            | Mutating actions by signed-in users          | **TTL-expired** (`AUDIT_RETENTION_DAYS`, default 90) — MongoDB deletes old entries itself. |
 
 Topologies are **owner-scoped**: `network-service` takes an `ownerId` on every
 read and write, so one user's workspace is invisible to another. When
@@ -170,13 +170,13 @@ workspace.
 ## Authentication and authorization
 
 - **Sign-in** is an OAuth 2.0 browser redirect flow (Google or Microsoft), with a
-  CSRF-protected `state` parameter. It lives under `/auth`, *not* `/api`, because
+  CSRF-protected `state` parameter. It lives under `/auth`, _not_ `/api`, because
   a redirect flow is not a REST resource.
 - **Sessions** are signed JWTs in an `httpOnly` cookie — no server-side session
   store, which is what lets the app scale to multiple Container App revisions
   without sticky sessions or shared state.
 - **`ALLOW_DEV_LOGIN`** enables a password-less local login. It defaults to `true`
-  outside production and production *refuses to start* with it on.
+  outside production and production _refuses to start_ with it on.
 - **Roles** are `admin` / `editor` / `viewer`, enforced by the `requireWrite` /
   `requireAuth` guards in `middlewares/auth.ts`. The first account to sign in is
   promoted to `admin`.

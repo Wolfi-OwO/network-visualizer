@@ -15,21 +15,21 @@ Bit-Rechnerei; ungültige Eingaben werden strikt abgewiesen.
 
 ## Akteur(e)
 
-* Primärer Akteur: Gast
-* Weitere Akteure
-  * System (führt die Berechnung und die Validierung aus)
+- Primärer Akteur: Gast
+- Weitere Akteure
+  - System (führt die Berechnung und die Validierung aus)
 
 ## Vorbedingung(en)
 
-* Die Anwendung ist im Browser geöffnet und die Seite _CIDR Calculator_ ist aufgerufen
+- Die Anwendung ist im Browser geöffnet und die Seite _CIDR Calculator_ ist aufgerufen
 
 ## Nachbedingung(en)
 
-* Das Berechnungsergebnis ist dargestellt (lesender Vorgang, kein Zustand wird persistiert)
+- Das Berechnungsergebnis ist dargestellt (lesender Vorgang, kein Zustand wird persistiert)
 
 ## Trigger(s)
 
-* User-Interaktion: Gast betätigt _Calculate_ oder wählt ein Preset
+- User-Interaktion: Gast betätigt _Calculate_ oder wählt ein Preset
 
 ## Normaler Ablauf
 
@@ -159,8 +159,8 @@ Berechnet -down-> [*]
 
 ## Relevante Anforderungen
 
-* REQ-CIDR-1
-* REQ-CIDR-2
-* REQ-CIDR-3
-* REQ-CIDR-4
-* REQ-CIDR-5
+- REQ-CIDR-1
+- REQ-CIDR-2
+- REQ-CIDR-3
+- REQ-CIDR-4
+- REQ-CIDR-5

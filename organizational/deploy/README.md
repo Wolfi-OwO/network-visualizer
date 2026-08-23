@@ -54,8 +54,8 @@ Three things keep a preview from harming production, even though they share an
 app:
 
 - **Traffic** — `pr-preview.yml` never calls `az containerapp ingress traffic
-  set`. A new revision in multiple-revision mode starts at weight 0, so a preview
-  *cannot* take production traffic; the workflow also asserts its own weight is 0
+set`. A new revision in multiple-revision mode starts at weight 0, so a preview
+  _cannot_ take production traffic; the workflow also asserts its own weight is 0
   and deactivates itself if it somehow isn't.
 - **Data** — the preview inherits production's Mongo connection secret but
   overrides **`MONGODB_DB_NAME=netviz-pr-<N>`**, so it lands on its own database
@@ -63,8 +63,8 @@ app:
   own demo topology on first load. (This is why `dropCurrentDatabase()` honours
   `MONGODB_DB_NAME` — otherwise `DB_RECREATE=true` on a preview would drop
   production's database.)
-- **No leak-back** — both workflows copy from *the revision currently serving
-  100% of traffic*, never from `latest`. Copying from `latest` would drag a
+- **No leak-back** — both workflows copy from _the revision currently serving
+  100% of traffic_, never from `latest`. Copying from `latest` would drag a
   preview's `MONGODB_DB_NAME` into the next production release and point
   production at a throwaway PR database.
 
@@ -90,7 +90,7 @@ nothing, and pushing a bare tag does nothing.
 [`release.yml`](../../.github/workflows/release.yml) runs on `release: published`.
 It first sets every version file to the tag you published, lands that on `main` as
 a commit **authored by you** (not a bot), and **re-points the tag at that commit** —
-because the commit you tagged still carried the *previous* version. Everything
+because the commit you tagged still carried the _previous_ version. Everything
 below then builds from the moved tag:
 
 1. **test** — reuses [`ci.yml`](../../.github/workflows/ci.yml) so nothing ships
@@ -132,7 +132,7 @@ az containerapp ingress traffic set -g netviz-rg -n netviz \
   subjects `<prefix>:environment:staging` and `<prefix>:environment:production`
   (the service principal is Contributor on the resource group). Take `<prefix>`
   from `gh api repos/<owner>/<repo>/actions/oidc/customization/sub --jq
-  .sub_claim_prefix` — it is **not** always `repo:<owner>/<repo>`; GitHub may
+.sub_claim_prefix` — it is **not** always `repo:<owner>/<repo>`; GitHub may
   present `repo:<owner>@<ownerId>/<repo>@<repoId>`, and Entra matches the string
   exactly. A credential in the other form fails every login with
   `AADSTS700213`, which names Entra and so reads like a missing credential

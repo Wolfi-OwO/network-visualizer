@@ -177,20 +177,21 @@ the [root README](ReadMe.md#run-in-development).
   they are **load-bearing** — the release automation reads them to decide the next
   version number and to write the changelog. Getting the prefix right matters:
 
-  | Prefix | Goes in the changelog as | Version effect (from `2.3.0`) |
-  | --- | --- | --- |
-  | `fix:` | Fixed | patch — `2.3.1` |
-  | `feat:` | Added | minor — `2.4.0` |
-  | `feat!:` / `BREAKING CHANGE:` in the body | Added + breaking notice | major — `3.0.0` |
-  | `perf:` | Performance | patch |
-  | `refactor:` | Changed | patch |
-  | `docs:`, `ci:`, `build:` | Documentation / CI / Build | none |
-  | `test:`, `style:`, `chore:` | hidden | none |
+  | Prefix                                    | Goes in the changelog as   | Version effect (from `2.3.0`) |
+  | ----------------------------------------- | -------------------------- | ----------------------------- |
+  | `fix:`                                    | Fixed                      | patch — `2.3.1`               |
+  | `feat:`                                   | Added                      | minor — `2.4.0`               |
+  | `feat!:` / `BREAKING CHANGE:` in the body | Added + breaking notice    | major — `3.0.0`               |
+  | `perf:`                                   | Performance                | patch                         |
+  | `refactor:`                               | Changed                    | patch                         |
+  | `docs:`, `ci:`, `build:`                  | Documentation / CI / Build | none                          |
+  | `test:`, `style:`, `chore:`               | hidden                     | none                          |
 
   Squash-merge titles become the commit on `main`, so **the PR title is what gets
   read** — make it a valid Conventional Commit. Branch names follow the same
   `type/short-description` shape, e.g. `feat/packet-filters`. See
   [docs/releasing.md](docs/releasing.md).
+
 - **Never hand-edit a version number.** `package.json`, `package-lock.json` and
   `version.txt` are all written from the tag when a release is published
   (`scripts/set-version.mjs`). CI fails the build if they disagree

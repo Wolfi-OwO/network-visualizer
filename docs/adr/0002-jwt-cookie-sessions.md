@@ -10,7 +10,7 @@ app needs to remember who they are on subsequent requests.
 
 The deployment target constrains this. NetViz runs on Azure Container Apps in
 **multiple-revision mode** — production is one revision, every open PR preview is
-another, and a release creates a new revision that runs *alongside* the old one
+another, and a release creates a new revision that runs _alongside_ the old one
 until traffic is shifted. Any session mechanism that depends on a request landing
 on the same process it started on will break during exactly the moments that
 matter most: a deploy, and a rollback.
@@ -49,7 +49,7 @@ request.
 deletes the cookie on the client, but the token itself stays cryptographically
 valid until it expires. Demoting a user from `admin` to `viewer` does not take
 effect until their token expires, because the role is a claim inside it. Rotating
-`JWT_SECRET` is the only global kill switch, and it logs *everyone* out.
+`JWT_SECRET` is the only global kill switch, and it logs _everyone_ out.
 
 That is an acceptable trade for a network-topology tool with a small, trusted user
 set and a short token TTL. It would **not** be acceptable if NetViz held anything

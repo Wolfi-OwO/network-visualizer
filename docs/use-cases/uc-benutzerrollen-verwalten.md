@@ -16,23 +16,23 @@ herabgestuft oder entfernt werden.
 
 ## Akteur(e)
 
-* Primärer Akteur: Administrator
-* Weitere Akteure
-  * System (setzt die Rollenprüfung durch und schreibt das Audit-Log)
+- Primärer Akteur: Administrator
+- Weitere Akteure
+  - System (setzt die Rollenprüfung durch und schreibt das Audit-Log)
 
 ## Vorbedingung(en)
 
-* Der Administrator ist mit einem Konto der Rolle `admin` angemeldet
-* UND die Seite _Administration_ ist aufgerufen
+- Der Administrator ist mit einem Konto der Rolle `admin` angemeldet
+- UND die Seite _Administration_ ist aufgerufen
 
 ## Nachbedingung(en)
 
-* Die geänderte Rolle bzw. die Entfernung des Kontos ist persistiert
-* UND ein Audit-Eintrag über die Aktion wurde erstellt
+- Die geänderte Rolle bzw. die Entfernung des Kontos ist persistiert
+- UND ein Audit-Eintrag über die Aktion wurde erstellt
 
 ## Trigger(s)
 
-* User-Interaktion: Administrator ändert in der Benutzerliste eine Rolle oder entfernt ein Konto
+- User-Interaktion: Administrator ändert in der Benutzerliste eine Rolle oder entfernt ein Konto
 
 ## Normaler Ablauf
 
@@ -166,8 +166,8 @@ Admin -down-> [*] : Konto entfernen\n[nicht letzter Admin]
 
 ## Relevante Anforderungen
 
-* REQ-ADM-1
-* REQ-ADM-2
-* REQ-ADM-3
-* REQ-ADM-4
-* REQ-ADM-7
+- REQ-ADM-1
+- REQ-ADM-2
+- REQ-ADM-3
+- REQ-ADM-4
+- REQ-ADM-7

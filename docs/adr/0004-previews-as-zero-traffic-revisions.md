@@ -5,7 +5,7 @@
 
 ## Context
 
-Reviewing a change to a *visual* tool by reading a diff is close to useless. A
+Reviewing a change to a _visual_ tool by reading a diff is close to useless. A
 reviewer needs to click the thing. So every PR should get a real, public,
 working URL.
 
@@ -26,7 +26,7 @@ workflow.
   abandoned.
 - **A single shared staging environment.** Cheap, but serializes reviews — two open
   PRs fight over it, and you can never trust what you're looking at.
-- **A new revision of the *production* app, carrying 0% of the traffic.** Container
+- **A new revision of the _production_ app, carrying 0% of the traffic.** Container
   Apps already runs in multiple-revision mode, and every revision gets its own
   public URL for free.
 
@@ -40,7 +40,7 @@ makes "a preview cannot take production traffic" a structural property rather th
 a promise.
 
 Data isolation comes from overriding `MONGODB_DB_NAME`: the preview reuses
-production's Mongo *connection secret* but lands on a **different database in the
+production's Mongo _connection secret_ but lands on a **different database in the
 same cluster**. Nothing to provision; it simply cannot see production's
 collections.
 
@@ -51,13 +51,13 @@ token cannot reach the registry anyway.
 ## Consequences
 
 **Bought:** A reviewable public URL per PR, on real infrastructure, with zero extra
-infrastructure to pay for. Previews run the *same* ingress, TLS and runtime config
+infrastructure to pay for. Previews run the _same_ ingress, TLS and runtime config
 as production, so "works in preview, breaks in prod" gets much rarer. Cleanup is
 one API call, not a resource-graph teardown.
 
 **Cost:** Previews share the production Container App's **compute** — a preview
 revision that pathologically burns CPU or memory is contending with production for
-it. They also share the Mongo *cluster* (though not the database), so they share
+it. They also share the Mongo _cluster_ (though not the database), so they share
 its connection limits and its blast radius. And a preview holds a live credential
 to the production database server, which is a real if narrow trust concession: it
 is scoped by database name, not by a separate principal.

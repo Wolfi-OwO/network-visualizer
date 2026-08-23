@@ -55,10 +55,18 @@ NetViz is an **enterprise network simulation and visualization tool** with user 
   - [ ] Add links in the right-hand nav:
     ```jsx
     <nav className="flex items-center gap-4">
-      <a href="/privacy" className="...">Privacy</a>
-      <a href="/impressum" className="...">Impressum</a>
-      <a href="/terms" className="...">Terms</a>
-      <a href="/support" className="...">Support</a>
+      <a href="/privacy" className="...">
+        Privacy
+      </a>
+      <a href="/impressum" className="...">
+        Impressum
+      </a>
+      <a href="/terms" className="...">
+        Terms
+      </a>
+      <a href="/support" className="...">
+        Support
+      </a>
     </nav>
     ```
   - [ ] Links styled consistently with existing footer
@@ -127,14 +135,17 @@ NetViz is an **enterprise network simulation and visualization tool** with user 
 - [ ] **Implement export endpoint** in `application/src/routes/users.routes.ts`
 
   ```typescript
-  router.get('/:id/export', asyncHandler(async (req, res) => {
-    // 1. Verify authorization (user exporting own data, or admin)
-    // 2. Fetch user record
-    // 3. Fetch all user's networks and topologies
-    // 4. Fetch user's audit log entries
-    // 5. Serialize as JSON
-    // 6. Return with Content-Disposition: attachment; filename="export.json"
-  }));
+  router.get(
+    "/:id/export",
+    asyncHandler(async (req, res) => {
+      // 1. Verify authorization (user exporting own data, or admin)
+      // 2. Fetch user record
+      // 3. Fetch all user's networks and topologies
+      // 4. Fetch user's audit log entries
+      // 5. Serialize as JSON
+      // 6. Return with Content-Disposition: attachment; filename="export.json"
+    }),
+  );
   ```
 
 - [ ] **Export includes:**
@@ -208,7 +219,7 @@ NetViz is an **enterprise network simulation and visualization tool** with user 
   interface Consent {
     _id: ObjectId;
     userId: string;
-    type: 'analytics' | 'marketing' | 'functional'; // categories
+    type: "analytics" | "marketing" | "functional"; // categories
     granted: boolean; // true = accept, false = reject
     grantedAt: Date;
     ip: string; // anonymized (last octet removed)
@@ -395,37 +406,37 @@ NetViz is an **enterprise network simulation and visualization tool** with user 
 
 ## Known Limitations & Upgrade Paths
 
-| Limitation | Ceiling | Upgrade Path |
-|-----------|---------|--------------|
-| **No encrypted backups** | Backups are readable if DB server is breached | Enable MongoDB encryption at rest (Atlas feature) if storing highly sensitive topologies |
-| **Rate limiting is per-instance** | If scaled to multiple backend instances, limits aren't shared | Implement Redis-backed rate limiting |
-| **No formal incident response plan** | No defined escalation path for security issues | Document incident response procedure in SECURITY.md |
-| **Audit logs stored in same DB as user data** | If DB is breached, audit trail is compromised | Consider external audit log storage (e.g., S3, Azure Blob) for separation of concerns |
+| Limitation                                    | Ceiling                                                       | Upgrade Path                                                                             |
+| --------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **No encrypted backups**                      | Backups are readable if DB server is breached                 | Enable MongoDB encryption at rest (Atlas feature) if storing highly sensitive topologies |
+| **Rate limiting is per-instance**             | If scaled to multiple backend instances, limits aren't shared | Implement Redis-backed rate limiting                                                     |
+| **No formal incident response plan**          | No defined escalation path for security issues                | Document incident response procedure in SECURITY.md                                      |
+| **Audit logs stored in same DB as user data** | If DB is breached, audit trail is compromised                 | Consider external audit log storage (e.g., S3, Azure Blob) for separation of concerns    |
 
 ---
 
 ## Timeline
 
-| Phase | Deliverables | Effort | Deadline |
-|-------|--------------|--------|----------|
-| **1: Legal & Cookies** | Impressum, Privacy, Terms, Cookie Consent Banner | 3–5 days | 2026-09-06 |
-| **2: GDPR Endpoints** | Data export, deletion, consent tracking | 5–7 days | 2026-09-13 |
-| **3: Testing & Hardening** | E2E tests, security audit, documentation | 3–5 days | 2026-09-20 |
-| **4: Launch** | Public beta, monitoring enabled | Ongoing | 2026-09-23+ |
+| Phase                      | Deliverables                                     | Effort   | Deadline    |
+| -------------------------- | ------------------------------------------------ | -------- | ----------- |
+| **1: Legal & Cookies**     | Impressum, Privacy, Terms, Cookie Consent Banner | 3–5 days | 2026-09-06  |
+| **2: GDPR Endpoints**      | Data export, deletion, consent tracking          | 5–7 days | 2026-09-13  |
+| **3: Testing & Hardening** | E2E tests, security audit, documentation         | 3–5 days | 2026-09-20  |
+| **4: Launch**              | Public beta, monitoring enabled                  | Ongoing  | 2026-09-23+ |
 
 ---
 
 ## Status Summary
 
-| Category | Status | Priority | Owner |
-|----------|--------|----------|-------|
-| **Legal Documents** | ❌ Missing | HIGH | DevOps |
-| **Frontend (Footer, Cookies)** | ⚠️ Partial (footer exists) | HIGH | Frontend |
-| **Backend (Export, Deletion)** | ❌ Missing | HIGH | Backend |
-| **Security Headers** | ✅ Complete | MEDIUM | DevOps |
-| **Audit Logging** | ✅ Complete | MEDIUM | Backend |
-| **Rate Limiting** | ✅ Complete | MEDIUM | Backend |
-| **Testing** | ⚠️ Partial | MEDIUM | QA |
+| Category                       | Status                     | Priority | Owner    |
+| ------------------------------ | -------------------------- | -------- | -------- |
+| **Legal Documents**            | ❌ Missing                 | HIGH     | DevOps   |
+| **Frontend (Footer, Cookies)** | ⚠️ Partial (footer exists) | HIGH     | Frontend |
+| **Backend (Export, Deletion)** | ❌ Missing                 | HIGH     | Backend  |
+| **Security Headers**           | ✅ Complete                | MEDIUM   | DevOps   |
+| **Audit Logging**              | ✅ Complete                | MEDIUM   | Backend  |
+| **Rate Limiting**              | ✅ Complete                | MEDIUM   | Backend  |
+| **Testing**                    | ⚠️ Partial                 | MEDIUM   | QA       |
 
 ---
 

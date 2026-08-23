@@ -16,6 +16,7 @@ Durch die Nutzung von NetViz akzeptieren Sie diese Allgemeinen Geschäftsbedingu
 Sie dürfen NetViz nur für legitime, legale Zwecke nutzen.
 
 **Verboten:**
+
 - ❌ Netzwerk-Konfigurationen von dritten Personen ohne Erlaubnis verwenden
 - ❌ Social Engineering oder Hacking-Versuche mithilfe der Anwendung
 - ❌ Missbrauch für Cyberattacken oder illegale Aktivitäten
@@ -29,6 +30,7 @@ Sie dürfen NetViz nur für legitime, legale Zwecke nutzen.
 Sie behalten alle Rechte an Netzwerk-Topologien, die Sie erstellen.
 
 Der Betreiber darf Ihre Daten:
+
 - ✅ Speichern und sichern
 - ✅ Für Statistiken anonymisieren
 - ❌ Nicht mit dritten teilen ohne Zustimmung
@@ -39,6 +41,7 @@ Der Betreiber darf Ihre Daten:
 ## 4. Haftungsbeschränkung
 
 **NetViz wird OHNE GARANTIE bereitgestellt.** Der Betreiber haftet nicht für:
+
 - ❌ Datenverlust oder Fehler in Netzwerk-Simulationen
 - ❌ Ausfallzeiten oder Unterbrechungen
 - ❌ Indirekte Schäden (Gewinnverlust, etc.)
@@ -67,6 +70,7 @@ Der Service wird ohne Verfügbarkeitszusage bereitgestellt. Wartungsarbeiten kö
 Sie können Ihr Konto jederzeit löschen. Nach 90 Tagen werden alle Daten permanent gelöscht.
 
 Der Betreiber kann Konten sperren bei:
+
 - Verstoß gegen diese AGB
 - Illegale Aktivitäten
 - Missbrauch der Plattform

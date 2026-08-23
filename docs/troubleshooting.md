@@ -42,7 +42,7 @@ Without `GOOGLE_CLIENT_ID` / `MICROSOFT_CLIENT_ID` configured, the OAuth buttons
 have nothing to talk to. For local work you usually want the password-less dev
 login instead — it is on by default outside production (`ALLOW_DEV_LOGIN=true`).
 
-If you *are* configuring a real provider: the redirect URI is derived from the URL
+If you _are_ configuring a real provider: the redirect URI is derived from the URL
 the app is served at, so register exactly
 `http://localhost:5173/auth/<provider>/callback` with the provider. A mismatch here
 is the single most common OAuth failure.
@@ -53,7 +53,7 @@ You almost certainly wrote `import { x } from './foo'` instead of
 `import { x } from './foo.js'`, or capitalised a filename.
 
 This project builds under `NodeNext` resolution on a **case-sensitive** filesystem.
-macOS and Windows are case-*insensitive*, so `./Foo.js` and `./foo.js` are the same
+macOS and Windows are case-_insensitive_, so `./Foo.js` and `./foo.js` are the same
 file locally and different files in the Linux container. Every import carries its
 explicit extension, and every filename is lowercase kebab-case. This is not style —
 it is what makes the build reproducible.
@@ -75,7 +75,7 @@ disagrees with `version.txt` (the source of truth).
 
 **Do not fix this by hand-editing the one file the error names.** Version numbers are
 written from the tag when a release is published; if they have drifted, something
-bypassed that. Set *all* of them at once with `node scripts/set-version.mjs $(cat
+bypassed that. Set _all_ of them at once with `node scripts/set-version.mjs $(cat
 version.txt)`, in a single commit. Run the check locally:
 
 ```bash
@@ -106,13 +106,13 @@ Check what actually landed on `main`:
 gh release list
 ```
 
-Publishing a **Release** is what ships. Creating a bare *tag* does nothing — a tag is
+Publishing a **Release** is what ships. Creating a bare _tag_ does nothing — a tag is
 only a pointer. Go to Releases → **Draft a new release**, pick the tag, and **Publish**.
 
 ### I published a release and the tag moved
 
 That is the design, not a bug. At publish time the tag points at a commit whose
-`package.json` still holds the *old* version. `sync-version` writes the released
+`package.json` still holds the _old_ version. `sync-version` writes the released
 version into every file, lands it on `main`, and re-points the tag at that commit — so
 the tag and the files it points at agree. See [releasing.md](releasing.md).
 
@@ -127,7 +127,7 @@ approve the promotion. That gate is deliberate.
 The `RELEASE_PLEASE_TOKEN` secret (a maintainer's PAT, `repo` + `workflow` scopes) is
 missing or expired — re-create it at <https://github.com/settings/tokens>.
 
-Also check *Settings → Actions → General → Workflow permissions*: **Read and write
+Also check _Settings → Actions → General → Workflow permissions_: **Read and write
 permissions**, with **Allow GitHub Actions to create and approve pull requests**
 enabled.
 
@@ -182,7 +182,7 @@ ERROR: Error: authentication required, visit https://aka.ms/acr/authorization
 ```
 
 This looks like a broken login, and it isn't — `azure/login` worked, which is why
-the *read* calls (`show-tags`, `show`) in the same step succeeded. Deleting is a
+the _read_ calls (`show-tags`, `show`) in the same step succeeded. Deleting is a
 **data-plane** call, and the token from `azure/login` only carries the scopes the
 service principal's ACR roles grant it. `AcrPush` and `AcrPull` do not include
 deletion, so the registry rejects the delete and phrases it as an auth failure.

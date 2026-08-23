@@ -14,13 +14,13 @@ behind the tag — and it worked.
 
 It was also the wrong shape for how this project actually releases.
 
-The maintainer wants to decide *the version* and *the moment*, by hand, at the point
+The maintainer wants to decide _the version_ and _the moment_, by hand, at the point
 of shipping — not to have both derived from commit prefixes weeks earlier and then
 staged in a bot PR that sits open in the PR list forever. Shipping v2.4.0 and v2.4.1
 made the friction concrete:
 
 - The release PR is **always open**, so the PR list never reads as "nothing pending".
-- The version is decided by commit *titles*, which are easy to get wrong and awkward
+- The version is decided by commit _titles_, which are easy to get wrong and awkward
   to override (`Release-As:` footers).
 - release-please could not run under `GITHUB_TOKEN` without deadlocking (its PR never
   triggered the required checks), so it needed a PAT anyway — the cost 0005 had
@@ -37,11 +37,11 @@ version into the GitHub UI and press Publish.
 - **Keep release-please, ignore the PR until you want to ship.** Zero work. But it
   leaves the standing bot PR, keeps the version tied to commit titles, and keeps a
   release path nobody wanted.
-- **Hand-cut the tag, and *verify* the version files match it.** Publish a Release;
+- **Hand-cut the tag, and _verify_ the version files match it.** Publish a Release;
   a CI job refuses to ship if the tag disagrees with the committed version files. Safe
-  and simple — but it does not *set* the version, so you must land a bump commit first
+  and simple — but it does not _set_ the version, so you must land a bump commit first
   anyway. That is the release-please PR wearing a different hat.
-- **Hand-cut the tag, and *derive* the version files from it.** Publishing the Release
+- **Hand-cut the tag, and _derive_ the version files from it.** Publishing the Release
   is the trigger; the pipeline writes the version you released into every file. The
   version number is typed exactly once, in the place you were already looking.
 
@@ -60,22 +60,22 @@ A `sync-version` stage runs first and makes the repo say what the tag claims:
 4. Commit it, open a PR, merge it to `main`.
 5. **Move the tag onto that commit**, and re-point the Release at it.
 
-Then `test → package → deploy production` runs, every stage building from the *moved*
+Then `test → package → deploy production` runs, every stage building from the _moved_
 tag.
 
 Three supporting decisions:
 
 **The tag is moved, deliberately.** A tag points at a commit, and at publish time that
-commit still holds the *old* version — nothing has bumped it yet. Either the bump lands
+commit still holds the _old_ version — nothing has bumped it yet. Either the bump lands
 before the tag (which means a staged release PR: the model we are leaving) or the tag is
 re-pointed after it. Anything else re-creates the 0005 bug: a tag claiming a version the
 files it points at do not have, invisible from outside because the build injects the
-displayed version from the tag. Moving a tag *within the release that creates it* is not
+displayed version from the tag. Moving a tag _within the release that creates it_ is not
 history rewriting; nothing has consumed it yet.
 
 **The bump reaches `main` through a PR merged with `--admin`, not a direct push.**
 The `main-protection` ruleset forbids direct pushes, and we are not weakening it. It
-already grants repository admins a *pull-request* bypass — exactly the permission to
+already grants repository admins a _pull-request_ bypass — exactly the permission to
 merge a PR without waiting on its checks — so the pipeline uses that and nothing more.
 Skipping the bump PR's checks is safe: `test` re-runs the full suite on the merged
 commit before anything is packaged or deployed.

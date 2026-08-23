@@ -14,24 +14,24 @@ Paketebene ohne echten Sniffer und ohne administrative Rechte am Betriebssystem.
 
 ## Akteur(e)
 
-* Primärer Akteur: Gast
-* Weitere Akteure
-  * System (erzeugt und streamt die Pakete)
+- Primärer Akteur: Gast
+- Weitere Akteure
+  - System (erzeugt und streamt die Pakete)
 
 ## Vorbedingung(en)
 
-* Die Anwendung ist im Browser geöffnet und die Seite _Packet Capture_ ist aufgerufen
-* UND die Verbindung zum Backend besteht (SSE-Stream verfügbar)
+- Die Anwendung ist im Browser geöffnet und die Seite _Packet Capture_ ist aufgerufen
+- UND die Verbindung zum Backend besteht (SSE-Stream verfügbar)
 
 ## Nachbedingung(en)
 
-* Die aufgezeichneten Pakete sind in der Tabelle dargestellt
-* UND bei Export liegt eine Datei mit den Paketen vor
-* Der Aufzeichnungszustand (läuft/gestoppt) ist konsistent dargestellt
+- Die aufgezeichneten Pakete sind in der Tabelle dargestellt
+- UND bei Export liegt eine Datei mit den Paketen vor
+- Der Aufzeichnungszustand (läuft/gestoppt) ist konsistent dargestellt
 
 ## Trigger(s)
 
-* User-Interaktion: Gast betätigt _Start_ in der Werkzeugleiste
+- User-Interaktion: Gast betätigt _Start_ in der Werkzeugleiste
 
 ## Normaler Ablauf
 
@@ -164,8 +164,8 @@ Bereit -down-> [*]
 
 ## Relevante Anforderungen
 
-* REQ-PC-1
-* REQ-PC-2
-* REQ-PC-3
-* REQ-PC-4
-* REQ-PC-5
+- REQ-PC-1
+- REQ-PC-2
+- REQ-PC-3
+- REQ-PC-4
+- REQ-PC-5

@@ -17,24 +17,24 @@ anlegen. Die fertige Topologie ist die Grundlage für Simulation und Analyse
 
 ## Akteur(e)
 
-* Primärer Akteur: Bearbeiter
-* Weitere Akteure
-  * Gast (nutzt denselben Ablauf im gemeinsamen lokalen Arbeitsbereich)
-  * System (vergibt beim Einschalten automatisch DHCP-Adressen)
+- Primärer Akteur: Bearbeiter
+- Weitere Akteure
+  - Gast (nutzt denselben Ablauf im gemeinsamen lokalen Arbeitsbereich)
+  - System (vergibt beim Einschalten automatisch DHCP-Adressen)
 
 ## Vorbedingung(en)
 
-* Die Anwendung ist im Browser geöffnet und der Netzwerk-Builder ist aufgerufen
-* UND für das Anlegen benannter Versionen ist der Bearbeiter angemeldet
+- Die Anwendung ist im Browser geöffnet und der Netzwerk-Builder ist aufgerufen
+- UND für das Anlegen benannter Versionen ist der Bearbeiter angemeldet
 
 ## Nachbedingung(en)
 
-* Die Topologie (Knoten, Kanten und Konfiguration) ist im lokalen Speicher persistiert
-* UND eingeschaltete Geräte besitzen eine per DHCP zugewiesene IP-Adresse
+- Die Topologie (Knoten, Kanten und Konfiguration) ist im lokalen Speicher persistiert
+- UND eingeschaltete Geräte besitzen eine per DHCP zugewiesene IP-Adresse
 
 ## Trigger(s)
 
-* User-Interaktion des Bearbeiters auf der Zeichenfläche des Netzwerk-Builders
+- User-Interaktion des Bearbeiters auf der Zeichenfläche des Netzwerk-Builders
 
 ## Normaler Ablauf
 
@@ -207,10 +207,10 @@ Eingeschaltet -down-> [*]
 
 ## Relevante Anforderungen
 
-* REQ-NB-1
-* REQ-NB-2
-* REQ-NB-3
-* REQ-NB-4
-* REQ-NB-5
-* REQ-NB-6
-* REQ-NB-7
+- REQ-NB-1
+- REQ-NB-2
+- REQ-NB-3
+- REQ-NB-4
+- REQ-NB-5
+- REQ-NB-6
+- REQ-NB-7

@@ -13,15 +13,15 @@ Two places answer most questions faster than a human will:
 
 ## Where to go
 
-| I want to… | Go to |
-| --- | --- |
-| Ask a question, or check whether an idea is worth building | [Discussions](https://github.com/Wolfi-OwO/network-visualizer/discussions) |
-| Report something broken | [Bug report](https://github.com/Wolfi-OwO/network-visualizer/issues/new/choose) |
-| Request a feature | [Feature request](https://github.com/Wolfi-OwO/network-visualizer/issues/new/choose) |
-| Report a **security vulnerability** | **Do not open an issue** — follow [SECURITY.md](SECURITY.md) |
-| Contribute code | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Understand how something works | [Architecture](docs/architecture.md) · [API reference](docs/api.md) · [ADRs](docs/adr/README.md) |
-| Find out what's planned | [The backlog](todo/README.md) |
+| I want to…                                                 | Go to                                                                                            |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Ask a question, or check whether an idea is worth building | [Discussions](https://github.com/Wolfi-OwO/network-visualizer/discussions)                       |
+| Report something broken                                    | [Bug report](https://github.com/Wolfi-OwO/network-visualizer/issues/new/choose)                  |
+| Request a feature                                          | [Feature request](https://github.com/Wolfi-OwO/network-visualizer/issues/new/choose)             |
+| Report a **security vulnerability**                        | **Do not open an issue** — follow [SECURITY.md](SECURITY.md)                                     |
+| Contribute code                                            | [CONTRIBUTING.md](CONTRIBUTING.md)                                                               |
+| Understand how something works                             | [Architecture](docs/architecture.md) · [API reference](docs/api.md) · [ADRs](docs/adr/README.md) |
+| Find out what's planned                                    | [The backlog](todo/README.md)                                                                    |
 
 **Questions belong in Discussions, not Issues.** Issues are for tracked, actionable
 work — a bug with a reproduction, or a specific feature. "How do I…" gets a faster

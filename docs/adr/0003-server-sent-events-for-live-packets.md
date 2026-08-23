@@ -43,14 +43,14 @@ And it matches the actual shape of the data: a one-way stream modelled as a
 one-way stream.
 
 **Cost:** No client → server channel on the stream, so anything the client wants
-to *say* has to be a separate REST call (which is what the protocol toggles are —
+to _say_ has to be a separate REST call (which is what the protocol toggles are —
 and they are fine). Browsers cap concurrent HTTP/1.1 connections per origin
 (~6), so a user with many tabs open on the same origin can starve themselves;
 HTTP/2 makes this a non-issue and the production ingress speaks HTTP/2. SSE is
 text-only — no binary frames — which is irrelevant here since packets are
 serialized as JSON anyway.
 
-**Revisit if:** the client ever needs to push high-frequency data *up* the same
+**Revisit if:** the client ever needs to push high-frequency data _up_ the same
 channel — for example, if collaborative multi-user topology editing lands, where
 every cursor move and node drag has to reach other users. That is a genuinely
 duplex problem and SSE would be the wrong tool for it.

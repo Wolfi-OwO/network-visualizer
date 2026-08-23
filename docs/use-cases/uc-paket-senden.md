@@ -17,25 +17,25 @@ Tabellen nicht bieten. Der Use Case setzt eine bestehende Topologie voraus
 
 ## Akteur(e)
 
-* Primärer Akteur: Bearbeiter
-* Weitere Akteure
-  * Gast (nutzt denselben Ablauf im gemeinsamen lokalen Arbeitsbereich)
-  * System (wertet Routing, Firewall, NAT, TTL und VLAN aus)
+- Primärer Akteur: Bearbeiter
+- Weitere Akteure
+  - Gast (nutzt denselben Ablauf im gemeinsamen lokalen Arbeitsbereich)
+  - System (wertet Routing, Firewall, NAT, TTL und VLAN aus)
 
 ## Vorbedingung(en)
 
-* Eine Topologie mit mindestens zwei verbundenen Geräten ist vorhanden
-* UND Quell- und Zielgerät sind eingeschaltet und besitzen eine IP-Adresse
+- Eine Topologie mit mindestens zwei verbundenen Geräten ist vorhanden
+- UND Quell- und Zielgerät sind eingeschaltet und besitzen eine IP-Adresse
 
 ## Nachbedingung(en)
 
-* Der ermittelte Pfad ist Hop-für-Hop visualisiert
-* UND das Ergebnis (zugestellt oder blockiert samt Grund) ist dargestellt
-* Der Zustand der Topologie bleibt unverändert (lesender Vorgang)
+- Der ermittelte Pfad ist Hop-für-Hop visualisiert
+- UND das Ergebnis (zugestellt oder blockiert samt Grund) ist dargestellt
+- Der Zustand der Topologie bleibt unverändert (lesender Vorgang)
 
 ## Trigger(s)
 
-* User-Interaktion: Bearbeiter löst in der Sende-Leiste die Aktion _Send_ aus
+- User-Interaktion: Bearbeiter löst in der Sende-Leiste die Aktion _Send_ aus
 
 ## Normaler Ablauf
 
@@ -205,10 +205,10 @@ Verworfen -down-> [*]
 
 ## Relevante Anforderungen
 
-* REQ-SIM-1
-* REQ-SIM-2
-* REQ-SIM-3
-* REQ-SIM-4
-* REQ-SIM-5
-* REQ-SIM-6
-* REQ-NB-4
+- REQ-SIM-1
+- REQ-SIM-2
+- REQ-SIM-3
+- REQ-SIM-4
+- REQ-SIM-5
+- REQ-SIM-6
+- REQ-NB-4

@@ -38,8 +38,8 @@ az acr create -g netviz-rg -n netvizacr --sku Basic
 **Database — use a real MongoDB** (the app relies on standard features like TTL
 indexes, which the RU-based Cosmos Mongo API does not fully support). Two good options:
 
-- **Azure Cosmos DB for MongoDB *vCore*** — managed, full MongoDB compatibility.
-  Easiest to create in the Portal (*Create -> Azure Cosmos DB -> MongoDB -> vCore*).
+- **Azure Cosmos DB for MongoDB _vCore_** — managed, full MongoDB compatibility.
+  Easiest to create in the Portal (_Create -> Azure Cosmos DB -> MongoDB -> vCore_).
   CLI (flag names vary by CLI version — verify with `az cosmosdb mongocluster create --help`):
 
   ```bash
@@ -196,11 +196,11 @@ every PR preview are revisions of it. Nothing else is provisioned.
 
 ### Why a preview can't hurt production
 
-| Risk | What stops it |
-| ---- | ------------- |
-| Preview steals production traffic | A new revision in multiple-revision mode starts at weight 0, and `pr-preview.yml` never calls `az containerapp ingress traffic set`. It also asserts its own weight is 0 and deactivates itself otherwise. |
-| Preview reads/writes production data | The preview reuses production's Mongo secret but overrides `MONGODB_DB_NAME=netviz-pr-<N>` — same cluster, its own database. It seeds its own demo topology on first load. |
-| Preview settings leak into the next release | Both workflows copy from *the revision currently serving 100% of traffic*, never from `latest` — so a preview's env overrides are never inherited by production. |
+| Risk                                        | What stops it                                                                                                                                                                                              |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Preview steals production traffic           | A new revision in multiple-revision mode starts at weight 0, and `pr-preview.yml` never calls `az containerapp ingress traffic set`. It also asserts its own weight is 0 and deactivates itself otherwise. |
+| Preview reads/writes production data        | The preview reuses production's Mongo secret but overrides `MONGODB_DB_NAME=netviz-pr-<N>` — same cluster, its own database. It seeds its own demo topology on first load.                                 |
+| Preview settings leak into the next release | Both workflows copy from _the revision currently serving 100% of traffic_, never from `latest` — so a preview's env overrides are never inherited by production.                                           |
 
 ### Enable it (one-time)
 
@@ -271,7 +271,7 @@ gh variable set PREVIEW_ENABLED -R <owner>/<repo> --body true
    gh api "repos/${GH_REPO}/actions/oidc/customization/sub" --jq .sub_claim_prefix
    ```
 
-3. Add repo **Secrets** (Settings -> Secrets and variables -> Actions -> *Secrets*):
+3. Add repo **Secrets** (Settings -> Secrets and variables -> Actions -> _Secrets_):
 
    | Secret                  | Value                                     |
    | ----------------------- | ----------------------------------------- |
@@ -281,7 +281,7 @@ gh variable set PREVIEW_ENABLED -R <owner>/<repo> --body true
    | `ACR_USERNAME`          | admin username from step 1                |
    | `ACR_PASSWORD`          | admin password from step 1                |
 
-   …and repo **Variables** (same page -> *Variables* — these are not secrets):
+   …and repo **Variables** (same page -> _Variables_ — these are not secrets):
 
    | Variable            | Value       |
    | ------------------- | ----------- |

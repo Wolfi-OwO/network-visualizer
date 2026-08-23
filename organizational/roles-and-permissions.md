@@ -21,15 +21,15 @@ you may do.
 
 | Capability                                     | admin | editor | viewer | anonymous* |
 | ---------------------------------------------- | :---: | :----: | :----: | :--------: |
-| View own networks                              | Yes   | Yes    | Yes    | Yes        |
-| Create / edit / delete networks                | Yes   | Yes    | No     | Yes        |
-| Save versions / export config                  | Yes   | Yes    | No     | Yes        |
-| Run packet traces & captures                   | Yes   | Yes    | No     | Yes        |
-| CIDR / subnet tools                            | Yes   | Yes    | Yes    | Yes        |
-| **Manage users & assign roles** (`/api/users`) | Yes   | No     | No     | No         |
-| **View system metrics** (`/api/metrics`)       | Yes   | No     | No     | No         |
-| **Read the audit log** (`/api/audit`)          | Yes   | No     | No     | No         |
-| View the public status page                    | Yes   | Yes    | Yes    | Yes        |
+| View own networks                              |  Yes  |  Yes   |  Yes   |    Yes     |
+| Create / edit / delete networks                |  Yes  |  Yes   |   No   |    Yes     |
+| Save versions / export config                  |  Yes  |  Yes   |   No   |    Yes     |
+| Run packet traces & captures                   |  Yes  |  Yes   |   No   |    Yes     |
+| CIDR / subnet tools                            |  Yes  |  Yes   |  Yes   |    Yes     |
+| **Manage users & assign roles** (`/api/users`) |  Yes  |   No   |   No   |     No     |
+| **View system metrics** (`/api/metrics`)       |  Yes  |   No   |   No   |     No     |
+| **Read the audit log** (`/api/audit`)          |  Yes  |   No   |   No   |     No     |
+| View the public status page                    |  Yes  |  Yes   |  Yes   |    Yes     |
 
 \* **anonymous** = nobody signed in. When `REQUIRE_AUTH` is off (the default),
 visitors share a single `local` workspace and may edit it. Turn `REQUIRE_AUTH`
@@ -55,6 +55,6 @@ The role list itself is defined once in
 Roles control **what you can do**, not **whose data you can see**. Networks are
 **isolated per account** (`ownerOf`), so even an `admin` does not automatically
 browse another user's saved topologies — that is a deliberate privacy boundary.
-Admins manage *people, roles, and the platform*; they do not silently read
+Admins manage _people, roles, and the platform_; they do not silently read
 everyone's work. (If you ever want an "admin sees all topologies" mode, that is
 a small, explicit change — see [access-control.md](./access-control.md).)

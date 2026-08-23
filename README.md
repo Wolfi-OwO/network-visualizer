@@ -2,7 +2,7 @@
 
 # NetViz — Network Visualizer & Simulator
 
-**Design, visualize and *simulate* real enterprise networks in your browser.**
+**Design, visualize and _simulate_ real enterprise networks in your browser.**
 Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect traffic like Wireshark, and calculate subnets — all in one tool.
 
 [![Lint](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/lint.yml/badge.svg)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/lint.yml)
@@ -252,14 +252,14 @@ npm run test-ci       # same, with cobertura + JUnit reports (for CI)
 
 The pipeline is split into atomic workflows, each runnable on its own:
 
-| Workflow | Trigger | What it does |
-| --- | --- | --- |
-| [`lint.yml`](.github/workflows/lint.yml) | push / PR | ESLint for server and client |
-| [`ci.yml`](.github/workflows/ci.yml) | push / PR / release | Type-check + build + backend tests (in-memory MongoDB, **≥90% coverage gate**); posts a **coverage-report comment** on PRs, uploads the `client-dist` artifact, and uploads coverage to Codecov. Reusable — the release pipeline runs it as its test stage |
-| [`pr-preview.yml`](.github/workflows/pr-preview.yml) | PR to `main` (opened/updated/closed) | Builds the PR image and copies it onto a new **zero-traffic revision of the production app**, with its own public URL and its own throwaway database — then comments the link. Deactivates it when the PR closes. Opt-in (repo variable `PREVIEW_ENABLED=true`); skipped for fork PRs |
-| [`package.yml`](.github/workflows/package.yml) | release / PR preview / manual | Builds the client + Docker image, pushes it to ACR |
-| [`deploy.yml`](.github/workflows/deploy.yml) | release (via `release.yml`) or manual | Copies a new revision from the live production revision, waits for it to be healthy, then shifts 100% of traffic to it — also your rollback tool |
-| [`release.yml`](.github/workflows/release.yml) | **publishing a GitHub Release** | **The whole release.** Sets every version file to the tag, lands that on `main` as a commit authored by you, re-points the tag at it — then runs **test -> package -> deploy production (gated)**. Pushes to `main` ship nothing; a bare tag does nothing. See [docs/releasing.md](docs/releasing.md) |
+| Workflow                                             | Trigger                               | What it does                                                                                                                                                                                                                                                                                          |
+| ---------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`lint.yml`](.github/workflows/lint.yml)             | push / PR                             | ESLint for server and client                                                                                                                                                                                                                                                                          |
+| [`ci.yml`](.github/workflows/ci.yml)                 | push / PR / release                   | Type-check + build + backend tests (in-memory MongoDB, **≥90% coverage gate**); posts a **coverage-report comment** on PRs, uploads the `client-dist` artifact, and uploads coverage to Codecov. Reusable — the release pipeline runs it as its test stage                                            |
+| [`pr-preview.yml`](.github/workflows/pr-preview.yml) | PR to `main` (opened/updated/closed)  | Builds the PR image and copies it onto a new **zero-traffic revision of the production app**, with its own public URL and its own throwaway database — then comments the link. Deactivates it when the PR closes. Opt-in (repo variable `PREVIEW_ENABLED=true`); skipped for fork PRs                 |
+| [`package.yml`](.github/workflows/package.yml)       | release / PR preview / manual         | Builds the client + Docker image, pushes it to ACR                                                                                                                                                                                                                                                    |
+| [`deploy.yml`](.github/workflows/deploy.yml)         | release (via `release.yml`) or manual | Copies a new revision from the live production revision, waits for it to be healthy, then shifts 100% of traffic to it — also your rollback tool                                                                                                                                                      |
+| [`release.yml`](.github/workflows/release.yml)       | **publishing a GitHub Release**       | **The whole release.** Sets every version file to the tag, lands that on `main` as a commit authored by you, re-points the tag at it — then runs **test -> package -> deploy production (gated)**. Pushes to `main` ship nothing; a bare tag does nothing. See [docs/releasing.md](docs/releasing.md) |
 
 ### Pull-request lifecycle
 
@@ -326,24 +326,24 @@ All backend configuration is read from the environment in `application/src/confi
 
 ## Documentation
 
-| Document                                                          | What it covers                                                             |
-| ----------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| [docs/architecture.md](docs/architecture.md)                      | How the system fits together: layers, request lifecycle, the simulation engine, data model |
-| [docs/api.md](docs/api.md)                                        | Full HTTP API reference (`/api/*` resources and `/auth/*` endpoints)       |
-| [docs/releasing.md](docs/releasing.md)                            | How a release happens (automatic), how versions are decided, how to roll back |
-| [docs/troubleshooting.md](docs/troubleshooting.md)                | Common failures in dev, CI and production — and their fixes                |
-| [docs/adr/](docs/adr/README.md)                                   | Architecture decision records — *why* the big choices were made            |
-| [docs/use-cases/](docs/use-cases/README.md)                       | Use-case diagrams & descriptions (actors, flows, UML) + requirements       |
-| [application/README.md](application/README.md)                    | Backend package: layout, scripts, configuration                            |
-| [application/client/README.md](application/client/README.md)      | Frontend package: layout, scripts, dev proxy                               |
-| [organizational/deploy/README.md](organizational/deploy/README.md) | Production deployment (Azure Container Apps runbook, CD)                   |
-| [organizational/README.md](organizational/README.md)              | Identity, roles & permissions, admin guide, account lifecycle              |
-| [todo/](todo/README.md)                                           | The backlog — roadmap, planned features, known tech debt                   |
-| [SECURITY.md](SECURITY.md)                                        | Security model and how to report a vulnerability                           |
-| [SUPPORT.md](SUPPORT.md)                                          | Where to ask questions and how to get help                                 |
-| [CONTRIBUTING.md](CONTRIBUTING.md)                                | Development workflow, quality gates, PR conventions                        |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)                          | Community standards for participating in this project                      |
-| [CHANGELOG.md](CHANGELOG.md)                                      | Notable changes per release (your release notes, prepended on publish)    |
+| Document                                                           | What it covers                                                                             |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| [docs/architecture.md](docs/architecture.md)                       | How the system fits together: layers, request lifecycle, the simulation engine, data model |
+| [docs/api.md](docs/api.md)                                         | Full HTTP API reference (`/api/*` resources and `/auth/*` endpoints)                       |
+| [docs/releasing.md](docs/releasing.md)                             | How a release happens (automatic), how versions are decided, how to roll back              |
+| [docs/troubleshooting.md](docs/troubleshooting.md)                 | Common failures in dev, CI and production — and their fixes                                |
+| [docs/adr/](docs/adr/README.md)                                    | Architecture decision records — _why_ the big choices were made                            |
+| [docs/use-cases/](docs/use-cases/README.md)                        | Use-case diagrams & descriptions (actors, flows, UML) + requirements                       |
+| [application/README.md](application/README.md)                     | Backend package: layout, scripts, configuration                                            |
+| [application/client/README.md](application/client/README.md)       | Frontend package: layout, scripts, dev proxy                                               |
+| [organizational/deploy/README.md](organizational/deploy/README.md) | Production deployment (Azure Container Apps runbook, CD)                                   |
+| [organizational/README.md](organizational/README.md)               | Identity, roles & permissions, admin guide, account lifecycle                              |
+| [todo/](todo/README.md)                                            | The backlog — roadmap, planned features, known tech debt                                   |
+| [SECURITY.md](SECURITY.md)                                         | Security model and how to report a vulnerability                                           |
+| [SUPPORT.md](SUPPORT.md)                                           | Where to ask questions and how to get help                                                 |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                                 | Development workflow, quality gates, PR conventions                                        |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)                           | Community standards for participating in this project                                      |
+| [CHANGELOG.md](CHANGELOG.md)                                       | Notable changes per release (your release notes, prepended on publish)                     |
 
 ## Contributing
 

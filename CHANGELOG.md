@@ -54,17 +54,15 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.4.1](https://github.com/Wolfi-OwO/network-visualizer/compare/v2.4.0...v2.4.1) (2026-07-12)
 
-
 ### CI/CD
 
-* restore .github workflows and templates ([#7](https://github.com/Wolfi-OwO/network-visualizer/issues/7)) ([64051a4](https://github.com/Wolfi-OwO/network-visualizer/commit/64051a44f9335510217a5bb92bd83570f0f9368e))
+- restore .github workflows and templates ([#7](https://github.com/Wolfi-OwO/network-visualizer/issues/7)) ([64051a4](https://github.com/Wolfi-OwO/network-visualizer/commit/64051a44f9335510217a5bb92bd83570f0f9368e))
 
 ## [2.4.0](https://github.com/Wolfi-OwO/network-visualizer/compare/v2.3.0...v2.4.0) (2026-07-12)
 
-
 ### Added
 
-* automate releases with release-please and fix version drift ([#5](https://github.com/Wolfi-OwO/network-visualizer/issues/5)) ([b1291c9](https://github.com/Wolfi-OwO/network-visualizer/commit/b1291c929ab1681b4243bfe4dbfea5de0dd0d773))
+- automate releases with release-please and fix version drift ([#5](https://github.com/Wolfi-OwO/network-visualizer/issues/5)) ([b1291c9](https://github.com/Wolfi-OwO/network-visualizer/commit/b1291c929ab1681b4243bfe4dbfea5de0dd0d773))
 
 ## [2.3.0] - 2026-07-11
 
@@ -86,7 +84,7 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   production data. `pr-preview.yml` never touches the ingress traffic split, so a
   preview cannot take production traffic. Revisions are deactivated when the PR is
   merged or closed.
-- Both workflows copy from *the revision serving 100% of traffic*, never from
+- Both workflows copy from _the revision serving 100% of traffic_, never from
   `latest` — otherwise a preview's env overrides would be inherited by the next
   production release and point production at a throwaway PR database.
 - `deploy.yml` sets `MONGODB_CONNECTION_STRING` explicitly, fixing production
@@ -160,7 +158,7 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **Renamed the project to *network-visualizer*** — repository URLs updated
+- **Renamed the project to _network-visualizer_** — repository URLs updated
   across configuration and docs.
 - Development scripts switched to **`tsx`**, with `ts-node` ESM loader
   registration for the demo-data seeder.
@@ -225,7 +223,7 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.0.0] - 2026-07-01
 
 Initial release of **NetViz — Network Visualizer & Simulator**: design,
-visualize and *simulate* enterprise networks in the browser.
+visualize and _simulate_ enterprise networks in the browser.
 
 ### Added
 
