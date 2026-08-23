@@ -1,3 +1,9 @@
+## [v2.5.2](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.5.2) — 2026-08-23
+
+Legal compliance: PRIVACY, IMPRESSUM and TERMS_OF_USE documents, footer links, GDPR endpoints, and cookie consent.
+
+Publishing this release triggers the standard pipeline: version sync onto main, full test suite, image package, and the gated production rollout.
+
 ## [v2.5.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.5.1) — 2026-08-03
 
 Accessibility and a few polish fixes found during a full audit of the client:
