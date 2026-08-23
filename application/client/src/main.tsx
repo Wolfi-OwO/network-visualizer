@@ -6,6 +6,7 @@ import { router } from './router.tsx'
 import { ToastProvider } from './context/toast-context.tsx'
 import { AuthProvider } from './context/auth-context.tsx'
 import HttpErrorGate from './components/core/http-error-gate.tsx'
+import ConsentBanner from './components/core/consent-banner.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,6 +14,7 @@ createRoot(document.getElementById('root')!).render(
       <ToastProvider>
         <RouterProvider router={router} />
         <HttpErrorGate />
+        <ConsentBanner />
       </ToastProvider>
     </AuthProvider>
   </StrictMode>,

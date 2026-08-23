@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { TopologyModel } from './models/topology.model.js';
+import { TopologyVersionModel } from './models/topology-version.model.js';
 import { buildDemoTopology } from './seed.js';
 import type { NetworkTopology, NetworkNode, NetworkEdge } from '../types/index.js';
 
@@ -74,6 +75,17 @@ export async function updateTopology(
 export async function deleteTopology(id: string, ownerId: string): Promise<boolean> {
   const res = await TopologyModel.deleteOne({ id, ownerId });
   return res.deletedCount > 0;
+}
+
+/**
+ * Remove every topology and version snapshot an owner has, in one go —
+ * account deletion (Art. 17 DSGVO), not the single-topology delete above.
+ */
+export async function deleteAllTopologies(ownerId: string): Promise<void> {
+  await Promise.all([
+    TopologyModel.deleteMany({ ownerId }),
+    TopologyVersionModel.deleteMany({ ownerId }),
+  ]);
 }
 
 // ── Nodes ─────────────────────────────────────────────────────────────────────

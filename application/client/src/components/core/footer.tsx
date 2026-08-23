@@ -36,8 +36,35 @@ export default function Footer() {
         </span>
       </a>
 
-      {/* Right — links */}
+      {/* Right — links. Privacy/Impressum/Terms point at the repo's own
+          markdown files (rendered by GitHub) rather than duplicating their
+          content into the SPA build — see PRIVACY.md, IMPRESSUM.md,
+          TERMS_OF_USE.md at the repo root. */}
       <nav className="flex items-center gap-4 font-medium text-[var(--text-secondary)] whitespace-nowrap">
+        <a
+          href={`${appConfig.repoUrl}/blob/main/PRIVACY.md`}
+          target="_blank"
+          rel="noreferrer"
+          className="hover:text-[var(--text-primary)] transition-colors"
+        >
+          Privacy Policy
+        </a>
+        <a
+          href={`${appConfig.repoUrl}/blob/main/IMPRESSUM.md`}
+          target="_blank"
+          rel="noreferrer"
+          className="hover:text-[var(--text-primary)] transition-colors"
+        >
+          Impressum
+        </a>
+        <a
+          href={`${appConfig.repoUrl}/blob/main/TERMS_OF_USE.md`}
+          target="_blank"
+          rel="noreferrer"
+          className="hover:text-[var(--text-primary)] transition-colors"
+        >
+          Terms of Use
+        </a>
         <a
           href={appConfig.repoUrl}
           target="_blank"

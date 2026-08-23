@@ -56,7 +56,7 @@ NetViz ist unter der **MIT License** veröffentlicht. Siehe LICENSE-Datei im Rep
 
 ## Datenschutz
 
-Siehe Datenschutzerklärung ([/privacy](/privacy)) und Allgemeine Geschäftsbedingungen ([/terms](/terms)).
+Siehe Datenschutzerklärung ([PRIVACY.md](PRIVACY.md)) und Allgemeine Geschäftsbedingungen ([TERMS_OF_USE.md](TERMS_OF_USE.md)).
 
 ---
 
