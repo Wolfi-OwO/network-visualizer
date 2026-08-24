@@ -43,12 +43,8 @@ Diese Datenschutzerklärung erklärt, wie NetViz („die Anwendung") personenbez
 - **Profilbild-URL** (falls vorhanden)
 - **Anzeigename**
 
-#### Verbindungsdaten
+#### Sitzungsdaten
 
-- **Login-Zeitpunkte** (Timestamps)
-- **Letzte Aktivität** (Timestamp)
-- **IP-Adressen** (gekürzt, letzte Oktette entfernt)
-- **User Agent** (Browser-Kennung)
 - **Session-Cookies** (JWT-Tokens in httpOnly)
 
 #### Netzwerk-Topologien (Nutzer-erstellt)
@@ -75,7 +71,7 @@ Diese Datenschutzerklärung erklärt, wie NetViz („die Anwendung") personenbez
 | Datenart            | Rechtsgrundlage      | Erklärung                                 |
 | ------------------- | -------------------- | ----------------------------------------- |
 | Kontodaten (OAuth)  | Art. 6 Abs. 1 lit. a | Einwilligung bei OAuth Sign-In            |
-| Verbindungsdaten    | Art. 6 Abs. 1 lit. b | Erforderlich zur Service-Bereitstellung   |
+| Sitzungsdaten       | Art. 6 Abs. 1 lit. b | Erforderlich zur Service-Bereitstellung   |
 | Netzwerk-Topologien | Art. 6 Abs. 1 lit. b | Nutzerdaten für den Service               |
 | Audit-Logs          | Art. 6 Abs. 1 lit. c | Rechtliche Compliance und Fraud-Detection |
 | Google Analytics    | Art. 6 Abs. 1 lit. a | Explizite Cookie-Zustimmung erforderlich  |
@@ -117,6 +113,8 @@ Diese Datenschutzerklärung erklärt, wie NetViz („die Anwendung") personenbez
 
 ## 7. Betroffenenrechte (Art. 12–22 DSGVO)
 
+Ein Teil dieser Rechte lässt sich bereits selbst ausüben, ohne Anfrage per Email: die API stellt die Endpunkte `GET /api/me/export` (Datenexport) und `DELETE /api/me` (Kontolöschung) bereit. Diese sind derzeit nur über die API erreichbar — es gibt noch keine Schaltfläche oder Einstellungsseite in der Benutzeroberfläche dafür. Alternativ können Sie Ihre Rechte weiterhin per Email geltend machen.
+
 ### Recht auf Auskunft (Art. 15)
 
 - Anfrage an: [koflerphillip@outlook.com](mailto:koflerphillip@outlook.com)
@@ -125,14 +123,14 @@ Diese Datenschutzerklärung erklärt, wie NetViz („die Anwendung") personenbez
 
 ### Recht auf Löschung (Art. 17)
 
-- Vollständige Löschung Ihres Kontos und der Daten
-- Audit-Logs werden 90 Tage aufbewahrt, dann gelöscht
+- Selbstständig über `DELETE /api/me` oder per Anfrage an obiger Email-Adresse
+- Löschung Ihres Kontos und aller Ihrer Netzwerk-Topologien erfolgt sofort, ohne Wartezeit
+- Audit-Logs zu Ihrem Konto werden unabhängig davon 90 Tage aufbewahrt, dann automatisch gelöscht
 - Backups: Nach 30 Tagen entfernt
 
 ### Recht auf Datenportabilität (Art. 20)
 
-- Export aller Daten als JSON
-- Anfrage an obiger Email-Adresse
+- Selbstständig über `GET /api/me/export` (JSON-Download) oder per Anfrage an obiger Email-Adresse
 
 ### Recht auf Beschwerde (Art. 77)
 

@@ -11,3 +11,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// The legal documents (PRIVACY.md, IMPRESSUM.md, TERMS_OF_USE.md) are converted
+// to HTML at build time and exposed as virtual modules — see build/markdown.js.
+declare module 'virtual:legal/*' {
+  export const title: string
+  export const html: string
+}

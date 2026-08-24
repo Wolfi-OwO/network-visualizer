@@ -67,7 +67,7 @@ Der Service wird ohne Verfügbarkeitszusage bereitgestellt. Wartungsarbeiten kö
 
 ## 7. Konto-Löschung
 
-Sie können Ihr Konto jederzeit löschen. Nach 90 Tagen werden alle Daten permanent gelöscht.
+Sie können Ihr Konto jederzeit löschen. Die Löschung Ihres Kontos und aller Ihrer Netzwerk-Topologien erfolgt sofort und endgültig — es gibt keine Wartezeit. Ausgenommen sind Audit-Log-Einträge zu Ihrem Konto, die aus Compliance-Gründen unabhängig davon 90 Tage aufbewahrt und danach automatisch gelöscht werden (siehe Datenschutzerklärung).
 
 Der Betreiber kann Konten sperren bei:
 

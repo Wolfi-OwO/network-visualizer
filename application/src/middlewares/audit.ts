@@ -14,7 +14,6 @@ export function audit(req: Request, res: Response, next: NextFunction): void {
     AuditModel.create({
       id: uuidv4(),
       userId: req.user.id,
-      userEmail: req.user.email,
       action: `${req.method} ${req.baseUrl}${req.path}`,
       method: req.method,
       path: `${req.baseUrl}${req.path}`,

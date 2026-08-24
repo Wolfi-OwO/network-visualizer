@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import { getUserById, deleteUser } from '../services/auth-service.js';
-import { getAllTopologies, deleteAllTopologies } from '../db/network-service.js';
+import { getUserById, eraseUserAndOwnedData } from '../services/auth-service.js';
+import { getAllTopologies } from '../db/network-service.js';
 import { AuditModel } from '../db/models/audit.model.js';
 import { SESSION_COOKIE } from '../lib/jwt.js';
 import { NotFoundError, UnauthorizedError } from '../lib/errors.js';
@@ -39,16 +39,14 @@ export async function exportMe(req: Request, res: Response): Promise<void> {
 // DELETE /api/me — permanently remove this account and everything it owns
 // (Art. 17 DSGVO). Refuses if this is the last admin (see auth-service's
 // deleteUser) so the request 400s rather than locking the instance out.
+// The erasure sequence itself (ordering, audit-entry policy) lives in
+// auth-service's eraseUserAndOwnedData — shared with the admin-initiated
+// deletion path (`DELETE /api/users/:id`) so both stay in sync.
 export async function deleteMe(req: Request, res: Response): Promise<void> {
   if (!req.user) throw new UnauthorizedError('Not signed in');
   const userId = req.user.id;
 
-  // deleteUser first: it refuses to remove the last admin. Running it before
-  // touching topologies means that refusal leaves the account exactly as it
-  // was — no data lost for a deletion that didn't actually happen. Deleting
-  // topologies first would risk the opposite: data gone, account still there.
-  await deleteUser(userId);
-  await deleteAllTopologies(userId);
+  await eraseUserAndOwnedData(userId);
 
   // Stateless JWT session: there is no server-side row to revoke, only the
   // cookie to stop honouring. OAuth access/refresh tokens are never persisted

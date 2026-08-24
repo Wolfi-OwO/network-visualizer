@@ -5,6 +5,8 @@
 **Repository:** github.com/Wolfi-OwO/network-visualizer  
 **Status:** Active development with compliance gaps
 
+> **Hinweis (Planungsdokument, nicht aktueller Stand):** Dieses Dokument wurde am 2026-08-23 zusammen mit den Legal-Dokumenten (Commit `c6269b7`) als Planungs- und Aufgabenliste erstellt. Es beschreibt den Zielzustand zum Zeitpunkt der Erstellung, nicht zwingend den heutigen Implementierungsstand. Die hier aufgeführten Lücken wurden später im Rahmen von [Issue #10](https://github.com/Wolfi-OwO/network-visualizer/issues/10) katalogisiert. Einzelne als „❌ Missing" markierte Punkte wurden inzwischen umgesetzt (u. a. Legal-Dokumente `PRIVACY.md`, `TERMS_OF_USE.md`, `IMPRESSUM.md` sowie die Self-Service-Endpunkte `GET /api/me/export` und `DELETE /api/me`) — siehe die genannten Dateien und den Quellcode für den tatsächlichen Stand.
+
 ---
 
 ## Executive Summary

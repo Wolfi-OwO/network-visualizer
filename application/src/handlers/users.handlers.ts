@@ -1,5 +1,11 @@
 import type { Request, Response } from 'express';
-import { listUsers, setUserRole, deleteUser, isRole, ROLES } from '../services/auth-service.js';
+import {
+  listUsers,
+  setUserRole,
+  eraseUserAndOwnedData,
+  isRole,
+  ROLES,
+} from '../services/auth-service.js';
 import { BadRequestError } from '../lib/errors.js';
 import { withLinks } from '../lib/hateoas.js';
 
@@ -19,8 +25,11 @@ export async function patchUser(req: Request, res: Response): Promise<void> {
   res.json(withLinks(user as object, { self: { href: `/api/users/${user.id}` } }));
 }
 
-// DELETE /api/users/:id — remove an account (admin only).
+// DELETE /api/users/:id — remove an account and everything it owns (admin
+// only; Art. 17 DSGVO also applies to admin-initiated erasure). Shares
+// eraseUserAndOwnedData with self-service DELETE /api/me — this used to only
+// call deleteUser and silently orphaned the removed account's topologies.
 export async function removeUser(req: Request, res: Response): Promise<void> {
-  await deleteUser(req.params.id);
+  await eraseUserAndOwnedData(req.params.id);
   res.status(204).end();
 }

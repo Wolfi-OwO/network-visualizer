@@ -1,5 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+// @ts-expect-error -- plain-JS build helper, no type declarations needed
+import { legalDocumentsPlugin } from './build/markdown.js'
 import { execSync } from 'node:child_process'
 
 // In dev (and any non-CI build) expose the current commit hash so the footer can
@@ -17,7 +19,7 @@ if (!process.env.VITE_APP_REVISION) {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), legalDocumentsPlugin()],
   server: {
     port: 5173,
     proxy: {

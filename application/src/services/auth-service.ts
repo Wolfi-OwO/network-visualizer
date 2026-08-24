@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { UserModel } from '../db/models/user.model.js';
+import { deleteAllTopologies } from '../db/network-service.js';
 import { config } from '../config/index.js';
 import { BadRequestError, NotFoundError } from '../lib/errors.js';
 
@@ -89,6 +90,33 @@ export async function deleteUser(id: string): Promise<void> {
     throw new BadRequestError('Cannot delete the last administrator — promote another admin first');
   }
   await UserModel.deleteOne({ id });
+}
+
+/**
+ * Full account erasure (Art. 17 DSGVO): the account plus everything it owns.
+ * Shared by self-service (`DELETE /api/me`) and admin-initiated deletion
+ * (`DELETE /api/users/:id`) so the two paths cannot drift apart the way they
+ * did before this existed — admin deletion only ever removed the `User` doc
+ * and silently orphaned that user's topologies.
+ *
+ * deleteUser must run first: it is the step that can refuse (last-admin
+ * guard). Running it before touching topologies means a refusal leaves the
+ * account exactly as it was — no data lost for a deletion that didn't
+ * actually happen. Deleting topologies first would risk the opposite: data
+ * gone, account still there.
+ *
+ * Audit entries for this user are deliberately NOT purged here. They are a
+ * security/abuse trail rather than data the user provided for a service they
+ * are now leaving, and they are already time-boxed by the TTL index on
+ * AuditModel (`config.auditRetentionDays`, 90 days by default) — a
+ * proportionate Art. 6(1)(f) basis for retention. `AuditEntry.userEmail` was
+ * dropped separately (see audit.model.ts) because `userId` alone identifies
+ * the actor; keeping a plaintext email around for up to 90 days past erasure
+ * served no purpose Art. 5(1)(c) minimisation would accept.
+ */
+export async function eraseUserAndOwnedData(id: string): Promise<void> {
+  await deleteUser(id);
+  await deleteAllTopologies(id);
 }
 
 // ── OAuth authorization-code -> profile ───────────────────────────────────────

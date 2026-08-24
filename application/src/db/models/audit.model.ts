@@ -5,8 +5,10 @@ import { config } from '../../config/index.js';
 const auditSchema = new Schema(
   {
     id: { type: String, required: true, unique: true },
+    // No userEmail: userId already identifies the actor, and retaining a
+    // plaintext email for up to 90 days past account erasure (see
+    // auth-service's eraseUserAndOwnedData) fails Art. 5(1)(c) minimisation.
     userId: { type: String, required: true, index: true },
-    userEmail: { type: String, required: true },
     action: { type: String, required: true }, // e.g. "create network", "delete node"
     method: { type: String, required: true },
     path: { type: String, required: true },

@@ -1,4 +1,5 @@
 import { Code2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { appConfig } from '../../config/index.ts'
 
 export default function Footer() {
@@ -36,35 +37,24 @@ export default function Footer() {
         </span>
       </a>
 
-      {/* Right — links. Privacy/Impressum/Terms point at the repo's own
-          markdown files (rendered by GitHub) rather than duplicating their
-          content into the SPA build — see PRIVACY.md, IMPRESSUM.md,
-          TERMS_OF_USE.md at the repo root. */}
+      {/* Right — links. These used to point at the repo's own markdown files on
+          GitHub, to keep their content out of the SPA build. That made § 5 ECG
+          compliance depend on a third party: the information has to be directly
+          and permanently available *on the service*, and off-site links break
+          the moment the repo goes private or GitHub is down. They are now in-app
+          routes instead. The original concern still holds, so the documents are
+          converted from the same markdown at build time and lazy-loaded per
+          route — see build/markdown.js — rather than inlined into the bundle. */}
       <nav className="flex items-center gap-4 font-medium text-[var(--text-secondary)] whitespace-nowrap">
-        <a
-          href={`${appConfig.repoUrl}/blob/main/PRIVACY.md`}
-          target="_blank"
-          rel="noreferrer"
-          className="hover:text-[var(--text-primary)] transition-colors"
-        >
+        <Link to="/privacy" className="hover:text-[var(--text-primary)] transition-colors">
           Privacy Policy
-        </a>
-        <a
-          href={`${appConfig.repoUrl}/blob/main/IMPRESSUM.md`}
-          target="_blank"
-          rel="noreferrer"
-          className="hover:text-[var(--text-primary)] transition-colors"
-        >
+        </Link>
+        <Link to="/impressum" className="hover:text-[var(--text-primary)] transition-colors">
           Impressum
-        </a>
-        <a
-          href={`${appConfig.repoUrl}/blob/main/TERMS_OF_USE.md`}
-          target="_blank"
-          rel="noreferrer"
-          className="hover:text-[var(--text-primary)] transition-colors"
-        >
+        </Link>
+        <Link to="/terms" className="hover:text-[var(--text-primary)] transition-colors">
           Terms of Use
-        </a>
+        </Link>
         <a
           href={appConfig.repoUrl}
           target="_blank"
