@@ -1,21 +1,24 @@
 name: Deploy
 
-# Rolls the production Container App forward to an already-pushed image tag.
+# Rolls netviz forward on the Contabo VPS (167.86.115.79), replacing the old
+# Azure Container Apps rollout. netviz itself moved off Container Apps to
+# `/opt/netviz` on that VPS (docker-compose.prod.yml, netviz.service); this
+# workflow is the CI half of that move — see the migration session for the
+# full picture (Caddy site block, systemd unit, secrets transfer).
 #
-# There is exactly ONE Container App (vars.CONTAINERAPP_NAME, e.g. netviz). It
-# runs in MULTIPLE-revision mode so that PR previews can live alongside
-# production as extra, zero-traffic revisions of the same app (pr-preview.yml).
-# Because of that, traffic is never implicit — this workflow cuts it over
-# explicitly once the new revision is healthy.
+# There is no revision system on the VPS the way Container Apps had one, so
+# this is a plain pull-and-restart against the one compose stack. Health is
+# still checked before the job reports success: a container that starts and
+# then crash-loops must fail this workflow, not report green.
 #
-# The `production` environment scopes RESOURCE_GROUP / CONTAINERAPP_NAME, its
-# OIDC federated credential (subject repo:<owner>/<repo>:environment:production)
-# and its "required reviewers" gate — see deploy/README.md.
+# The `production` environment's "Required reviewers" gate still applies —
+# unchanged from the Azure version — so a deploy still waits for a
+# maintainer's approval before it touches the running container.
 on:
   workflow_call:
     inputs:
       tag:
-        description: "Image tag to deploy (must exist in ACR)"
+        description: "Image tag to deploy (must already be pushed to ACR by package.yml)"
         required: true
         type: string
       environment:
@@ -26,7 +29,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Image tag to deploy (must exist in ACR)"
+        description: "Image tag to deploy (must already be pushed to ACR by package.yml) — dispatch with an older tag to roll back"
         required: true
         type: string
       environment:
@@ -38,260 +41,77 @@ on:
           - production
 
 permissions:
-  id-token: write   # OIDC token for secretless Azure login
   contents: read
 
 jobs:
-  aca:
+  vps:
     name: Roll out to ${{ inputs.environment }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
 
     steps:
-      # Fail fast with a clear message when config is missing
       - name: Check config
         env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
-          ACR_NAME: ${{ vars.ACR_NAME }}
-          CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
-          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           echo "Deploying tag '${{ inputs.tag }}' to environment '${{ inputs.environment }}'"
           miss=0
-          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP ACR_NAME CONTAINERAPP_NAME IMAGE_NAME; do
+          for v in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS; do
             if [ -z "${!v}" ]; then echo "::error::missing: $v"; miss=1; else echo "ok: $v"; fi
           done
-          [ "$miss" = 0 ] || { echo "Azure IDs must be SECRETS; RESOURCE_GROUP/ACR_NAME/CONTAINERAPP_NAME/IMAGE_NAME must be VARIABLES (scope them to the '${{ inputs.environment }}' environment)."; exit 1; }
+          [ "$miss" = 0 ] || { echo "DEPLOY_SSH_KEY/DEPLOY_KNOWN_HOSTS must be SECRETS; DEPLOY_HOST/DEPLOY_USER must be VARIABLES (scope them to the '${{ inputs.environment }}' environment)."; exit 1; }
 
-      - name: Azure Login
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      # --max-inactive-revisions below is a preview flag, and the containerapp
-      # extension baked into the runner's az image predates it: "ERROR:
-      # unrecognized arguments: --max-inactive-revisions 5" on a deploy that
-      # otherwise had nothing wrong with it. `az` does not auto-update
-      # extensions on use, so pin nothing and always take the latest here
-      # rather than caching a version this workflow will silently drift behind
-      # again.
-      - name: Upgrade the containerapp CLI extension
-        run: az extension add --name containerapp --upgrade -y -o none
-
-      - name: Create the new revision
-        id: rev
+      # DEPLOY_KNOWN_HOSTS was captured once, by hand, directly from the VPS's
+      # own sshd (`ssh-keyscan` run against 167.86.115.79 from a session that
+      # was already authenticated to it) — not scanned here in the pipeline.
+      # A keyscan run by the CI job itself would trust whatever answered on
+      # first connect, which is exactly the MITM a host-key check exists to
+      # catch; a value pinned in advance is the only way this check means
+      # anything.
+      - name: Set up SSH
         env:
-          RG: ${{ vars.RESOURCE_GROUP }}
-          APP: ${{ vars.CONTAINERAPP_NAME }}
-          ACR: ${{ vars.ACR_NAME }}
-          IMAGE: ${{ vars.IMAGE_NAME }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # `deploy`'s authorized_keys pins this key to a forced command
+      # (/opt/netviz/deploy.sh, with the `restrict` flag — no port
+      # forwarding, no pty, no arbitrary command) even though the `deploy`
+      # account itself has passwordless sudo. The image tag is passed as the
+      # "ssh command" and read back inside deploy.sh via
+      # $SSH_ORIGINAL_COMMAND — sshd's own mechanism for forced-command
+      # scripts to still take an argument. The script itself updates
+      # IMAGE_TAG in /opt/netviz/.env, pulls, restarts, and polls the
+      # container's health status before exiting; a non-zero exit here means
+      # the deploy failed and this job must not report success.
+      - name: Pull image and restart netviz on the VPS
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
           TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o UserKnownHostsFile=~/.ssh/known_hosts -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" "$TAG"
 
-          # PR previews are zero-traffic revisions of this same app, so the app must
-          # stay in multiple-revision mode and traffic must be shifted by hand.
-          az containerapp revision set-mode -g "$RG" -n "$APP" --mode multiple -o none
-
-          # Cap the revision history. Container Apps has no API to delete a revision —
-          # deactivating one only stops it, it stays in the list forever — so without a
-          # cap the list grows without bound (it reached 20 here, most of them dead PR
-          # previews). This is a config-only change that creates no revision; the cap is
-          # garbage-collected when a revision IS created, which the copy below does, so
-          # every deploy trims the history to the five most recent as a side effect.
-          # Asserted here rather than once by hand so it survives the app being recreated.
-          az containerapp update -g "$RG" -n "$APP" --max-inactive-revisions 5 -o none
-
-          # The production revision is, by definition, the one currently serving all
-          # the traffic. Copy the new revision FROM it rather than from `latest`:
-          # `latest` may well be a PR preview, and copying that would drag the
-          # preview's env overrides (MONGODB_DB_NAME, ALLOW_DEV_LOGIN) into
-          # production — i.e. point production at a throwaway PR database.
-          FROM=$(az containerapp show -g "$RG" -n "$APP" \
-            --query "properties.configuration.ingress.traffic[?weight==\`100\`].revisionName | [0]" -o tsv)
-          if [ -z "$FROM" ] || [ "$FROM" = "null" ]; then
-            echo "::error::No single revision is serving 100% of traffic — refusing to guess which one is production."
-            exit 1
-          fi
-          echo "Copying from production revision: $FROM"
-
-          # Deterministic, DNS-safe revision suffix from the tag, so a revision says
-          # which version it runs: `netviz--v2-4-3-7`.
-          #
-          # The trailing number is GITHUB_RUN_NUMBER, not GITHUB_RUN_ID. Both make a
-          # re-deploy of the same tag (a rollback) unique, so it never collides with the
-          # revision that tag already has — but a run ID is an 11-digit account-wide
-          # counter that pushed the useful part of the name past where the portal
-          # truncates it, leaving a column of `netviz--v2-4-1-…`. The run number is
-          # per-workflow and small, so the version stays readable.
-          BASE=$(echo "$TAG" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/-\+/-/g; s/^-//; s/-$//')
-          SUFFIX=$(echo "${BASE}-${GITHUB_RUN_NUMBER}" | cut -c1-40 | sed 's/-$//')
-          REV="${APP}--${SUFFIX}"
-
-          # MONGODB_CONNECTION_STRING is pinned explicitly: the app was renamed off
-          # the old MONGO_URI variable, so relying on the inherited template alone
-          # would leave a new revision on the localhost fallback.
-          #
-          # MONGODB_DB_NAME and ALLOW_DEV_LOGIN are pinned for a harder reason: copying
-          # FROM production is only safe while production is clean, and once it isn't,
-          # the copy launders the damage forward forever. It already happened — the
-          # v2.4.1 deploy copied from a PR-8 preview and production has been serving
-          # from the `netviz-pr-8` database, with the password-less dev login enabled,
-          # ever since. Every later release would have inherited that, because each one
-          # copies from the revision the last one left behind.
-          #
-          # So production's identity is asserted here, not inherited: no DB override
-          # (use the database named in the connection string, which is what production
-          # means) and no dev login. A preview's overrides now die with the preview.
-          #
-          # --min-replicas 0 buys idle cost at the price of a cold start: when nothing
-          # has hit the app for a while it holds no replica at all, and the next visitor
-          # waits for a container to come up. That is a deliberate trade for this app.
-          # It also fixes what made it worth changing: scale is baked into a revision's
-          # template and cannot be altered afterwards, so a revision created with
-          # --min-replicas 1 keeps a replica alive FOREVER, including after it is
-          # superseded and retained purely as a rollback target at zero traffic. With 0,
-          # the retired revision costs nothing while staying one command from a rollback.
-          az containerapp revision copy -g "$RG" -n "$APP" \
-            --from-revision "$FROM" \
-            --image "${ACR}.azurecr.io/${IMAGE}:${TAG}" \
-            --revision-suffix "$SUFFIX" \
-            --set-env-vars MONGODB_CONNECTION_STRING=secretref:mongo-uri ALLOW_DEV_LOGIN=false \
-            --remove-env-vars MONGODB_DB_NAME \
-            --min-replicas 0 --max-replicas 3 -o none
-
-          echo "from=$FROM" >> "$GITHUB_OUTPUT"
-          echo "rev=$REV"   >> "$GITHUB_OUTPUT"
-
-      # Never send users at a revision that failed to boot.
-      - name: Wait for the revision to be healthy
-        env:
-          RG: ${{ vars.RESOURCE_GROUP }}
-          APP: ${{ vars.CONTAINERAPP_NAME }}
-          REV: ${{ steps.rev.outputs.rev }}
+      - name: Summary
+        if: success()
         run: |
-          set -euo pipefail
-
-          # Since the revision is created with --min-replicas 0, an idle one holds no
-          # replica and reports runningState=ScaledToZero. Waiting for "Running" would
-          # therefore hang until it timed out and then fail a revision that is perfectly
-          # fine. Accepting ScaledToZero as healthy would be worse: nothing would have
-          # proven the container can boot at all, which is the one thing this gate is
-          # here to prove before we hand it production traffic.
-          #
-          # So ask the revision to prove it, over its own FQDN. The request wakes it from
-          # zero and only succeeds if the container starts AND serves HTTP — a stronger
-          # guarantee than runningState ever gave us. The revision FQDN is addressable at
-          # 0% traffic, so none of this is visible to users on the production URL.
-          FQDN=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" \
-            --query properties.fqdn -o tsv)
-          echo "Probing https://$FQDN (this wakes the revision from zero)"
-
-          for i in $(seq 1 40); do
-            RUNNING=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" \
-              --query properties.runningState -o tsv 2>/dev/null || echo "Unknown")
-
-            # A revision that cannot start says so — no point probing it 40 times.
-            case "$RUNNING" in
-              Failed|Degraded)
-                echo "::error::Revision $REV failed to start — traffic NOT shifted; production is untouched."
-                az containerapp logs show -g "$RG" -n "$APP" --revision "$REV" --tail 50 --type console || true
-                exit 1 ;;
-            esac
-
-            CODE=$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 20 "https://$FQDN/" 2>/dev/null || echo "000")
-            echo "[$i/40] runningState=$RUNNING probe=$CODE"
-            if [ "$CODE" -ge 200 ] && [ "$CODE" -lt 400 ]; then
-              echo "Revision $REV served HTTP $CODE — healthy."
-              exit 0
-            fi
-            sleep 10
-          done
-
-          echo "::error::Revision $REV never served a successful response — traffic NOT shifted; production is untouched."
-          az containerapp logs show -g "$RG" -n "$APP" --revision "$REV" --tail 50 --type console || true
-          exit 1
-
-      - name: Shift 100% of traffic to the new revision
-        env:
-          RG: ${{ vars.RESOURCE_GROUP }}
-          APP: ${{ vars.CONTAINERAPP_NAME }}
-          REV: ${{ steps.rev.outputs.rev }}
-          FROM: ${{ steps.rev.outputs.from }}
-        run: |
-          set -euo pipefail
-
-          # Give the new revision everything and explicitly zero whatever holds
-          # traffic today, so the weights sum to 100 regardless of whether the CLI
-          # merges into or replaces the existing traffic block.
-          WEIGHTS=("${REV}=100")
-          for R in $(az containerapp show -g "$RG" -n "$APP" \
-              --query "properties.configuration.ingress.traffic[?weight > \`0\`].revisionName" -o tsv); do
-            [ "$R" = "$REV" ] || WEIGHTS+=("${R}=0")
-          done
-          az containerapp ingress traffic set -g "$RG" -n "$APP" --revision-weight "${WEIGHTS[@]}" -o none
-
-          FQDN=$(az containerapp show -g "$RG" -n "$APP" \
-            --query properties.configuration.ingress.fqdn -o tsv)
-          echo "Deployed '${{ inputs.tag }}' as revision '$REV' — 100% traffic at https://$FQDN"
           {
             echo "### Deployed to ${{ inputs.environment }}"
             echo ""
             echo "| | |"
             echo "|---|---|"
             echo "| Tag | \`${{ inputs.tag }}\` |"
-            echo "| Revision | \`$REV\` |"
-            echo "| URL | https://$FQDN |"
-            echo "| Rolled back from | \`$FROM\` (kept active for rollback) |"
+            echo "| Host | \`${{ vars.DEPLOY_HOST }}\` (systemd unit: netviz.service) |"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Retire superseded production revisions
-        env:
-          RG: ${{ vars.RESOURCE_GROUP }}
-          APP: ${{ vars.CONTAINERAPP_NAME }}
-          REV: ${{ steps.rev.outputs.rev }}
-          FROM: ${{ steps.rev.outputs.from }}
-        run: |
-          set -euo pipefail
-          # Keep the new revision and the one it replaced (a one-command rollback:
-          # `az containerapp ingress traffic set --revision-weight <old>=100`).
-          # PR-preview revisions belong to pr-preview.yml and are never touched here.
-          for OLD in $(az containerapp revision list -g "$RG" -n "$APP" \
-              --query "[?properties.active].name" -o tsv); do
-            case "$OLD" in
-              "$REV"|"$FROM") continue ;;
-              "${APP}--pr-"*)  continue ;;
-            esac
-            echo "Deactivating superseded production revision $OLD"
-            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$OLD" -o none || true
-          done
-
-          # A rollback target is only worth keeping if it is free to keep.
-          #
-          # Scale is immutable once a revision exists, so a revision created with
-          # minReplicas>0 holds a replica for the rest of its life — including now,
-          # retired behind 0% traffic, serving nobody. Retaining it as a rollback
-          # target means paying for an idle container indefinitely. That is the whole
-          # bug this pipeline was changed to stop: netviz ran a replica 24/7 for two
-          # days at zero requests because the revision serving production had been
-          # born with minReplicas=1 and could never be talked down.
-          #
-          # Revisions this workflow creates are born with minReplicas=0 and cost nothing
-          # while retired, so the common case keeps its rollback. Anything older that
-          # cannot scale to zero is dropped rather than subsidised: rolling back to it
-          # is still one `workflow_dispatch` of this file away with its tag, which
-          # rebuilds it as a revision that CAN scale to zero — and, unlike the retained
-          # revision, with production's env asserted rather than whatever it was carrying.
-          MIN=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$FROM" \
-            --query properties.template.scale.minReplicas -o tsv 2>/dev/null || echo 0)
-          if [ "${MIN:-0}" -gt 0 ]; then
-            echo "::warning::Rollback target $FROM was created with minReplicas=${MIN} and would hold a replica forever at 0% traffic. Deactivating it; roll back by dispatching this workflow with its tag instead."
-            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$FROM" -o none || true
-          else
-            echo "Keeping $FROM as a rollback target (minReplicas=0 — costs nothing while idle)."
-          fi

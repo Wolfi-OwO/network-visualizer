@@ -1,0 +1,64 @@
+# Production stack for the Contabo VPS (167.86.115.79), joining the same
+# `edge-net` network Caddy already uses to reach the portfolio and preussen
+# stacks (portfolio-webpage/application/docker-compose.prod.yaml,
+# Preussenbot/docker-compose.prod.yml). Run with:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# ── How this differs from docker-compose.yml (local dev) ────────────────────
+#   * No `mongo` service. Production talks to the same Atlas cluster the
+#     Azure Container App used (MONGODB_CONNECTION_STRING in .env, pulled
+#     from the `mongo-uri` Container App secret) — a Mongo container here
+#     would also blow the VPS's shared budget (4 vCPU / 8 GB split with
+#     portfolio's 1.5 vCPU/1664 MiB and preussen's 1.0 vCPU/1024 MiB).
+#   * No published host port anywhere. /etc/docker/daemon.json on this VPS
+#     sets `"ip": "127.0.0.1"` because a bare `-p 80:80` bypasses ufw
+#     entirely (measured from outside — see docs/MIGRATION_CONTABO.md in the
+#     portfolio-webpage repo). Caddy is the one process on the box allowed to
+#     publish 0.0.0.0 ports; this service is reachable only as `netviz:8080`
+#     on `edge-net`.
+#   * Service key is `netviz`, not `web`/`app`. Both existing stacks on this
+#     host once used a service named `web`; joining them to the shared
+#     `edge-net` network made that name resolve to whichever container
+#     registered it last, and Caddy silently proxied every portfolio
+#     hostname to the preussen dashboard for a while (full incident in the
+#     `dashboard` service comment in Preussenbot/docker-compose.prod.yml). A
+#     unique name sidesteps the alias collision instead of relying on nobody
+#     repeating it.
+#   * Image is pulled from the same private ACR (globalcr01) the Azure
+#     Container App already used — no build context ships to the VPS, only
+#     this compose file plus .env (see /etc/systemd/system/netviz.service
+#     and .github/workflows/deploy.yml).
+#   * The image's own Dockerfile already declares a HEALTHCHECK against
+#     /api/live with the same interval/timeout/retries this file would
+#     otherwise repeat, so it is not redeclared here — Docker uses the
+#     image's HEALTHCHECK automatically when a service doesn't override it.
+
+services:
+  netviz:
+    image: ${ACR_SERVER:-globalcr01.azurecr.io}/network-visualizer:${IMAGE_TAG:-v2.5.2}
+    restart: unless-stopped
+    env_file:
+      - .env
+    # MEASURED: `docker stats --no-stream netviz` on the VPS, 2026-09-05 —
+    # once right after boot (idle, DB connected, no requests yet) and again
+    # after firing 30 concurrent requests at /api/live: 37.1 MiB and 37.2 MiB
+    # RSS, 1.35% and 0.44% of one core. Azure's 1Gi/0.5-CPU was its
+    # scheduler's reservation ceiling, never an observed peak — this is a
+    # low-traffic personal app serving one static SPA bundle plus a thin
+    # Express/Mongoose API. 128m is ~3.5x the measured figure (the same
+    # margin portfolio/preussen use over their own measured peaks), covering
+    # demo-data loads and concurrent topology renders this quick sample
+    # never exercised. Re-measure with the same command after a week of real
+    # traffic and raise it only if it is ever approached.
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.3
+    networks:
+      - edge-net
+
+networks:
+  # Created once on the host with `docker network create edge-net` — not
+  # managed by this compose project, so `docker compose down` here never
+  # deletes the network Caddy's own stack still needs.
+  edge-net:
+    external: true
