@@ -46,7 +46,6 @@ on:
 permissions:
   contents: write        # move the tag, land the version bump
   pull-requests: write   # open + merge the version-bump PR
-  id-token: write        # deploy.yml: OIDC login to Azure
 
 concurrency:
   # Two different releases may proceed independently; re-publishing the same tag
@@ -198,12 +197,14 @@ jobs:
       contents: read
 
   # Stage 3 — the go-live gate. The `production` environment's "Required reviewers"
-  # rule makes this job wait for a maintainer's approval. deploy.yml then rolls the
-  # image onto the Container App and shifts 100% of traffic once it reports healthy.
+  # rule makes this job wait for a maintainer's approval. deploy.yml then SSHes
+  # into the VPS and restarts the netviz container on the new tag, polling its
+  # health before reporting success.
   #
-  # Releases are the ONLY thing that moves production traffic; pull requests get
-  # 0%-traffic preview revisions on the same app (see pr-preview.yml). To roll back,
-  # dispatch deploy.yml by hand with an older tag.
+  # Releases are the ONLY thing that touches the production container; pull
+  # requests get their own throwaway container on the VPS preview infrastructure
+  # (see pr-preview.yml), never the production one. To roll back, dispatch
+  # deploy.yml by hand with an older tag.
   deploy-production:
     name: Deploy · production
     needs: [sync-version, package]
@@ -213,5 +214,4 @@ jobs:
       environment: production
     secrets: inherit
     permissions:
-      id-token: write
       contents: read

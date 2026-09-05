@@ -1,31 +1,32 @@
 name: PR · preview
 
-# Per-PR preview on the SAME Container App as production (vars.CONTAINERAPP_NAME,
-# e.g. netviz) — no second app, no extra infrastructure.
+# Per-PR preview on the shared VPS preview infrastructure (167.86.115.79,
+# /opt/previews/ — see docs/PREVIEWS.md in portfolio-webpage), replacing the
+# old Azure Container Apps revision-copy approach. netviz itself moved off
+# Container Apps to /opt/netviz on that same VPS (deploy.yml); this workflow
+# is the PR-preview half of that same move.
 #
-# How a preview stays harmless despite sharing the app:
+# How a preview stays harmless:
 #
-#   * Traffic — the app runs in multiple-revision mode and this workflow NEVER
-#     calls `ingress traffic set`. A preview revision is therefore created with a
-#     traffic weight of 0 and is reachable only through its own revision FQDN
-#     (https://<app>--pr-<n>-<sha>.<region>.azurecontainerapps.io). Production
-#     keeps 100% of the traffic on the app's main URL throughout.
+#   * Isolation — the preview runs as its own container (`preview-netviz-pr<n>`),
+#     never touching the production container or its .env. It reaches its own
+#     small, non-production Mongo instance (`previews-mongo`, no relation to
+#     any production database) with a fresh JWT secret generated for previews
+#     only — see apps/netviz.env on the VPS, never committed here.
 #
-#   * Data — the revision is copied from the production revision, so it inherits
-#     the registry, secrets and OAuth config, but MONGODB_DB_NAME is overridden to
-#     a per-PR database. Same Mongo cluster and same connection secret, different
-#     database: the preview cannot see or touch production data, and it seeds its
-#     own demo topology on first load.
+#   * One preview per PR — /opt/previews/create.sh removes any existing
+#     container for this (app, PR) before starting the new one, so a second
+#     push to the same PR REPLACES the running preview rather than adding a
+#     second one. That guarantee lives in create.sh itself, not in this
+#     workflow, so a cancelled/retried CI run can't leave two containers
+#     answering the same alias.
 #
-#   * Sign-in — the preview's URL is not a registered OAuth redirect URI, so
-#     ALLOW_DEV_LOGIN is switched on for previews to keep them reviewable. That is
-#     safe precisely because the preview database is a throwaway.
+#   * Sign-in — same as before the move: the preview URL is not a registered
+#     OAuth redirect URI, so ALLOW_DEV_LOGIN is on for previews (baked into
+#     apps/netviz.env on the box, not passed from here).
 #
-# Production releases are copied from the production revision too (deploy.yml), so
-# these overrides can never leak back into production.
-#
-# Inert until you set the repo variable PREVIEW_ENABLED=true, and never runs for
-# fork PRs (their token can't read secrets).
+# Inert until you set the repo variable PREVIEW_ENABLED=true, and never runs
+# for fork PRs (their token can't read secrets).
 
 on:
   pull_request:
@@ -34,7 +35,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write        # OIDC login to Azure
   pull-requests: write   # sticky preview comment
 
 concurrency:
@@ -45,29 +45,14 @@ jobs:
   # ── Compute a stable, DNS-safe tag/suffix for this commit ──────────────────
   prep:
     name: Prepare
-    # The release's own version-bump PR gets no preview.
-    #
-    # release.yml opens chore/release-vX.Y.Z and merges it seconds later with --admin.
-    # This workflow needs ~2 minutes to build an image, so the PR is already closed by
-    # the time it creates the revision — and pr-preview-teardown, which fires on close,
-    # has already run and found nothing to delete. The preview then lands orphaned:
-    # active, zero traffic, holding a replica, with no PR left whose closure could ever
-    # reap it. v2.5.0 leaked netviz--pr-19-2cf4ece exactly this way, and every release
-    # would leak one more.
-    #
-    # Racing teardown against an image build is unwinnable, so don't enter the race.
-    # There is nothing to preview anyway: the bump is a mechanical version stamp, and
-    # the code it carries is previewed on the PR that actually changed it.
-    # Dependabot runs get no access to repository secrets (GitHub withholds them
-    # so a malicious dependency can't exfiltrate credentials), so the ACR login
-    # inside package.yml always fails. Skipping the chain here keeps dependency
-    # PRs from carrying a permanent red X for a preview they can never build.
-    #
-    # The dependabot check reads the PR's AUTHOR, not `github.actor`. On this
-    # workflow's events they happen to be the same, but on teardown's `closed`
-    # event `github.actor` is whoever closed the PR — see pr-preview-teardown.yml.
-    # These two conditions have to stay identical, so both use the form that is
-    # correct on both events.
+    # The release's own version-bump PR gets no preview — see the long-form
+    # reasoning in pr-preview-teardown.yml, which must stay identical to this.
+    # In short: release.yml opens and merges chore/release-vX.Y.Z within
+    # seconds, long before this build finishes, so there is no open PR left
+    # for a preview to attach to, and nothing in the bump commit itself is
+    # worth previewing. Dependabot PRs get no secrets at all (GitHub
+    # withholds them from dependency PRs), so the SSH deploy step would fail
+    # every time regardless.
     if: >-
       github.event.action != 'closed' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
@@ -77,10 +62,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.o.outputs.tag }}
+      sha: ${{ steps.o.outputs.sha }}
     steps:
       - id: o
         run: |
           SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "tag=pr-${{ github.event.number }}-$SHA" >> "$GITHUB_OUTPUT"
 
   # ── Build the PR image (unique tag per commit; never moves :latest) ────────
@@ -93,149 +80,93 @@ jobs:
       push_latest: false
     secrets: inherit
 
-  # ── Roll the PR image onto a new zero-traffic revision of the production app ─
+  # ── Tell the VPS to (re)create this PR's preview container ─────────────────
   preview:
-    name: Deploy preview revision
+    name: Deploy preview container
     needs: [prep, package]
     runs-on: ubuntu-latest
-    # The `staging` GitHub environment supplies the OIDC identity (no approval
-    # gate). Its service principal is Contributor on the resource group.
-    environment: staging
     steps:
-      - name: Check Azure config
+      - name: Check config
         env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
-          ACR_NAME: ${{ vars.ACR_NAME }}
-          CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
-          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+          PREVIEW_SSH_KEY: ${{ secrets.PREVIEW_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
         run: |
           miss=0
-          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP ACR_NAME CONTAINERAPP_NAME IMAGE_NAME; do
+          for v in PREVIEW_SSH_KEY DEPLOY_KNOWN_HOSTS DEPLOY_HOST DEPLOY_USER; do
             [ -z "${!v}" ] && { echo "::error::missing: $v"; miss=1; }
           done
-          [ "$miss" = 0 ] || { echo "Set the Azure IDs as SECRETS and RESOURCE_GROUP/ACR_NAME/CONTAINERAPP_NAME/IMAGE_NAME as VARIABLES."; exit 1; }
+          [ "$miss" = 0 ] || { echo "PREVIEW_SSH_KEY/DEPLOY_KNOWN_HOSTS must be SECRETS; DEPLOY_HOST/DEPLOY_USER must be VARIABLES (already set for deploy.yml, reused here — same VPS, same host key)."; exit 1; }
 
-      - name: Azure Login
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Create the preview revision
-        id: rev
+      # Same DEPLOY_KNOWN_HOSTS secret deploy.yml already uses — one host key,
+      # pinned once, reused by every workflow that talks to this VPS. A fresh
+      # keyscan run by the CI job itself would trust whatever answered on
+      # first connect, which is exactly the MITM a host-key check exists to
+      # catch.
+      - name: Set up SSH
         env:
-          RG: ${{ vars.RESOURCE_GROUP }}
-          APP: ${{ vars.CONTAINERAPP_NAME }}
-          ACR: ${{ vars.ACR_NAME }}
-          IMAGE: ${{ vars.IMAGE_NAME }}
-          TAG: ${{ needs.prep.outputs.tag }}
-          PR: ${{ github.event.number }}
-          GH_TOKEN: ${{ github.token }}   # read the PR's state back at the end
+          PREVIEW_SSH_KEY: ${{ secrets.PREVIEW_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$PREVIEW_SSH_KEY" > ~/.ssh/preview_key
+          chmod 600 ~/.ssh/preview_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
-          # Previews only work as extra revisions, which requires multiple-revision
-          # mode. In this mode a new revision starts at weight 0 — it does NOT take
-          # traffic — and this workflow never touches the traffic block.
-          az containerapp revision set-mode -g "$RG" -n "$APP" --mode multiple -o none
-
-          # Copy from the revision serving production, so the preview inherits the
-          # registry, secrets and OAuth config — but NOT another PR's overrides
-          # (which is what copying from `latest` would give us).
-          FROM=$(az containerapp show -g "$RG" -n "$APP" \
-            --query "properties.configuration.ingress.traffic[?weight==\`100\`].revisionName | [0]" -o tsv)
-          if [ -z "$FROM" ] || [ "$FROM" = "null" ]; then
-            echo "::error::No revision is serving 100% of traffic — cannot determine the production baseline."
-            exit 1
-          fi
-
-          REV="${APP}--${TAG}"
-
-          # Re-running the same commit must not fail on a duplicate revision name.
-          if az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" -o none 2>/dev/null; then
-            echo "Revision $REV already exists — reusing it."
-          else
-            # MONGODB_DB_NAME is the isolation boundary: same cluster and secret as
-            # production, its own database. ALLOW_DEV_LOGIN keeps the preview usable
-            # without registering its URL as an OAuth redirect URI.
-            az containerapp revision copy -g "$RG" -n "$APP" \
-              --from-revision "$FROM" \
-              --image "${ACR}.azurecr.io/${IMAGE}:${TAG}" \
-              --revision-suffix "$TAG" \
-              --set-env-vars \
-                  MONGODB_CONNECTION_STRING=secretref:mongo-uri \
-                  "MONGODB_DB_NAME=netviz-pr-${PR}" \
-                  ALLOW_DEV_LOGIN=true \
-              --min-replicas 0 --max-replicas 1 -o none
-          fi
-
-          # Retire this PR's superseded revisions so we don't leave replicas around.
-          for OLD in $(az containerapp revision list -g "$RG" -n "$APP" \
-              --query "[?properties.active && starts_with(name, '${APP}--pr-${PR}-') && name != '${REV}'].name" -o tsv); do
-            echo "Deactivating superseded preview revision $OLD"
-            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$OLD" -o none || true
-          done
-
-          FQDN=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" \
-            --query properties.fqdn -o tsv)
-
-          # Belt and braces: prove we never stole production's traffic.
-          WEIGHT=$(az containerapp show -g "$RG" -n "$APP" \
-            --query "properties.configuration.ingress.traffic[?revisionName=='${REV}'].weight | [0]" -o tsv)
-          if [ -n "$WEIGHT" ] && [ "$WEIGHT" != "0" ] && [ "$WEIGHT" != "null" ]; then
-            echo "::error::Preview revision $REV somehow holds ${WEIGHT}% of production traffic — deactivating it."
-            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$REV" -o none || true
-            exit 1
-          fi
-
-          # Did the PR close while we were building? pr-preview-teardown fires on close
-          # and deactivates whatever previews exist AT THAT MOMENT. A revision created
-          # after it ran is invisible to it, and no second close event is ever coming —
-          # so it would stay active forever, holding a replica, with nothing left to reap
-          # it. Skipping chore/release-* (see the `prep` gate) removes the one branch that
-          # closes this fast by construction, but any PR merged during a build hits the
-          # same race, so clean up after ourselves rather than trusting the timing.
-          STATE=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq .state 2>/dev/null || echo "unknown")
-          if [ "$STATE" = "closed" ]; then
-            echo "::warning::PR #${PR} closed while this preview was building — deactivating $REV instead of orphaning it."
-            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$REV" -o none || true
-            exit 0
-          fi
-
-          echo "rev=$REV" >> "$GITHUB_OUTPUT"
-          echo "url=https://$FQDN" >> "$GITHUB_OUTPUT"
-          echo "Preview: https://$FQDN (0% of production traffic)"
+      # This key's authorized_keys entry carries `command="/opt/previews/run.sh",restrict`
+      # — the box, not this workflow, enforces that only `create`/`destroy` on the
+      # onboarded app whitelist can ever run, regardless of what argv reaches it.
+      # See docs/PREVIEWS.md in portfolio-webpage for the full validation chain.
+      - name: Create/replace the preview on the VPS
+        id: deploy
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          PR: ${{ github.event.number }}
+          SHA: ${{ needs.prep.outputs.sha }}
+          TAG: ${{ needs.prep.outputs.tag }}
+        run: |
+          set -euo pipefail
+          OUT=$(ssh -i ~/.ssh/preview_key -o UserKnownHostsFile=~/.ssh/known_hosts -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" "create netviz ${PR} ${SHA} ${TAG}")
+          echo "$OUT"
+          # create.sh prints the STABLE url first, the pinned (commit-specific) url second.
+          STABLE_URL=$(echo "$OUT" | grep -m1 '^https://')
+          PINNED_URL=$(echo "$OUT" | grep '^https://' | tail -n1)
+          echo "stable_url=$STABLE_URL" >> "$GITHUB_OUTPUT"
+          echo "pinned_url=$PINNED_URL" >> "$GITHUB_OUTPUT"
 
       - name: Comment the preview URL on the PR
         uses: actions/github-script@v9
         env:
-          PREVIEW_URL: ${{ steps.rev.outputs.url }}
-          PREVIEW_REV: ${{ steps.rev.outputs.rev }}
-          PREVIEW_DB: netviz-pr-${{ github.event.number }}
+          STABLE_URL: ${{ steps.deploy.outputs.stable_url }}
+          PINNED_URL: ${{ steps.deploy.outputs.pinned_url }}
+          BASIC_AUTH_PASSWORD: ${{ secrets.PREVIEW_BASIC_AUTH_PASSWORD }}
         with:
           script: |
-            const url = process.env.PREVIEW_URL;
-            const rev = process.env.PREVIEW_REV;
-            const db  = process.env.PREVIEW_DB;
+            const stableUrl = process.env.STABLE_URL;
+            const pinnedUrl = process.env.PINNED_URL;
+            const password = process.env.BASIC_AUTH_PASSWORD;
             const sha = context.payload.pull_request.head.sha.slice(0, 7);
+            const authedStable = stableUrl.replace('https://', `https://preview:${password}@`);
             const marker = '<!-- pr-preview -->';
             const body = [
               marker,
               '## Preview deployment',
               '',
-              `**${url}**`,
+              `**${authedStable}**`,
               '',
-              'A zero-traffic revision of the production Container App, on its own',
-              `throwaway database (\`${db}\`) — it cannot see or change production data,`,
-              'and production keeps serving 100% of traffic on its own URL.',
+              'A throwaway container on its own non-production database — it cannot see or',
+              'change production data. Replaced automatically on every new push to this PR.',
               '',
-              'Dev login is enabled here (the preview URL is not a registered OAuth redirect).',
+              'Basic-auth is baked into the link above (shared, low-value password, keeps',
+              'bots/search off preview URLs — not a production secret).',
               '',
-              `<sub>revision \`${rev}\` · commit ${sha} · scales to zero when idle · torn down when this PR closes</sub>`,
+              `<sub>pinned to this commit: ${pinnedUrl} · commit ${sha} · torn down when this PR closes</sub>`,
             ].join('\n');
 
             const { owner, repo } = context.repo;

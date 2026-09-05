@@ -1,6 +1,6 @@
 name: PR · preview teardown
 
-# Deactivates a PR's preview revisions and deletes its images once the PR closes.
+# Tears down a PR's VPS preview container and registry entry once the PR closes.
 #
 # WHY THIS IS A SEPARATE WORKFLOW, AND WHY pull_request_target
 # This job used to live in pr-preview.yml under `pull_request: types: [closed]`.
@@ -10,7 +10,8 @@ name: PR · preview teardown
 # — the PR's head test-merged into the base. When a PR has a merge CONFLICT that
 # ref cannot be built, so GitHub schedules no run at all. Not a failed run: no run.
 # Close a conflicting PR and the teardown simply never happens, which is exactly
-# how PR #10 and #13 left preview revisions running on the production app.
+# how PR #10 and #13 left preview revisions running back when this pointed at
+# the Azure Container App.
 #
 # `pull_request_target` runs from the BASE branch instead and never needs the merge
 # ref, so it fires on close whether the PR was merged, abandoned, or conflicted.
@@ -18,8 +19,15 @@ name: PR · preview teardown
 # That trigger is normally dangerous, because it hands secrets to a workflow running
 # on a PR-influenced event. It is safe here for one reason, which must stay true:
 # THIS WORKFLOW NEVER CHECKS OUT OR EXECUTES PR CODE. It only reads the PR number
-# from the event payload and issues `az` calls. Do not add actions/checkout of the
-# PR head here, and do not run anything from the PR's tree.
+# from the event payload and issues one SSH command to the VPS's forced-command
+# script. Do not add actions/checkout of the PR head here, and do not run anything
+# from the PR's tree.
+#
+# Belt and braces beyond this workflow: even if a preview is ever missed here
+# (crashed runner, a future gap in this condition), /opt/previews' own
+# `previews-reaper.timer` polls every 15 minutes and tears down any preview
+# whose PR is no longer open (or is older than 7 days regardless) — so a gap
+# here is a 15-minute delay, not a permanent leak.
 
 on:
   pull_request_target:
@@ -28,7 +36,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write # OIDC login to Azure
   pull-requests: write # sticky preview comment
 
 concurrency:
@@ -40,114 +47,55 @@ jobs:
     name: Tear down preview
     # These conditions must stay identical to the `prep` job in pr-preview.yml.
     # Teardown is only meaningful for branches that actually built a preview: on
-    # release and dependabot PRs there is nothing to tear down, yet this job still
-    # logged in to Azure and issued revision/ACR deletes. Whenever a branch is
-    # excluded from building a preview, exclude it here too, or previews leak.
+    # release and dependabot PRs there is nothing to tear down.
     #
     # WHY THE DEPENDABOT CHECK READS THE PR AUTHOR AND NOT github.actor
-    # It used to be `github.actor != 'dependabot[bot]'`, copied verbatim from
-    # pr-preview.yml, where it is correct: those events are raised by the push
-    # that opened or updated the PR, so the actor IS dependabot.
-    #
     # This workflow's event is `closed`, and its actor is whoever CLOSED the PR —
-    # you, merging it. So the check passed on every dependabot PR and teardown ran
-    # on branches that had no preview to tear down, which is precisely what the
-    # comment above says must not happen. Both of the only two runs this workflow
-    # has ever had were dependabot PRs, and both failed.
-    #
-    # `github.event.pull_request.user.login` is the PR's author on both events, so
-    # it is the form that can safely be kept identical between the two files.
+    # you, merging it — not the PR's author. `github.event.pull_request.user.login`
+    # is the PR's author on both this event and pr-preview.yml's, so it is the
+    # form that can safely be kept identical between the two files.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]' &&
       vars.PREVIEW_ENABLED == 'true' &&
       !startsWith(github.head_ref, 'chore/release-')
     runs-on: ubuntu-latest
-    environment: staging
     steps:
-      - name: Check Azure config
+      - name: Check config
         env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
-          CONTAINERAPP_NAME: ${{ vars.CONTAINERAPP_NAME }}
-          ACR_NAME: ${{ vars.ACR_NAME }}
-          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+          PREVIEW_SSH_KEY: ${{ secrets.PREVIEW_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
         run: |
           miss=0
-          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID RESOURCE_GROUP CONTAINERAPP_NAME ACR_NAME IMAGE_NAME; do
+          for v in PREVIEW_SSH_KEY DEPLOY_KNOWN_HOSTS DEPLOY_HOST DEPLOY_USER; do
             [ -z "${!v}" ] && { echo "::error::missing: $v"; miss=1; }
           done
-          [ "$miss" = 0 ] || { echo "Missing Azure config for teardown."; exit 1; }
+          [ "$miss" = 0 ] || { echo "Missing config for teardown."; exit 1; }
 
-      - name: Azure Login
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deactivate this PR's preview revisions
+      - name: Set up SSH
         env:
-          RG: ${{ vars.RESOURCE_GROUP }}
-          APP: ${{ vars.CONTAINERAPP_NAME }}
+          PREVIEW_SSH_KEY: ${{ secrets.PREVIEW_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$PREVIEW_SSH_KEY" > ~/.ssh/preview_key
+          chmod 600 ~/.ssh/preview_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Destroy the preview on the VPS
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
           PR: ${{ github.event.number }}
         run: |
           set -euo pipefail
-          # The name filter (<app>--pr-<n>-*) can only ever match this PR's preview
-          # revisions, never the production one.
-          REVS=$(az containerapp revision list -g "$RG" -n "$APP" \
-            --query "[?properties.active && starts_with(name, '${APP}--pr-${PR}-')].name" -o tsv)
-          if [ -z "$REVS" ]; then
-            echo "No active preview revisions for PR #$PR."
-          fi
-          for r in $REVS; do
-            echo "Deactivating $r"
-            az containerapp revision deactivate -g "$RG" -n "$APP" --revision "$r" -o none || true
-          done
-
-      - name: Delete this PR's preview images from ACR
-        env:
-          ACR: ${{ vars.ACR_NAME }}
-          IMAGE: ${{ vars.IMAGE_NAME }}
-          PR: ${{ github.event.number }}
-        run: |
-          set -euo pipefail
-
-          # Deleting an image is a data-plane call, and the AAD token from azure/login
-          # only carries the scopes the service principal's ACR roles grant it. AcrPush
-          # and AcrPull are not enough: the registry answers "authentication required"
-          # to a delete, which reads like a login failure but is really a missing role.
-          # The identity needs AcrDelete on the registry for the step below to work.
-          TAGS=$(az acr repository show-tags -n "$ACR" --repository "$IMAGE" \
-            --query "[?starts_with(@, 'pr-${PR}-')]" -o tsv 2>/dev/null || true)
-
-          if [ -z "$TAGS" ]; then
-            echo "No images tagged pr-${PR}-* in $IMAGE — nothing to delete."
-            exit 0
-          fi
-
-          for t in $TAGS; do
-            # `az acr repository delete` removes the whole *manifest*, and with it
-            # every tag pointing at that manifest. Two builds of identical content
-            # produce identical digests, so a preview tag can in principle share a
-            # manifest with a release tag — deleting by tag alone could then take a
-            # released image with it. Only delete the manifest when this PR's tags
-            # are the only ones on it; otherwise just drop our tag and leave the
-            # manifest for whoever else is using it.
-            DIGEST=$(az acr repository show -n "$ACR" --image "${IMAGE}:${t}" --query digest -o tsv)
-            OTHERS=$(az acr repository show-tags -n "$ACR" --repository "$IMAGE" --detail \
-              --query "[?digest=='${DIGEST}' && !starts_with(name, 'pr-${PR}-')].name" -o tsv)
-
-            if [ -n "$OTHERS" ]; then
-              echo "Manifest of ${t} is shared with: ${OTHERS//$'\n'/ } — untagging ${t} only."
-              az acr repository untag -n "$ACR" --image "${IMAGE}:${t}" -o none
-            else
-              echo "Deleting ${IMAGE}:${t}"
-              az acr repository delete -n "$ACR" --image "${IMAGE}:${t}" --yes -o none
-            fi
-          done
+          ssh -i ~/.ssh/preview_key -o UserKnownHostsFile=~/.ssh/known_hosts -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" "destroy netviz ${PR}"
 
       - name: Comment the teardown on the PR
         uses: actions/github-script@v9
@@ -160,8 +108,8 @@ jobs:
               '## Preview torn down',
               '',
               merged
-                ? 'This PR was merged — its preview revision has been deactivated.'
-                : 'This PR was closed — its preview revision has been deactivated.',
+                ? 'This PR was merged — its preview container has been removed.'
+                : 'This PR was closed — its preview container has been removed.',
             ].join('\n');
 
             const { owner, repo } = context.repo;
