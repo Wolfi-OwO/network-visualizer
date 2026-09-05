@@ -1,5 +1,5 @@
 // Renders one legal document. The HTML comes from the repo-root markdown file,
-// converted at build time (build/markdown.js), so the .md files stay the single
+// converted at build time (tooling/markdown.js), so the .md files stay the single
 // source of truth and none of this text is duplicated into JSX.
 //
 // dangerouslySetInnerHTML is safe here: the markup is produced from our own

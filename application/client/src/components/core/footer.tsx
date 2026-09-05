@@ -44,7 +44,7 @@ export default function Footer() {
           the moment the repo goes private or GitHub is down. They are now in-app
           routes instead. The original concern still holds, so the documents are
           converted from the same markdown at build time and lazy-loaded per
-          route — see build/markdown.js — rather than inlined into the bundle. */}
+          route — see tooling/markdown.js — rather than inlined into the bundle. */}
       <nav className="flex items-center gap-4 font-medium text-[var(--text-secondary)] whitespace-nowrap">
         <Link to="/privacy" className="hover:text-[var(--text-primary)] transition-colors">
           Privacy Policy
