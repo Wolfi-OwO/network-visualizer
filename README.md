@@ -365,3 +365,5 @@ a public issue.
 ## License
 
 Released under the **MIT License** — see [LICENSE](./LICENSE).
+
+<!-- preview-infra verification PR, safe to close after checking previews work -->
