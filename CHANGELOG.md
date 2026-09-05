@@ -1,3 +1,7 @@
+## [v2.6.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.6.0) — 2026-09-05
+
+Fix the build blocked since 2026-08-24 by committing the missing `tooling/markdown.js` helper vite.config.ts depends on. Migrate deploys off Azure Container Apps to the Contabo VPS (SSH, docker-compose, systemd). Add `/livez`+`/readyz` alongside the existing `/api/live`+`/api/ready` health paths, and make Caddy the single owner of CSP/HSTS/Referrer-Policy/X-Frame-Options/X-Content-Type-Options instead of duplicating them in helmet.
+
 ## [v2.5.2](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.5.2) — 2026-08-23
 
 Legal compliance: PRIVACY, IMPRESSUM and TERMS_OF_USE documents, footer links, GDPR endpoints, and cookie consent.
