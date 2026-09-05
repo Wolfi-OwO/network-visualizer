@@ -35,7 +35,29 @@ app.set('trust proxy', 1);
 
 // Security headers. CSP is left off so the bundled SPA (inline React styles) is
 // not broken; tighten it per deployment if you serve from a fixed origin.
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+//
+// Content-Security-Policy, Strict-Transport-Security, Referrer-Policy,
+// X-Frame-Options and X-Content-Type-Options are also disabled here because
+// Caddy (the only reverse proxy in front of this app, application/../Caddyfile
+// on the VPS) already sets each of them per-site, tuned for this domain's
+// asset origins (Google Fonts, avatar CDNs). Measured with `curl -sI` against
+// the live netviz site: every one of those five came back TWICE, Caddy's
+// value and helmet's default, and a browser resolves two conflicting headers
+// to whichever is more restrictive silently — not a loud failure, just a
+// policy nobody asked for. One owner (the edge) avoids that. Helmet still
+// sets everything it doesn't overlap with Caddy on (COOP, CORP,
+// Origin-Agent-Cluster, X-DNS-Prefetch-Control, X-Download-Options,
+// X-Permitted-Cross-Domain-Policies, X-XSS-Protection) as defense in depth.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    strictTransportSecurity: false,
+    referrerPolicy: false,
+    xFrameOptions: false,
+    xContentTypeOptions: false,
+  }),
+);
 
 app.use(express.static(clientDist));
 

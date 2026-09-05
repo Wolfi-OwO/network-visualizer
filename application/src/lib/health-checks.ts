@@ -41,8 +41,19 @@ export function setupHealthChecks(server: Server): void {
   createTerminus(server, {
     signal: 'SIGINT',
     healthChecks: {
+      // `/api/live` stays: the Dockerfile HEALTHCHECK still targets it.
+      // `/livez`/`/readyz` are the canonical paths shared with the other
+      // two apps behind the same Caddy edge (portfolio, preussen-web), so
+      // one external monitor can probe the same two paths everywhere.
+      // Terminus intercepts these at the raw HTTP server, before Express's
+      // own SPA catch-all (`app.get(/^(?!\/api|\/auth).*/ )` in app.ts) ever
+      // sees the request — that catch-all answers 200 with index.html for
+      // literally any unmatched path, which is exactly the "looks alive,
+      // isn't" failure mode these two paths exist to avoid.
       '/api/ready': onReadinessCheck,
       '/api/live': onLivenessCheck,
+      '/readyz': onReadinessCheck,
+      '/livez': onLivenessCheck,
     },
     beforeShutdown: () => {
       logger.info('Backend - Stopping with grace period of 5 secs');
