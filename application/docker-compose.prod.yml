@@ -14,47 +14,69 @@
 #     sets `"ip": "127.0.0.1"` because a bare `-p 80:80` bypasses ufw
 #     entirely (measured from outside — see docs/MIGRATION_CONTABO.md in the
 #     portfolio-webpage repo). Caddy is the one process on the box allowed to
-#     publish 0.0.0.0 ports; this service is reachable only as `netviz:8080`
-#     on `edge-net`.
-#   * Service key is `netviz`, not `web`/`app`. Both existing stacks on this
-#     host once used a service named `web`; joining them to the shared
+#     publish 0.0.0.0 ports; this service is reachable only as
+#     `netviz-blue:8080` / `netviz-green:8080` on `edge-net`.
+#   * Two identical services, `netviz-blue` and `netviz-green` (a YAML anchor
+#     holds the one shared spec — see `x-netviz` below), not a single
+#     `netviz` service. This is blue-green: `deploy.sh` starts whichever slot
+#     is currently idle alongside the live one, waits for its `/readyz` to
+#     answer 200, only then flips Caddy's upstream in
+#     portfolio-webpage/Caddyfile from the old slot to the new one
+#     (`caddy validate` + `caddy reload`, never a container restart), and
+#     only after that removes the old slot. `/opt/netviz/active_slot` on the
+#     VPS records which one Caddy currently points at. The previous single
+#     `netviz` service name is gone; both existing stacks on this host once
+#     used a service named plain `web`, and joining them to the shared
 #     `edge-net` network made that name resolve to whichever container
-#     registered it last, and Caddy silently proxied every portfolio
-#     hostname to the preussen dashboard for a while (full incident in the
-#     `dashboard` service comment in Preussenbot/docker-compose.prod.yml). A
-#     unique name sidesteps the alias collision instead of relying on nobody
-#     repeating it.
+#     registered it last — Caddy silently proxied every portfolio hostname
+#     to the preussen dashboard for a while (full incident in the
+#     `dashboard` service comment in Preussenbot/docker-compose.prod.yml).
+#     `netviz-blue`/`netviz-green` are unique the same way plain `netviz`
+#     was.
 #   * Image is pulled from the same private ACR (globalcr01) the Azure
 #     Container App already used — no build context ships to the VPS, only
 #     this compose file plus .env (see /etc/systemd/system/netviz.service
 #     and .github/workflows/deploy.yml).
-#   * The image's own Dockerfile already declares a HEALTHCHECK against
-#     /api/live with the same interval/timeout/retries this file would
-#     otherwise repeat, so it is not redeclared here — Docker uses the
-#     image's HEALTHCHECK automatically when a service doesn't override it.
+#   * The image's own Dockerfile HEALTHCHECK (against /api/live — process
+#     liveness, restart-worthy) stays as-is and is not redeclared here.
+#     `/readyz` (DB-connected readiness, traffic-worthy — see
+#     src/lib/health-checks.ts) is a separate concern deploy.sh polls
+#     directly via `docker exec … node -e 'fetch(...)'`, because a
+#     Docker-level HEALTHCHECK only ever gates `restart:`/`docker ps`
+#     status, not Caddy's upstream choice — the whole reason this file has
+#     two slots instead of one.
+
+x-netviz: &netviz-base
+  image: ${ACR_SERVER:-globalcr01.azurecr.io}/network-visualizer:${IMAGE_TAG:-v2.5.2}
+  restart: unless-stopped
+  env_file:
+    - .env
+  # MEASURED: `docker stats --no-stream netviz` on the VPS, 2026-09-05 —
+  # once right after boot (idle, DB connected, no requests yet) and again
+  # after firing 30 concurrent requests at /api/live: 37.1 MiB and 37.2 MiB
+  # RSS, 1.35% and 0.44% of one core. Azure's 1Gi/0.5-CPU was its
+  # scheduler's reservation ceiling, never an observed peak — this is a
+  # low-traffic personal app serving one static SPA bundle plus a thin
+  # Express/Mongoose API. 128m is ~3.5x the measured figure (the same
+  # margin portfolio/preussen use over their own measured peaks), covering
+  # demo-data loads and concurrent topology renders this quick sample
+  # never exercised. Re-measure with the same command after a week of real
+  # traffic and raise it only if it is ever approached. Applies per slot —
+  # the two slots only ever overlap for the seconds deploy.sh takes to
+  # confirm `/readyz`, so budget for one slot's worth at rest plus a brief
+  # doubling during that window (see the VPS capacity notes in
+  # docs/MIGRATION_CONTABO.md).
+  mem_limit: 128m
+  memswap_limit: 128m
+  cpus: 0.3
+  networks:
+    - edge-net
 
 services:
-  netviz:
-    image: ${ACR_SERVER:-globalcr01.azurecr.io}/network-visualizer:${IMAGE_TAG:-v2.5.2}
-    restart: unless-stopped
-    env_file:
-      - .env
-    # MEASURED: `docker stats --no-stream netviz` on the VPS, 2026-09-05 —
-    # once right after boot (idle, DB connected, no requests yet) and again
-    # after firing 30 concurrent requests at /api/live: 37.1 MiB and 37.2 MiB
-    # RSS, 1.35% and 0.44% of one core. Azure's 1Gi/0.5-CPU was its
-    # scheduler's reservation ceiling, never an observed peak — this is a
-    # low-traffic personal app serving one static SPA bundle plus a thin
-    # Express/Mongoose API. 128m is ~3.5x the measured figure (the same
-    # margin portfolio/preussen use over their own measured peaks), covering
-    # demo-data loads and concurrent topology renders this quick sample
-    # never exercised. Re-measure with the same command after a week of real
-    # traffic and raise it only if it is ever approached.
-    mem_limit: 128m
-    memswap_limit: 128m
-    cpus: 0.3
-    networks:
-      - edge-net
+  netviz-blue:
+    <<: *netviz-base
+  netviz-green:
+    <<: *netviz-base
 
 networks:
   # Created once on the host with `docker network create edge-net` — not

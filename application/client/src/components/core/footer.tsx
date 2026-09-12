@@ -16,24 +16,31 @@ export default function Footer() {
     .filter(Boolean)
     .join(' · ')
   return (
-    <footer className="flex items-center justify-between gap-4 px-4 h-9 shrink-0 backdrop-blur-xl bg-[var(--glass-bg)] border-t border-[var(--glass-border)] text-[11px] text-[var(--text-muted)]">
+    <footer className="flex items-center justify-between gap-4 px-4 sm:px-6 h-14 shrink-0 backdrop-blur-xl bg-[var(--glass-bg)] border-t border-[var(--glass-border)] text-[var(--text-muted)]">
       {/* Left — copyright */}
-      <span className="truncate">
-        © {year} {appConfig.company}. All Rights Reserved.
+      <span className="flex flex-col leading-tight text-[11px] truncate">
+        <span>
+          <span className="font-mono">
+            © {year}
+          </span>{' '}
+          {appConfig.company}
+        </span>
+        <span>All Rights Reserved.</span>
       </span>
 
       {/* Center — project / version (hover for full build metadata) */}
       <a
         href={appConfig.repoUrl}
         target="_blank"
-        rel="noreferrer"
+        rel="noopener noreferrer"
         title={buildInfo}
-        className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full glass hover:text-[var(--text-primary)] transition-colors"
+        className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg)] font-mono text-[11px] hover:text-[var(--text-primary)] transition-colors"
       >
-        <Code2 size={11} className="text-[var(--accent)]" />
-        <span className="font-medium text-[var(--text-secondary)]">{appConfig.repoLabel}</span>
+        <Code2 size={14} className="text-[var(--accent)]" />
+        <span className="font-medium text-[var(--text-primary)]">{appConfig.repoLabel}</span>
+        <span className="text-[var(--glass-border)]">·</span>
         <span>
-          · {appConfig.mode === 'production' ? `v${appConfig.version}` : shortRev || 'dev'}
+          {appConfig.mode === 'production' ? `v${appConfig.version}` : shortRev || 'dev'}
         </span>
       </a>
 
@@ -45,7 +52,16 @@ export default function Footer() {
           routes instead. The original concern still holds, so the documents are
           converted from the same markdown at build time and lazy-loaded per
           route — see tooling/markdown.js — rather than inlined into the bundle. */}
-      <nav className="flex items-center gap-4 font-medium text-[var(--text-secondary)] whitespace-nowrap">
+      <nav className="flex items-center gap-4 text-[13px] font-medium text-[var(--text-secondary)] whitespace-nowrap">
+        <a
+          href="https://status.woofi-developments.at"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 hover:text-[var(--text-primary)] transition-colors"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--live)]" />
+          Status
+        </a>
         <Link to="/privacy" className="hover:text-[var(--text-primary)] transition-colors">
           Privacy Policy
         </Link>
@@ -58,7 +74,7 @@ export default function Footer() {
         <a
           href={appConfig.repoUrl}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           className="hover:text-[var(--text-primary)] transition-colors"
         >
           About
