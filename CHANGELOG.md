@@ -1,3 +1,11 @@
+## [v2.7.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.7.1) — 2026-09-12
+
+## What's Changed
+* fix(client): restyle footer bar and fix external-link rel attributes by @Wolfi-OwO in https://github.com/Wolfi-OwO/network-visualizer/pull/16
+
+
+**Full Changelog**: https://github.com/Wolfi-OwO/network-visualizer/compare/v2.7.0...v2.7.1
+
 ## [v2.7.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.7.0) — 2026-09-05
 
 Minor release: proves the CI -> ACR (globalcr01) -> SSH -> VPS deploy chain end to end after the netviz-rg Azure decommission.
