@@ -34,6 +34,10 @@
     --border: #30363d;
     --border-strong: #444c56;
     --accent: #58a6ff;
+    /* Status-indicator dot in the footer only — kept separate from --green
+       (used for generic success/positive states elsewhere) so the two can
+       diverge without a footer restyle pulling other UI along with it. */
+    --live: #3fb950;
     --green: #3fb950;
     --red: #f85149;
     --yellow: #d29922;
