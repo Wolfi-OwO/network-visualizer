@@ -1,3 +1,11 @@
+## [v2.7.2](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.7.2) — 2026-09-13
+
+## What's Changed
+* made the footer version pill truly centered regardless of content width by @Wolfi-OwO in https://github.com/Wolfi-OwO/network-visualizer/pull/19
+
+
+**Full Changelog**: https://github.com/Wolfi-OwO/network-visualizer/compare/v2.7.1...v2.7.2
+
 ## [v2.7.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.7.1) — 2026-09-12
 
 ## What's Changed
