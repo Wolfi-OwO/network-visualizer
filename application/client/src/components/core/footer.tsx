@@ -16,9 +16,9 @@ export default function Footer() {
     .filter(Boolean)
     .join(' · ')
   return (
-    <footer className="flex items-center justify-between gap-4 px-4 sm:px-6 h-14 shrink-0 backdrop-blur-xl bg-[var(--glass-bg)] border-t border-[var(--glass-border)] text-[var(--text-muted)]">
+    <footer className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 sm:px-6 h-14 shrink-0 backdrop-blur-xl bg-[var(--glass-bg)] border-t border-[var(--glass-border)] text-[var(--text-muted)]">
       {/* Left — copyright */}
-      <span className="flex flex-col leading-tight text-[11px] truncate">
+      <span className="justify-self-start flex flex-col leading-tight text-[11px] truncate">
         <span>
           <span className="font-mono">
             © {year}
@@ -34,7 +34,7 @@ export default function Footer() {
         target="_blank"
         rel="noopener noreferrer"
         title={buildInfo}
-        className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg)] font-mono text-[11px] hover:text-[var(--text-primary)] transition-colors"
+        className="hidden sm:flex justify-self-center items-center gap-2 px-2.5 py-1 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg)] font-mono text-[11px] hover:text-[var(--text-primary)] transition-colors"
       >
         <Code2 size={14} className="text-[var(--accent)]" />
         <span className="font-medium text-[var(--text-primary)]">{appConfig.repoLabel}</span>
@@ -52,7 +52,7 @@ export default function Footer() {
           routes instead. The original concern still holds, so the documents are
           converted from the same markdown at build time and lazy-loaded per
           route — see tooling/markdown.js — rather than inlined into the bundle. */}
-      <nav className="flex items-center gap-4 text-[13px] font-medium text-[var(--text-secondary)] whitespace-nowrap">
+      <nav className="justify-self-end flex items-center gap-4 text-[13px] font-medium text-[var(--text-secondary)] whitespace-nowrap">
         <a
           href="https://status.woofi-developments.at"
           target="_blank"
