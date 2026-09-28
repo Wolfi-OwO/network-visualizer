@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { TopologyModel } from './models/topology.model.js';
 import { TopologyVersionModel } from './models/topology-version.model.js';
 import { buildDemoTopology } from './seed.js';
+import { stripLinks, stripLinksAll } from '../lib/hateoas.js';
 import type { NetworkTopology, NetworkNode, NetworkEdge } from '../types/index.js';
 
 // Every operation is scoped to an owner (the user id, or 'local' for the
@@ -59,12 +60,16 @@ export async function updateTopology(
   if (!doc) return null;
   if (updates.name !== undefined) doc.name = updates.name;
   if (updates.description !== undefined) doc.description = updates.description;
+  // Nodes/edges are Schema.Types.Mixed (topology.model.ts) — saved as-is, so
+  // any `_links` a caller round-tripped from a GET (or restored from an old
+  // snapshot saved before this guard existed) is stripped right here at the
+  // write boundary, not trusted to every caller (handlers, restoreVersion, …).
   if (updates.nodes !== undefined) {
-    doc.nodes = updates.nodes;
+    doc.nodes = stripLinksAll(updates.nodes as unknown[]) as NetworkTopology['nodes'];
     doc.markModified('nodes');
   }
   if (updates.edges !== undefined) {
-    doc.edges = updates.edges;
+    doc.edges = stripLinksAll(updates.edges as unknown[]) as NetworkTopology['edges'];
     doc.markModified('edges');
   }
   doc.updatedAt = Date.now();
@@ -96,7 +101,7 @@ export async function addNode(
 ): Promise<NetworkNode | null> {
   const doc = await TopologyModel.findOne({ id: topologyId, ownerId });
   if (!doc) return null;
-  const newNode: NetworkNode = { ...node, id: uuidv4() };
+  const newNode: NetworkNode = { ...stripLinks(node), id: uuidv4() };
   (doc.nodes as NetworkNode[]).push(newNode);
   doc.markModified('nodes');
   doc.updatedAt = Date.now();
@@ -115,7 +120,7 @@ export async function updateNode(
   const nodes = doc.nodes as NetworkNode[];
   const idx = nodes.findIndex((n) => n.id === nodeId);
   if (idx === -1) return null;
-  nodes[idx] = { ...nodes[idx], ...updates, id: nodeId };
+  nodes[idx] = { ...nodes[idx], ...stripLinks(updates), id: nodeId };
   doc.markModified('nodes');
   doc.updatedAt = Date.now();
   await doc.save();
@@ -149,7 +154,7 @@ export async function addEdge(
 ): Promise<NetworkEdge | null> {
   const doc = await TopologyModel.findOne({ id: topologyId, ownerId });
   if (!doc) return null;
-  const newEdge: NetworkEdge = { ...edge, id: uuidv4() };
+  const newEdge: NetworkEdge = { ...stripLinks(edge), id: uuidv4() };
   (doc.edges as NetworkEdge[]).push(newEdge);
   doc.markModified('edges');
   doc.updatedAt = Date.now();
@@ -168,7 +173,7 @@ export async function updateEdge(
   const edges = doc.edges as NetworkEdge[];
   const idx = edges.findIndex((e) => e.id === edgeId);
   if (idx === -1) return null;
-  edges[idx] = { ...edges[idx], ...updates, id: edgeId };
+  edges[idx] = { ...edges[idx], ...stripLinks(updates), id: edgeId };
   doc.markModified('edges');
   doc.updatedAt = Date.now();
   await doc.save();

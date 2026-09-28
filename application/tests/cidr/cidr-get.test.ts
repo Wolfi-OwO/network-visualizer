@@ -12,6 +12,8 @@ describe('cidr: GET', () => {
     const ok = await request(app).get('/api/cidr/validations/10.0.0.1');
     assert.equal(ok.status, 200);
     assert.equal(ok.body.valid, true);
+    assert.ok(ok.body._links.self);
+    assert.ok(ok.body._links.cidr);
     const bad = await request(app).get('/api/cidr/validations/999.0.0.1');
     assert.equal(bad.body.valid, false);
   });

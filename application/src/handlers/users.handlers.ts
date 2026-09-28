@@ -7,7 +7,7 @@ import {
   ROLES,
 } from '../services/auth-service.js';
 import { BadRequestError } from '../lib/errors.js';
-import { withLinks } from '../lib/hateoas.js';
+import { withLinks, userLinks } from '../lib/hateoas.js';
 
 // GET /api/users — list every account (admin only; enforced by the route).
 export async function getUsers(_req: Request, res: Response): Promise<void> {
@@ -22,7 +22,9 @@ export async function patchUser(req: Request, res: Response): Promise<void> {
     throw new BadRequestError(`role must be one of: ${ROLES.join(', ')}`);
   }
   const user = await setUserRole(req.params.id, role);
-  res.json(withLinks(user as object, { self: { href: `/api/users/${user.id}` } }));
+  // No GET /api/users/:id route exists, so `self` used to point nowhere —
+  // link only the affordances that actually resolve.
+  res.json(withLinks(user as object, userLinks(user.id)));
 }
 
 // DELETE /api/users/:id — remove an account and everything it owns (admin

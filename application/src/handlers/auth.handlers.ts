@@ -13,6 +13,12 @@ import {
 } from '../services/auth-service.js';
 import { BadRequestError, NotFoundError, UnauthorizedError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
+import {
+  withLinks,
+  authProvidersLinks,
+  authMeLinks,
+  authRootLinks,
+} from '../lib/hateoas.js';
 
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 
@@ -38,7 +44,9 @@ function callbackUri(req: Request, provider: string): string {
 
 // GET /auth/providers — which sign-in options are available.
 export function providers(_req: Request, res: Response): void {
-  res.json({ providers: enabledProviders(), devLogin: config.allowDevLogin });
+  res.json(
+    withLinks({ providers: enabledProviders(), devLogin: config.allowDevLogin }, authProvidersLinks()),
+  );
 }
 
 // GET /auth/me — current user (or 401).
@@ -46,13 +54,13 @@ export async function me(req: Request, res: Response): Promise<void> {
   if (!req.user) throw new UnauthorizedError('Not signed in');
   const user = await getUserById(req.user.id);
   if (!user) throw new NotFoundError('User not found');
-  res.json(user);
+  res.json(withLinks(user as object, authMeLinks()));
 }
 
 // POST /auth/logout
 export function logout(_req: Request, res: Response): void {
   res.clearCookie(SESSION_COOKIE, { path: '/' });
-  res.json({ ok: true });
+  res.json(withLinks({ ok: true }, authRootLinks()));
 }
 
 // POST /auth/dev-login { email, name } — local login for dev/testing only.
@@ -67,7 +75,7 @@ export async function devLogin(req: Request, res: Response): Promise<void> {
     name: name || email,
   });
   setSession(req, res, user);
-  res.json(user);
+  res.json(withLinks(user as object, authRootLinks()));
 }
 
 // ── OAuth (Google / Microsoft) ───────────────────────────────────────────────
