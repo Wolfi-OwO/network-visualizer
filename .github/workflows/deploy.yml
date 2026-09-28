@@ -6,10 +6,16 @@ name: Deploy
 # workflow is the CI half of that move — see the migration session for the
 # full picture (Caddy site block, systemd unit, secrets transfer).
 #
-# There is no revision system on the VPS the way Container Apps had one, so
-# this is a plain pull-and-restart against the one compose stack. Health is
-# still checked before the job reports success: a container that starts and
-# then crash-loops must fail this workflow, not report green.
+# There is no revision system on the VPS the way Container Apps had one, but
+# it isn't a plain pull-and-restart either: application/docker-compose.prod.yml
+# (split into netviz-blue/netviz-green in a later commit than this workflow's
+# original write-up — see cf860de) runs the two as a blue-green pair. deploy.sh
+# on the VPS is what actually performs the swap — starting the idle slot
+# alongside the live one, waiting for its /readyz, flipping Caddy's upstream,
+# then retiring the old slot — this workflow only supplies the tag and polls
+# for the job-level pass/fail. Health is still checked before the job reports
+# success: a slot that starts and then crash-loops must fail this workflow,
+# not report green.
 #
 # The `production` environment's "Required reviewers" gate still applies —
 # unchanged from the Azure version — so a deploy still waits for a
