@@ -5,7 +5,7 @@
 **Design, visualize and _simulate_ real enterprise networks in your browser.**
 Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect traffic like Wireshark, and calculate subnets — all in one tool.
 
-### [Try the live demo — netviz.woofi-developments.at](https://netviz.woofi-developments.at)
+**[Try the live demo — netviz.woofi-developments.at](https://netviz.woofi-developments.at)**
 
 [![Lint](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/lint.yml/badge.svg)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/lint.yml)
 [![CI](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Wolfi-OwO/network-visualizer/actions/workflows/ci.yml)
@@ -91,11 +91,11 @@ The non-obvious decisions and what they cost, recorded as ADRs in [docs/adr/](do
 ## Tech stack
 
 | Layer    | Tech                                                                                                  |
-| -------- | ------------------------------------------------------------------------------------------------------ |
+| -------- | ----------------------------------------------------------------------------------------------------- |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS, React Flow (`@xyflow/react`), Recharts, lucide-react, axios |
 | Backend  | Node.js, Express 4, TypeScript, MongoDB + Mongoose, Server-Sent Events, terminus (health checks)      |
 | Auth     | OAuth 2.0 (Google / Microsoft), JWT session cookies, role-based access control, rate limiting         |
-| Tooling  | ESLint, `tsc`, Mocha + Supertest + c8, GitHub Actions, Docker                                          |
+| Tooling  | ESLint, `tsc`, Mocha + Supertest + c8, GitHub Actions, Docker                                         |
 
 The HTTP API is **RESTful (Richardson Maturity Model level 3)**: plural resource URLs (`/api/networks`, `/api/packets`, `/api/capture`, `/api/cidr`), correct verbs/status codes (`201 Created` + `Location`, `204 No Content`), and **HATEOAS** `_links` on every representation. `GET /api` is the hypermedia entry point. Authentication endpoints live under **`/auth`** (sign-in is a browser redirect flow, not an API resource). Liveness/readiness probes are exposed at `/api/live` and `/api/ready`. See the full [API reference](docs/api.md).
 
@@ -196,15 +196,15 @@ A real run on 2026-09-27: **83 tests passing, 89.3% line coverage** (`.c8rc.json
 
 The pipeline is split into atomic workflows, each runnable on its own:
 
-| Workflow                                                                       | Trigger                              | What it does                                                                                                                                                                                        |
-| ------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`lint.yml`](.github/workflows/lint.yml)                                       | push / PR                             | ESLint for server and client                                                                                                                                                                        |
-| [`ci.yml`](.github/workflows/ci.yml)                                           | push / PR / release                   | Type-check + build + backend tests (in-memory MongoDB); posts a coverage-report comment on PRs, uploads the `client-dist` artifact, and uploads coverage to Codecov. Reusable — the release pipeline runs it as its test stage |
-| [`pr-preview.yml`](.github/workflows/pr-preview.yml)                          | PR to `main` (opened/updated)          | Builds the PR image and SSHes into the Contabo VPS to create (or replace) a standalone preview container on its own throwaway MongoDB, behind shared basic auth — then comments the URL. Opt-in (repo variable `PREVIEW_ENABLED=true`); skipped for fork and dependabot PRs |
-| [`pr-preview-teardown.yml`](.github/workflows/pr-preview-teardown.yml)        | PR to `main` closed                    | Destroys that PR's preview container over SSH. Runs on `pull_request_target` (not `pull_request`) specifically so a merge-conflicted PR still gets torn down; a VPS-side reaper timer catches anything this still misses |
-| [`package.yml`](.github/workflows/package.yml)                                | release / PR preview / manual          | Builds the client + Docker image, pushes it to ACR                                                                                                                                                  |
-| [`deploy.yml`](.github/workflows/deploy.yml)                                   | release (via `release.yml`) or manual  | SSHes into the VPS with the new image tag; the box pulls it into whichever of the two blue-green slots (`netviz-blue` / `netviz-green`, defined in [application/docker-compose.prod.yml](application/docker-compose.prod.yml)) is idle, waits for it to report healthy, then swaps Caddy's upstream — also your rollback tool |
-| [`release.yml`](.github/workflows/release.yml)                                | **publishing a GitHub Release**        | **The whole release.** Sets every version file to the tag, lands that on `main` as a commit authored by you, re-points the tag at it — then runs **test -> package -> deploy production (gated)**. Pushes to `main` ship nothing; a bare tag does nothing. See [docs/releasing.md](docs/releasing.md) |
+| Workflow                                                               | Trigger                               | What it does                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`lint.yml`](.github/workflows/lint.yml)                               | push / PR                             | ESLint for server and client                                                                                                                                                                                                                                                                                                  |
+| [`ci.yml`](.github/workflows/ci.yml)                                   | push / PR / release                   | Type-check + build + backend tests (in-memory MongoDB); posts a coverage-report comment on PRs, uploads the `client-dist` artifact, and uploads coverage to Codecov. Reusable — the release pipeline runs it as its test stage                                                                                                |
+| [`pr-preview.yml`](.github/workflows/pr-preview.yml)                   | PR to `main` (opened/updated)         | Builds the PR image and SSHes into the Contabo VPS to create (or replace) a standalone preview container on its own throwaway MongoDB, behind shared basic auth — then comments the URL. Opt-in (repo variable `PREVIEW_ENABLED=true`); skipped for fork and dependabot PRs                                                   |
+| [`pr-preview-teardown.yml`](.github/workflows/pr-preview-teardown.yml) | PR to `main` closed                   | Destroys that PR's preview container over SSH. Runs on `pull_request_target` (not `pull_request`) specifically so a merge-conflicted PR still gets torn down; a VPS-side reaper timer catches anything this still misses                                                                                                      |
+| [`package.yml`](.github/workflows/package.yml)                         | release / PR preview / manual         | Builds the client + Docker image, pushes it to ACR                                                                                                                                                                                                                                                                            |
+| [`deploy.yml`](.github/workflows/deploy.yml)                           | release (via `release.yml`) or manual | SSHes into the VPS with the new image tag; the box pulls it into whichever of the two blue-green slots (`netviz-blue` / `netviz-green`, defined in [application/docker-compose.prod.yml](application/docker-compose.prod.yml)) is idle, waits for it to report healthy, then swaps Caddy's upstream — also your rollback tool |
+| [`release.yml`](.github/workflows/release.yml)                         | **publishing a GitHub Release**       | **The whole release.** Sets every version file to the tag, lands that on `main` as a commit authored by you, re-points the tag at it — then runs **test -> package -> deploy production (gated)**. Pushes to `main` ship nothing; a bare tag does nothing. See [docs/releasing.md](docs/releasing.md)                         |
 
 ### Pull-request lifecycle
 
@@ -247,24 +247,24 @@ The full process — including what happens if a release half-fails, and how to 
 
 ## Documentation
 
-| Document                                                           | What it covers                                                                             |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| [docs/architecture.md](docs/architecture.md)                       | How the system fits together: layers, request lifecycle, the simulation engine, data model |
-| [docs/api.md](docs/api.md)                                         | Full HTTP API reference (`/api/*` resources and `/auth/*` endpoints)                       |
-| [docs/releasing.md](docs/releasing.md)                             | How a release happens (automatic), how versions are decided, how to roll back              |
-| [docs/troubleshooting.md](docs/troubleshooting.md)                 | Common failures in dev, CI and production — and their fixes                                |
-| [docs/adr/](docs/adr/README.md)                                    | Architecture decision records — _why_ the big choices were made                            |
-| [docs/use-cases/](docs/use-cases/README.md)                        | Use-case diagrams & descriptions (actors, flows, UML) + requirements                       |
-| [application/README.md](application/README.md)                    | Backend package: layout, scripts, configuration                                            |
-| [application/client/README.md](application/client/README.md)      | Frontend package: layout, scripts, dev proxy                                               |
+| Document                                                           | What it covers                                                                                                                                                                               |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs/architecture.md](docs/architecture.md)                       | How the system fits together: layers, request lifecycle, the simulation engine, data model                                                                                                   |
+| [docs/api.md](docs/api.md)                                         | Full HTTP API reference (`/api/*` resources and `/auth/*` endpoints)                                                                                                                         |
+| [docs/releasing.md](docs/releasing.md)                             | How a release happens (automatic), how versions are decided, how to roll back                                                                                                                |
+| [docs/troubleshooting.md](docs/troubleshooting.md)                 | Common failures in dev, CI and production — and their fixes                                                                                                                                  |
+| [docs/adr/](docs/adr/README.md)                                    | Architecture decision records — _why_ the big choices were made                                                                                                                              |
+| [docs/use-cases/](docs/use-cases/README.md)                        | Use-case diagrams & descriptions (actors, flows, UML) + requirements                                                                                                                         |
+| [application/README.md](application/README.md)                     | Backend package: layout, scripts, configuration                                                                                                                                              |
+| [application/client/README.md](application/client/README.md)       | Frontend package: layout, scripts, dev proxy                                                                                                                                                 |
 | [organizational/deploy/README.md](organizational/deploy/README.md) | Production deployment runbook (currently describes the retired Azure Container Apps setup — real deploy mechanism is `.github/workflows/deploy.yml` + `application/docker-compose.prod.yml`) |
-| [organizational/README.md](organizational/README.md)               | Identity, roles & permissions, admin guide, account lifecycle                              |
-| [todo/](todo/README.md)                                            | The backlog — roadmap, planned features, known tech debt                                   |
-| [SECURITY.md](SECURITY.md)                                         | Security model and how to report a vulnerability                                           |
-| [SUPPORT.md](SUPPORT.md)                                           | Where to ask questions and how to get help                                                 |
-| [CONTRIBUTING.md](CONTRIBUTING.md)                                 | Development workflow, quality gates, PR conventions                                        |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)                           | Community standards for participating in this project                                      |
-| [CHANGELOG.md](CHANGELOG.md)                                       | Notable changes per release (your release notes, prepended on publish)                     |
+| [organizational/README.md](organizational/README.md)               | Identity, roles & permissions, admin guide, account lifecycle                                                                                                                                |
+| [todo/](todo/README.md)                                            | The backlog — roadmap, planned features, known tech debt                                                                                                                                     |
+| [SECURITY.md](SECURITY.md)                                         | Security model and how to report a vulnerability                                                                                                                                             |
+| [SUPPORT.md](SUPPORT.md)                                           | Where to ask questions and how to get help                                                                                                                                                   |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                                 | Development workflow, quality gates, PR conventions                                                                                                                                          |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)                           | Community standards for participating in this project                                                                                                                                        |
+| [CHANGELOG.md](CHANGELOG.md)                                       | Notable changes per release (your release notes, prepended on publish)                                                                                                                       |
 
 ## Contributing
 
