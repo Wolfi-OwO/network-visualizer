@@ -8,7 +8,8 @@ export function listPackets(req: Request, res: Response): void {
   const since = req.query.since ? parseInt(req.query.since as string) : undefined;
   const limit = req.query.limit ? parseInt(req.query.limit as string) : 200;
   const packets = sim.getPackets(since, limit);
-  res.json({ _links: packetsCollectionLinks(), count: packets.length, items: packets });
+  const items = packets.map((p) => withLinks(p, packetLinks(p.id)));
+  res.json({ _links: packetsCollectionLinks(), count: items.length, items });
 }
 
 // GET /api/packets/:id — single captured packet.

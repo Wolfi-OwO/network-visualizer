@@ -63,10 +63,20 @@ app.use(express.static(clientDist));
 
 // Restrict CORS to local development origins (and same-origin / tooling requests
 // that send no Origin header). `credentials` lets the session cookie flow.
+//
+// `preflightContinue: true` is required: without it, cors() answers every
+// OPTIONS request itself with a blanket 204 that carries no `Allow` header —
+// measured directly against this app, it did that for EVERY path, including
+// ones that don't exist, so OPTIONS could never be used to discover what a
+// route actually supports. With `preflightContinue`, cors still sets the
+// Access-Control-* headers but hands the request to Express's own router,
+// which answers OPTIONS per-route (a real `Allow` header, or a genuine 404
+// for an unknown path).
 app.use(
   cors({
     origin: (origin, cb) => cb(null, !origin || isOriginAllowed(origin)),
     credentials: true,
+    preflightContinue: true,
   }),
 );
 

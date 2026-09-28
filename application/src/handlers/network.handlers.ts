@@ -5,13 +5,20 @@ import { controlPlaneForNode } from '../services/control-plane-service.js';
 import { deviceRunningConfig, topologyConfigBundle } from '../services/config-export-service.js';
 import * as versionService from '../services/version-service.js';
 import { BadRequestError, NotFoundError } from '../lib/errors.js';
-import { withLinks, topologyLinks, networksCollectionLinks } from '../lib/hateoas.js';
+import {
+  withLinks,
+  topologyLinks,
+  networksCollectionLinks,
+  versionLinks,
+  nodeWriteLinks,
+  edgeWriteLinks,
+} from '../lib/hateoas.js';
 import { ownerOf } from '../middlewares/auth.js';
 import type { NetworkTopology } from '../types/index.js';
 
 // ── Lightweight schema validation for incoming topology data ──────────────────
 function isObj(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 function validNodes(v: unknown): boolean {
   return (
@@ -71,6 +78,31 @@ function assertValidEdgeBody(body: unknown): void {
   ) {
     throw new BadRequestError('edge.source and edge.target are required');
   }
+}
+
+// Partial updates (PUT on an existing node/edge) only validate the fields the
+// caller actually sent — every field is optional here, unlike the "create"
+// validators above, but a field that is present must still have a sane shape.
+function assertValidNodePatch(body: unknown): void {
+  if (!isObj(body)) throw new BadRequestError('Body must be an object');
+  if ('position' in body) {
+    if (
+      !isObj(body.position) ||
+      typeof body.position.x !== 'number' ||
+      typeof body.position.y !== 'number'
+    ) {
+      throw new BadRequestError('node.position {x, y} (numbers) is required');
+    }
+  }
+  if ('config' in body && !isObj(body.config))
+    throw new BadRequestError('node.config must be an object');
+}
+function assertValidEdgePatch(body: unknown): void {
+  if (!isObj(body)) throw new BadRequestError('Body must be an object');
+  if ('source' in body && (typeof body.source !== 'string' || !body.source))
+    throw new BadRequestError('edge.source must be a non-empty string');
+  if ('target' in body && (typeof body.target !== 'string' || !body.target))
+    throw new BadRequestError('edge.target must be a non-empty string');
 }
 
 // Resolve a topology by id, treating "default" as the owner's default workspace.
@@ -160,6 +192,8 @@ export async function getDeviceConfig(req: Request, res: Response): Promise<void
 
 export async function updateTopology(req: Request, res: Response): Promise<void> {
   assertValidTopologyPatch(req.body);
+  // `_links` stripping for nodes/edges happens in networkService.updateTopology
+  // itself, at the actual write boundary — see lib/hateoas.ts.
   const topology = await networkService.updateTopology(req.params.id, req.body, ownerOf(req));
   if (!topology) throw new NotFoundError('Topology not found');
   res.json(withLinks(topology, topologyLinks(topology.id)));
@@ -204,7 +238,7 @@ export async function getVersion(req: Request, res: Response): Promise<void> {
   if (!topology) throw new NotFoundError('Topology not found');
   const snapshot = await versionService.getVersion(topology.id, req.params.versionId, owner);
   if (!snapshot) throw new NotFoundError('Version not found');
-  res.json(snapshot);
+  res.json(withLinks(snapshot as object, versionLinks(topology.id, req.params.versionId)));
 }
 
 export async function restoreVersion(req: Request, res: Response): Promise<void> {
@@ -219,13 +253,19 @@ export async function restoreVersion(req: Request, res: Response): Promise<void>
 // ── Nodes ─────────────────────────────────────────────────────────────────────
 export async function addNode(req: Request, res: Response): Promise<void> {
   assertValidNodeBody(req.body);
+  // `_links` stripping happens in networkService.addNode at the write boundary.
   const body = { ...req.body, config: req.body.config ?? {} };
   const node = await networkService.addNode(req.params.id, body, ownerOf(req));
   if (!node) throw new NotFoundError('Topology not found');
-  res.status(201).location(`/api/networks/${req.params.id}/nodes/${node.id}`).json(node);
+  res
+    .status(201)
+    .location(`/api/networks/${req.params.id}/nodes/${node.id}`)
+    .json(withLinks(node, nodeWriteLinks(req.params.id, node.id)));
 }
 
 export async function updateNode(req: Request, res: Response): Promise<void> {
+  assertValidNodePatch(req.body);
+  // `_links` stripping happens in networkService.updateNode at the write boundary.
   const node = await networkService.updateNode(
     req.params.id,
     req.params.nodeId,
@@ -233,7 +273,7 @@ export async function updateNode(req: Request, res: Response): Promise<void> {
     ownerOf(req),
   );
   if (!node) throw new NotFoundError('Node not found');
-  res.json(node);
+  res.json(withLinks(node, nodeWriteLinks(req.params.id, node.id)));
 }
 
 export async function deleteNode(req: Request, res: Response): Promise<void> {
@@ -245,13 +285,19 @@ export async function deleteNode(req: Request, res: Response): Promise<void> {
 // ── Edges ─────────────────────────────────────────────────────────────────────
 export async function addEdge(req: Request, res: Response): Promise<void> {
   assertValidEdgeBody(req.body);
+  // `_links` stripping happens in networkService.addEdge at the write boundary.
   const body = { ...req.body, config: req.body.config ?? {} };
   const edge = await networkService.addEdge(req.params.id, body, ownerOf(req));
   if (!edge) throw new NotFoundError('Topology not found');
-  res.status(201).location(`/api/networks/${req.params.id}/edges/${edge.id}`).json(edge);
+  res
+    .status(201)
+    .location(`/api/networks/${req.params.id}/edges/${edge.id}`)
+    .json(withLinks(edge, edgeWriteLinks(req.params.id, edge.id)));
 }
 
 export async function updateEdge(req: Request, res: Response): Promise<void> {
+  assertValidEdgePatch(req.body);
+  // `_links` stripping happens in networkService.updateEdge at the write boundary.
   const edge = await networkService.updateEdge(
     req.params.id,
     req.params.edgeId,
@@ -259,7 +305,7 @@ export async function updateEdge(req: Request, res: Response): Promise<void> {
     ownerOf(req),
   );
   if (!edge) throw new NotFoundError('Edge not found');
-  res.json(edge);
+  res.json(withLinks(edge, edgeWriteLinks(req.params.id, edge.id)));
 }
 
 export async function deleteEdge(req: Request, res: Response): Promise<void> {

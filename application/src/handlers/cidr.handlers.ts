@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import * as cidrService from '../services/cidr-service.js';
 import { BadRequestError } from '../lib/errors.js';
-import { withLinks, cidrRootLinks } from '../lib/hateoas.js';
+import { withLinks, cidrRootLinks, cidrValidationLinks } from '../lib/hateoas.js';
 
 // GET /api/cidr — entry point listing the available calculations.
 export function index(_req: Request, res: Response): void {
@@ -60,5 +60,10 @@ export function findSupernet(req: Request, res: Response): void {
 
 // GET /api/cidr/validations/:ip — check whether a string is a valid IPv4 address.
 export function validateIp(req: Request, res: Response): void {
-  res.json({ ip: req.params.ip, valid: cidrService.validateIpAddress(req.params.ip) });
+  res.json(
+    withLinks(
+      { ip: req.params.ip, valid: cidrService.validateIpAddress(req.params.ip) },
+      cidrValidationLinks(req.params.ip),
+    ),
+  );
 }
