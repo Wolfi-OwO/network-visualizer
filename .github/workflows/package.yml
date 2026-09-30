@@ -1,8 +1,9 @@
 name: Package
 
 # Builds the production image (client bundle baked in) and pushes it to ACR
-# using the registry admin credentials. Called by release.yml on every
-# published release, or run manually for a one-off build.
+# using the ACR-PUSH scope-map token (the registry admin user is disabled).
+# Called by release.yml on every published release, or run manually for a
+# one-off build.
 on:
   workflow_call:
     inputs:
