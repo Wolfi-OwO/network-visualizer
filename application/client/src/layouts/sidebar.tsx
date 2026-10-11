@@ -86,12 +86,17 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
             <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--bg-700)] border border-[var(--border-strong)] shrink-0">
               <User size={12} className="text-[var(--accent)]" />
             </div>
-            <div className="min-w-0 flex-1">
+            <NavLink
+              to="/account"
+              onClick={onClose}
+              title="Your data and account"
+              className="min-w-0 flex-1 hover:opacity-80"
+            >
               <div className="text-[10px] font-medium text-[var(--text-primary)] truncate">
                 {user.name}
               </div>
               <div className="text-[10px] text-[var(--text-muted)] truncate">{user.role}</div>
-            </div>
+            </NavLink>
             <button
               onClick={() => signOut()}
               title="Sign out"

@@ -9,6 +9,7 @@ import CIDRCalculatorPage from './pages/cidr/cidr-calculator-page.tsx'
 import AdminPage from './pages/admin/admin-page.tsx'
 import LoginPage from './pages/auth/login-page.tsx'
 import LegalPage from './pages/legal/legal-page.tsx'
+import AccountPage from './pages/account/account-page.tsx'
 
 // § 5 ECG requires the legal information to be available on the service itself,
 // so each document gets an in-app route. The HTML is produced from the repo-root
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
       { path: 'packets', element: <PacketCapturePage /> },
       { path: 'network', element: <NetworkBuilderPage /> },
       { path: 'cidr', element: <CIDRCalculatorPage /> },
+      { path: 'account', element: <AccountPage /> },
       legalRoute('privacy', () => import('virtual:legal/privacy')),
       legalRoute('impressum', () => import('virtual:legal/impressum')),
       legalRoute('terms', () => import('virtual:legal/terms')),

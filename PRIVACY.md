@@ -113,7 +113,7 @@ Diese Datenschutzerklärung erklärt, wie NetViz („die Anwendung") personenbez
 
 ## 7. Betroffenenrechte (Art. 12–22 DSGVO)
 
-Ein Teil dieser Rechte lässt sich bereits selbst ausüben, ohne Anfrage per Email: die API stellt die Endpunkte `GET /api/me/export` (Datenexport) und `DELETE /api/me` (Kontolöschung) bereit. Diese sind derzeit nur über die API erreichbar — es gibt noch keine Schaltfläche oder Einstellungsseite in der Benutzeroberfläche dafür. Alternativ können Sie Ihre Rechte weiterhin per Email geltend machen.
+Ein Teil dieser Rechte lässt sich bereits selbst ausüben, ohne Anfrage per Email: die API stellt die Endpunkte `GET /api/me/export` (Datenexport) und `DELETE /api/me` (Kontolöschung) bereit. Sie sind in der Anwendung unter „Konto“ (Klick auf Ihren Namen in der Seitenleiste) mit einem Klick erreichbar. Alternativ können Sie Ihre Rechte weiterhin per Email geltend machen.
 
 ### Recht auf Auskunft (Art. 15)
 
