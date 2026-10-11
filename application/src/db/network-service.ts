@@ -82,6 +82,12 @@ export async function deleteTopology(id: string, ownerId: string): Promise<boole
   return res.deletedCount > 0;
 }
 
+/** Every version snapshot an owner has, for the Art. 15/20 data export. */
+export async function getAllVersions(ownerId: string): Promise<unknown[]> {
+  const docs = await TopologyVersionModel.find({ ownerId }).sort({ topologyId: 1, version: 1 });
+  return docs.map((d) => d.toJSON());
+}
+
 /**
  * Remove every topology and version snapshot an owner has, in one go —
  * account deletion (Art. 17 DSGVO), not the single-topology delete above.

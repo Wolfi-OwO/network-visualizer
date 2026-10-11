@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { getUserById, eraseUserAndOwnedData } from '../services/auth-service.js';
-import { getAllTopologies } from '../db/network-service.js';
+import { getAllTopologies, getAllVersions } from '../db/network-service.js';
 import { AuditModel } from '../db/models/audit.model.js';
 import { SESSION_COOKIE } from '../lib/jwt.js';
 import { NotFoundError, UnauthorizedError } from '../lib/errors.js';
@@ -16,8 +16,9 @@ export async function exportMe(req: Request, res: Response): Promise<void> {
   const profile = await getUserById(userId);
   if (!profile) throw new NotFoundError('User not found');
 
-  const [topologies, auditEntries] = await Promise.all([
+  const [topologies, versions, auditEntries] = await Promise.all([
     getAllTopologies(userId),
+    getAllVersions(userId),
     AuditModel.find({ userId }).sort({ at: -1 }).lean(),
   ]);
 
@@ -26,6 +27,7 @@ export async function exportMe(req: Request, res: Response): Promise<void> {
     exportedAt: new Date().toISOString(),
     profile,
     networks: topologies,
+    networkVersions: versions,
     auditLog: auditEntries.map((entry) => ({
       action: entry.action,
       method: entry.method,
