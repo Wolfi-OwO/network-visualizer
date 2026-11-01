@@ -1,3 +1,10 @@
+## [v2.8.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.8.0) — 2026-11-01
+
+- Added an account page for data export and deletion, with version history in the export.
+- Added robots.txt, a sitemap, a meta description and Open Graph tags so search engines can index the tools.
+- API responses now carry HATEOAS links and several response correctness fixes.
+- Dependency updates.
+
 ## [v2.7.2](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.7.2) — 2026-09-13
 
 ## What's Changed
