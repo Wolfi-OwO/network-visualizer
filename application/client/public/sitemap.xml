@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-maintained: the public routes of src/router.tsx. Add a public route there, add it here. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://netviz.woofi-developments.at/</loc></url>
+  <url><loc>https://netviz.woofi-developments.at/network</loc></url>
+  <url><loc>https://netviz.woofi-developments.at/packets</loc></url>
+  <url><loc>https://netviz.woofi-developments.at/cidr</loc></url>
+  <url><loc>https://netviz.woofi-developments.at/impressum</loc></url>
+  <url><loc>https://netviz.woofi-developments.at/privacy</loc></url>
+  <url><loc>https://netviz.woofi-developments.at/terms</loc></url>
+</urlset>

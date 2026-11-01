@@ -1,0 +1,10 @@
+# The tools (network builder, packet capture, CIDR calculator) are public; sign-in, admin and the API are not content.
+User-agent: *
+Allow: /
+
+Disallow: /login
+Disallow: /admin
+Disallow: /account
+Disallow: /api/
+
+Sitemap: https://netviz.woofi-developments.at/sitemap.xml
