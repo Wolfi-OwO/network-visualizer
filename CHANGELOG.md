@@ -1,3 +1,7 @@
+## [v2.8.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.8.1) — 2026-11-13
+
+Dashboard without stat tiles, icon chips and the feature list; IBM Plex Sans instead of Inter; no graph-paper background.
+
 ## [v2.8.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.8.0) — 2026-11-01
 
 - Added an account page for data export and deletion, with version history in the export.
