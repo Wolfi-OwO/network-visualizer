@@ -2,6 +2,10 @@
 
 The container image no longer ships the npm bundled in the Node base image, OS packages are upgraded at build time and a Trivy scan of the image runs on every change. Patched follow-redirects, body-parser and proxy-addr.
 
+## [v2.8.3](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.8.3) — 2026-11-21
+
+The container image no longer ships the npm bundled in the Node base image, OS packages are upgraded at build time and a Trivy scan of the image runs on every change. Patched follow-redirects, body-parser and proxy-addr.
+
 ## [v2.8.2](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.8.2) — 2026-11-21
 
 Cache policy for the web app: hashed assets are kept for a year and index.html and other static files revalidate with their ETag, so a deploy shows at once and an unchanged file costs a 304.
