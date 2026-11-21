@@ -1,3 +1,7 @@
+## [v2.8.2](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.8.2) — 2026-11-21
+
+Cache policy for the web app: hashed assets are kept for a year and index.html and other static files revalidate with their ETag, so a deploy shows at once and an unchanged file costs a 304.
+
 ## [v2.8.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.8.1) — 2026-11-13
 
 Dashboard without stat tiles, icon chips and the feature list; IBM Plex Sans instead of Inter; no graph-paper background.
