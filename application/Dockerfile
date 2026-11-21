@@ -21,6 +21,8 @@ RUN npm run build
 # RUNTIME STAGE — slim image containing only the compiled output + prod deps
 # ═══════════════════════════════════════════════════════════════════════════
 FROM node:22-alpine AS runtime
+# The base image's own npm carries unpatched dependencies and nothing runs npm after the install below, so it is removed; OS packages are upgraded for the same reason.
+RUN apk upgrade --no-cache
 WORKDIR /app
 
 # Put Node into production mode (e.g. Express optimizations, no debug logging)
@@ -28,7 +30,8 @@ ENV NODE_ENV=production
 
 # Copy dependency manifests again, to install ONLY production dependencies
 COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 # Bring the compiled backend over from the build stage (no source code in the final image)
 COPY --from=build /app/dist ./dist
