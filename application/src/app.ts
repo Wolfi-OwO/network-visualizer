@@ -26,6 +26,13 @@ import captureRouter from './routes/capture.routes.js';
 // client/dist artifact is copied to). Same resolution in both cases.
 const clientDist = path.join(process.cwd(), 'client', 'dist');
 
+// Vite puts a content hash in every file name under assets/, so a changed file is always a new URL and may be kept for
+// a year. Everything else (index.html, the icon) keeps its name across releases, so it is revalidated with its ETag:
+// "no-cache" still stores the file, and an unchanged one costs a 304 with no body, while a deploy shows at once.
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+const REVALIDATE = 'no-cache';
+const assetsDir = path.join(clientDist, 'assets') + path.sep;
+
 const app = express();
 
 // Trust one reverse-proxy hop so req.secure / req.protocol reflect the original
@@ -59,7 +66,13 @@ app.use(
   }),
 );
 
-app.use(express.static(clientDist));
+app.use(
+  express.static(clientDist, {
+    setHeaders: (res, filePath) => {
+      res.setHeader('Cache-Control', filePath.startsWith(assetsDir) ? IMMUTABLE : REVALIDATE);
+    },
+  }),
+);
 
 // Restrict CORS to local development origins (and same-origin / tooling requests
 // that send no Origin header). `credentials` lets the session cookie flow.
@@ -111,7 +124,7 @@ app.use('/api/packets', packetsRouter);
 app.use('/api/capture', captureRouter);
 
 app.get(/^(?!\/api|\/auth).*/, (_req, res) => {
-  res.sendFile(path.join(clientDist, 'index.html'));
+  res.set('Cache-Control', REVALIDATE).sendFile(path.join(clientDist, 'index.html'));
 });
 
 app.use(notFound);
