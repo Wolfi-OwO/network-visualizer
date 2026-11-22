@@ -1,3 +1,7 @@
+## [v2.8.4](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.8.4) — 2026-11-22
+
+Every route carries its own canonical address, and the login, admin and account pages say noindex.
+
 ## [v2.8.3](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.8.3) — 2026-11-21
 
 The container image no longer ships the npm bundled in the Node base image, OS packages are upgraded at build time and a Trivy scan of the image runs on every change. Patched follow-redirects, body-parser and proxy-addr.
