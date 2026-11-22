@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom'
+import { RouteSeo } from './components/route-seo.tsx'
 import RegularLayout from './layouts/regular-layout.tsx'
 import AdminLayout from './layouts/admin-layout.tsx'
 import ErrorPage from './layouts/error-page.tsx'
@@ -27,29 +28,34 @@ const legalRoute = (path: string, load: () => Promise<{ title: string; html: str
 // subdomain (see main.tsx), the way status.discord.com / status.anthropic.com do.
 export const router = createBrowserRouter([
   {
-    path: '/login',
-    element: <LoginPage />,
-    errorElement: <ErrorPage />,
-  },
-  {
-    path: '/',
-    element: <RegularLayout />,
-    errorElement: <ErrorPage />,
+    element: <RouteSeo />,
     children: [
-      { index: true, element: <DashboardPage /> },
-      { path: 'packets', element: <PacketCapturePage /> },
-      { path: 'network', element: <NetworkBuilderPage /> },
-      { path: 'cidr', element: <CIDRCalculatorPage /> },
-      { path: 'account', element: <AccountPage /> },
-      legalRoute('privacy', () => import('virtual:legal/privacy')),
-      legalRoute('impressum', () => import('virtual:legal/impressum')),
-      legalRoute('terms', () => import('virtual:legal/terms')),
+      {
+        path: '/login',
+        element: <LoginPage />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: '/',
+        element: <RegularLayout />,
+        errorElement: <ErrorPage />,
+        children: [
+          { index: true, element: <DashboardPage /> },
+          { path: 'packets', element: <PacketCapturePage /> },
+          { path: 'network', element: <NetworkBuilderPage /> },
+          { path: 'cidr', element: <CIDRCalculatorPage /> },
+          { path: 'account', element: <AccountPage /> },
+          legalRoute('privacy', () => import('virtual:legal/privacy')),
+          legalRoute('impressum', () => import('virtual:legal/impressum')),
+          legalRoute('terms', () => import('virtual:legal/terms')),
+        ],
+      },
+      {
+        path: '/admin',
+        element: <AdminLayout />,
+        errorElement: <ErrorPage />,
+        children: [{ index: true, element: <AdminPage /> }],
+      },
     ],
-  },
-  {
-    path: '/admin',
-    element: <AdminLayout />,
-    errorElement: <ErrorPage />,
-    children: [{ index: true, element: <AdminPage /> }],
   },
 ])
