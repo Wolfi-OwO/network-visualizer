@@ -1,3 +1,7 @@
+## [v2.8.5](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.8.5) — 2026-11-22
+
+The page title now names the CIDR calculator.
+
 ## [v2.8.4](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.8.4) — 2026-11-22
 
 Every route carries its own canonical address, and the login, admin and account pages say noindex.
