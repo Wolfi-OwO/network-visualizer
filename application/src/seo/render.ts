@@ -63,9 +63,12 @@ function jsonLd(pathname: string): string {
  * text into the empty root. Any route without an entry (sign-in, admin, 404s) gets the file unchanged.
  */
 export function renderIndex(template: string, rawPath: string): string {
-  const pathname = normalise(rawPath);
-  const page = PAGES[pathname];
-  if (!page) return template;
+  // The route used below is the matching key of our own table, never the request's text, so nothing a visitor sends
+  // can end up in the page.
+  const requested = normalise(rawPath);
+  const pathname = Object.keys(PAGES).find((route) => route === requested);
+  const page = pathname === undefined ? undefined : PAGES[pathname];
+  if (pathname === undefined || !page) return template;
   const url = `${ORIGIN}${pathname}`;
   const title = escape(page.title);
   const description = escape(page.description);
