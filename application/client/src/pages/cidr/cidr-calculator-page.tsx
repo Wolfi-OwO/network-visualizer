@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react'
 import { cidr as cidrApi } from '../../lib/api/index.ts'
+import { CidrGuide } from './cidr-guide.tsx'
 import { cidrReducer, initialCidrState } from './cidr-calculator-page.reducer.ts'
 
 const PRESETS = [
@@ -521,6 +522,8 @@ export default function CIDRCalculatorPage() {
             </div>
           )}
         </div>
+
+        <CidrGuide />
       </div>
     </div>
   )

@@ -22,6 +22,8 @@ export default defineConfig({
   plugins: [react(), legalDocumentsPlugin()],
   server: {
     port: 5173,
+    // The CIDR page renders text that lives in ../src/seo (the server prerenders the same file).
+    fs: { allow: ['..'] },
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

@@ -17,6 +17,8 @@ import metricsRouter from './routes/metrics.routes.js';
 import usersRouter from './routes/users.routes.js';
 import meRouter from './routes/me.routes.js';
 import networksRouter from './routes/networks.routes.js';
+import { readFile } from 'node:fs/promises';
+import { renderIndex } from './seo/render.js';
 import cidrRouter from './routes/cidr.routes.js';
 import packetsRouter from './routes/packets.routes.js';
 import captureRouter from './routes/capture.routes.js';
@@ -68,6 +70,8 @@ app.use(
 
 app.use(
   express.static(clientDist, {
+    // "/" must reach the page route below, which fills in the head; the bare file would skip it.
+    index: false,
     setHeaders: (res, filePath) => {
       res.setHeader('Cache-Control', filePath.startsWith(assetsDir) ? IMMUTABLE : REVALIDATE);
     },
@@ -123,8 +127,15 @@ app.use('/api/cidr', cidrRouter);
 app.use('/api/packets', packetsRouter);
 app.use('/api/capture', captureRouter);
 
-app.get(/^(?!\/api|\/auth).*/, (_req, res) => {
-  res.set('Cache-Control', REVALIDATE).sendFile(path.join(clientDist, 'index.html'));
+app.get(/^(?!\/api|\/auth).*/, async (req, res, next) => {
+  try {
+    const html = renderIndex(await readFile(path.join(clientDist, 'index.html'), 'utf8'), req.path);
+    res.set('Cache-Control', REVALIDATE).type('html').send(html);
+  } catch (error) {
+    // No built client (tests, API-only runs) or an unreadable file: the 404 handler answers, as before.
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return next();
+    next(error);
+  }
 });
 
 app.use(notFound);
