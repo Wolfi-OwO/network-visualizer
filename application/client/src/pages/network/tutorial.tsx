@@ -107,7 +107,9 @@ const STEPS: Step[] = [
           They show a grey <b>“needs IP”</b> hint until they join a network.
         </p>
         <p className="mt-2 text-[var(--text-muted)]">
-          To remove a device, select it and press <b>Delete</b> in the toolbar.
+          To remove a device or a link, select it and press <b>Delete</b> (<b>Entf</b>) or{' '}
+          <b>Backspace</b> on the keyboard, or use the <b>Delete</b> button in the toolbar.
+          <b> Ctrl+Z</b> brings it back.
         </p>
       </>
     ),

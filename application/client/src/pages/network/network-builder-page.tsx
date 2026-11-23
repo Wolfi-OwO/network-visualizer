@@ -2145,6 +2145,18 @@ export default function NetworkBuilderPage() {
     [traceResult, clearTrace, setSelectedNodeId, setSelectedEdgeId],
   )
 
+  // Deleting with the keyboard goes through React Flow, which removes whatever is selected (several devices and
+  // links at once too). The snapshot first keeps it undoable, like the Delete button.
+  const onBeforeDelete = useCallback(async () => {
+    pushHistory()
+    return true
+  }, [pushHistory])
+
+  const onElementsDeleted = useCallback(() => {
+    setSelectedNodeId(null)
+    setSelectedEdgeId(null)
+  }, [setSelectedNodeId, setSelectedEdgeId])
+
   const onPaneClick = useCallback(() => {
     setSelectedNodeId(null)
     setSelectedEdgeId(null)
@@ -2718,6 +2730,11 @@ export default function NetworkBuilderPage() {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onConnectStart={onConnectStart}
+            // React Flow only knows Backspace by default, which is not what "Entf" sends: that key is "Delete".
+            deleteKeyCode={['Backspace', 'Delete']}
+            onBeforeDelete={onBeforeDelete}
+            onNodesDelete={onElementsDeleted}
+            onEdgesDelete={onElementsDeleted}
             onNodeDragStart={onNodeDragStart}
             onNodeClick={onNodeClick}
             onEdgeClick={onEdgeClick}
