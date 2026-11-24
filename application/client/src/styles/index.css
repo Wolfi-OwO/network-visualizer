@@ -613,3 +613,30 @@
     animation: none;
   }
 }
+
+/* The save button keeps one width through its states, and only the icon changes. */
+.save-btn {
+  min-width: 5.25rem;
+  justify-content: center;
+}
+.save-btn[data-save-state='saved'] {
+  background: color-mix(in srgb, var(--green) 22%, var(--bg-700));
+  color: var(--text-primary);
+}
+.save-btn[data-save-state='failed'] {
+  background: color-mix(in srgb, var(--red) 24%, var(--bg-700));
+  color: var(--text-primary);
+}
+.save-spin {
+  animation: save-turn 0.9s linear infinite;
+}
+@keyframes save-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .save-spin {
+    animation: none;
+  }
+}
