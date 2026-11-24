@@ -1,3 +1,7 @@
+## [v2.11.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.11.0) — 2026-11-24
+
+Ctrl+S saves the network and no longer opens the browser's dialog. Signed out, the network stays in this browser instead of the shared server workspace. The Save button shows slow saves, then Saved or Retry.
+
 ## [v2.10.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.10.0) — 2026-11-24
 
 GET /api/info answers name, version, revision, build date and repository URL, and the running image knows its own build metadata.
