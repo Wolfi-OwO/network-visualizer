@@ -11,6 +11,7 @@ import { audit } from './middlewares/audit.js';
 import { apiLimiter, authLimiter } from './middlewares/rate-limit.js';
 import { countRequest } from './services/metrics-service.js';
 import { apiRootLinks } from './lib/hateoas.js';
+import { appInfo } from './lib/app-info.js';
 import authRouter from './routes/auth.routes.js';
 import auditRouter from './routes/audit.routes.js';
 import metricsRouter from './routes/metrics.routes.js';
@@ -105,6 +106,11 @@ app.use(audit); // record mutating actions by signed-in users
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
+
+// Who is running: the same answer, at the same path, in every app of the stack.
+app.get('/api/info', (_req, res) => {
+  res.json(appInfo());
 });
 
 // API entry point — hypermedia root (RMM level 3 discoverability)

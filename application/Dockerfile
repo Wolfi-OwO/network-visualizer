@@ -78,6 +78,9 @@ LABEL org.opencontainers.image.title="${APP_TITLE}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 
+# The same values at runtime, for GET /api/info (src/lib/app-info.ts). Labels alone cannot be read by the app.
+ENV APP_VERSION=${APP_VERSION} APP_REVISION=${VCS_REF} APP_BUILD_DATE=${BUILD_DATE} APP_REPOSITORY_URL=${APP_SOURCE}
+
 # ═══════════════════════════════════════════════════════════════════════════
 # RUNTIME CONFIG
 # ═══════════════════════════════════════════════════════════════════════════
