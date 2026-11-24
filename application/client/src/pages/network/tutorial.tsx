@@ -109,7 +109,8 @@ const STEPS: Step[] = [
         <p className="mt-2 text-[var(--text-muted)]">
           To remove a device or a link, select it and press <b>Delete</b> (<b>Entf</b>) or{' '}
           <b>Backspace</b> on the keyboard, or use the <b>Delete</b> button in the toolbar.
-          <b> Ctrl+Z</b> brings it back.
+          <b> Ctrl+Z</b> brings it back. <b>Ctrl+S</b> saves the network, to your account when you
+          are signed in and in this browser when you are not.
         </p>
       </>
     ),

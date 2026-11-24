@@ -1,3 +1,5 @@
+import { useAuth } from '../../context/auth-context.tsx'
+import { SaveButton, type SaveState } from './save-button.tsx'
 import {
   useReducer,
   useMemo,
@@ -24,7 +26,6 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import {
-  Save,
   RefreshCw,
   Trash2,
   CheckCircle,
@@ -557,6 +558,8 @@ function MenuItem({
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 const AUTOSAVE_KEY = 'netviz.topology.autosave.v1'
+// How long "Saved" stays on the button before it goes back to "Save".
+const SAVED_FLASH_MS = 1800
 
 // Ambient-traffic protocol families a user can independently mute, and how
 // much overall traffic each volume level generates (session burst size per
@@ -637,6 +640,10 @@ function StatusPill({ status }: { status: StatusMessage }) {
 
 export default function NetworkBuilderPage() {
   const [builder, dispatch] = useReducer(builderReducer, initialBuilderState)
+  const { user } = useAuth()
+  const [saveState, setSaveState] = useState<SaveState>('idle')
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const saveRef = useRef<() => Promise<void>>(async () => {})
   const {
     topology,
     selectedNodeId,
@@ -646,7 +653,6 @@ export default function NetworkBuilderPage() {
     showVersions,
     showTutorial,
     guidedActive,
-    saving,
     status,
     traceResult,
     traceStep,
@@ -1113,6 +1119,12 @@ export default function NetworkBuilderPage() {
   // Keyboard: Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z or Ctrl+Y = redo
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Ctrl/Cmd+S saves the network and never opens the browser's own "save page" dialog, also from a text field.
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        void saveRef.current()
+        return
+      }
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
       const mod = e.ctrlKey || e.metaKey
@@ -2347,24 +2359,42 @@ export default function NetworkBuilderPage() {
   )
 
   // ── Save/Delete/Reset ────────────────────────────────────────────────────
+  // Signed in: the network goes to the account. Not signed in: it stays in this browser (localStorage), because the
+  // server's anonymous workspace is one shared "local" owner and a visitor's network is nobody else's business.
   const handleSave = useCallback(async () => {
-    if (!topology) return
+    if (saveState === 'saving') return
+    if (user && !topology) return
     setSaving(true)
+    setSaveState('saving')
     try {
-      const updatedNodes = nodes.map((n) => {
-        const d = n.data as NetworkNodeData
-        return { id: n.id, type: d.type, label: d.label, position: n.position, config: d.config }
-      })
-      const updatedEdges = edges.map(toNetEdge)
-      await networkApi.update(topology.id, { nodes: updatedNodes, edges: updatedEdges })
-      notify('Saved', 'success')
+      if (user) {
+        const updatedNodes = nodes.map((n) => {
+          const d = n.data as NetworkNodeData
+          return { id: n.id, type: d.type, label: d.label, position: n.position, config: d.config }
+        })
+        const updatedEdges = edges.map(toNetEdge)
+        await networkApi.update(topology!.id, { nodes: updatedNodes, edges: updatedEdges })
+        notify('Saved', 'success')
+      } else {
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeTopology()))
+        notify('Saved in this browser', 'success')
+      }
+      setSaveState('saved')
       setTimeout(() => clearStatus(), 2000)
+      if (savedTimer.current) clearTimeout(savedTimer.current)
+      savedTimer.current = setTimeout(() => setSaveState('idle'), SAVED_FLASH_MS)
     } catch {
-      notify('Save failed', 'error')
+      setSaveState('failed')
+      notify(
+        user ? 'Save failed' : 'Could not save in this browser (storage is full or blocked)',
+        'error',
+      )
     } finally {
       setSaving(false)
     }
-  }, [topology, nodes, edges, setSaving, notify, clearStatus])
+  }, [user, topology, nodes, edges, saveState, setSaving, notify, clearStatus, serializeTopology])
+  // Ctrl/Cmd+S reaches the latest handler without re-binding the key listener on every change.
+  saveRef.current = handleSave
 
   const handleDeleteSelected = useCallback(() => {
     if (!selectedNodeId) return
@@ -2550,10 +2580,15 @@ export default function NetworkBuilderPage() {
             Analyze
           </button>
           <div data-tour="toolbar" className="flex items-center gap-2">
-            <button onClick={handleSave} disabled={saving} className="btn-primary">
-              <Save size={11} />
-              {saving ? 'Saving…' : 'Save'}
-            </button>
+            <SaveButton
+              state={saveState}
+              onClick={handleSave}
+              title={
+                user
+                  ? 'Save to your account (Ctrl+S)'
+                  : 'Save in this browser (Ctrl+S). Sign in to keep it with your account.'
+              }
+            />
             {selectedNode && (
               <button onClick={handleDeleteSelected} className="btn-danger">
                 <Trash2 size={11} />
