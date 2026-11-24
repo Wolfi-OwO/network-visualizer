@@ -62,7 +62,7 @@ export default function Footer() {
               rel="noopener noreferrer"
               className={link}
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--live)]" />
+              <span className="animate-live h-1.5 w-1.5 rounded-full bg-[var(--live)]" />
               Status
             </a>
           </li>
@@ -77,14 +77,14 @@ export default function Footer() {
             </Link>
           </li>
           <li>
+            <a href="https://www.woofi-developments.at/contact" className={link}>
+              Contact
+            </a>
+          </li>
+          <li>
             <Link to="/terms" className={link}>
               Terms of Use
             </Link>
-          </li>
-          <li>
-            <a href={appConfig.repoUrl} target="_blank" rel="noopener noreferrer" className={link}>
-              About
-            </a>
           </li>
         </ul>
       </div>
