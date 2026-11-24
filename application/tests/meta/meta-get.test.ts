@@ -63,3 +63,18 @@ describe('meta: GET', () => {
     assert.equal(res.headers['access-control-allow-origin'], undefined);
   });
 });
+
+describe('meta: GET /api/info', () => {
+  it('answers name, version, revision, buildDate and repositoryUrl without signing in', async () => {
+    const res = await request(app).get('/api/info');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.name, 'netviz');
+    for (const key of ['version', 'revision', 'buildDate', 'repositoryUrl'])
+      assert.equal(typeof res.body[key], 'string', key);
+  });
+
+  it('is linked from the API root', async () => {
+    const res = await request(app).get('/api');
+    assert.equal(res.body._links.info.href, '/api/info');
+  });
+});

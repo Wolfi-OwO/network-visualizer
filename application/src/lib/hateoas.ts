@@ -44,6 +44,7 @@ export function stripLinksAll(values: any[]): any[] {
 export function apiRootLinks(): Links {
   return {
     self: { href: API_BASE },
+    info: { href: `${API_BASE}/info` },
     networks: { href: `${API_BASE}/networks` },
     packets: { href: `${API_BASE}/packets` },
     capture: { href: `${API_BASE}/capture` },
