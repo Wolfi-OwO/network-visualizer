@@ -1,3 +1,7 @@
+## [v2.9.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.9.1) — 2026-11-24
+
+The bottom bar matches the portfolio: Status with the pulsing green dot, Impressum, Privacy Policy and Contact, then Terms of Use.
+
 ## [v2.9.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.9.0) — 2026-11-23
 
 The CIDR calculator is now a page search engines can read: its own title, description, text and FAQ are in the HTML before any script runs. Entf and Backspace delete the selected devices and links (undoable), and the guide mentions the keys. The bottom bar matches the other apps.
