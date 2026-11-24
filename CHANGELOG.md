@@ -1,3 +1,7 @@
+## [v2.10.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.10.0) — 2026-11-24
+
+GET /api/info answers name, version, revision, build date and repository URL, and the running image knows its own build metadata.
+
 ## [v2.9.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.9.1) — 2026-11-24
 
 The bottom bar matches the portfolio: Status with the pulsing green dot, Impressum, Privacy Policy and Contact, then Terms of Use.
