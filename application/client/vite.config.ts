@@ -20,6 +20,12 @@ if (!process.env.VITE_APP_REVISION) {
 
 export default defineConfig({
   plugins: [react(), legalDocumentsPlugin()],
+  build: {
+    // Vite inlines assets under 4 kB as base64 data: URIs. The small font files were among them, and the
+    // Content-Security-Policy (font-src 'self') refuses data: fonts, so those weights never loaded and the
+    // console showed one blocked-font error per file on every page. Emitting them as files keeps the policy strict.
+    assetsInlineLimit: 0,
+  },
   server: {
     port: 5173,
     // The CIDR page renders text that lives in ../src/seo (the server prerenders the same file).
