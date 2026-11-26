@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Activity, Network, Calculator, ArrowUpRight } from 'lucide-react'
+import { useAuth } from '../../context/auth-context.tsx'
 import type { PacketStats, NetworkTopology } from '../../types/index.ts'
 import { capture as captureApi, network as networkApi } from '../../lib/api/index.ts'
 import { meta as deviceMeta } from '../network/device-catalog.tsx'
@@ -143,6 +144,37 @@ function Readout({ label, value }: { label: string; value: string | number }) {
   )
 }
 
+const GREETING_LINES = [
+  'Wire something up, then send a packet through it.',
+  'Every link is a guess until you trace it.',
+  'Draw it first, break it second.',
+  'See what is actually on the wire.',
+  'A /26 holds 62 hosts. Check yours.',
+  'Power a device off and watch what notices.',
+]
+
+function greetingFor(hour: number): string {
+  if (hour < 5) return 'Still up'
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
+}
+
+const AUTOSAVE_KEY = 'netviz.topology.autosave.v1'
+
+/** Anonymous visitors keep their work in this browser (see the builder's save logic), so the plan shows that. */
+function readLocalNetwork(): NetworkTopology | null {
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY)
+    if (!raw) return null
+    const t = JSON.parse(raw) as Partial<NetworkTopology>
+    if (!t.nodes?.length) return null
+    return { name: 'Your network', description: 'Saved in this browser', ...t } as NetworkTopology
+  } catch {
+    return null
+  }
+}
+
 const TOOLS = [
   { to: '/network', name: 'Network builder', hint: 'Topology, VLANs, routes, ACLs', Icon: Network },
   { to: '/packets', name: 'Packet capture', hint: 'Protocol tree and hex dump', Icon: Activity },
@@ -154,6 +186,12 @@ export default function DashboardPage() {
   const [topology, setTopology] = useState<NetworkTopology | null>(null)
   const [rates, setRates] = useState<number[]>([])
   const [reachable, setReachable] = useState<boolean | null>(null)
+  const { user } = useAuth()
+  // one line per visit, picked once so it does not change while the page re-renders
+  const [line] = useState(() => GREETING_LINES[Math.floor(Math.random() * GREETING_LINES.length)])
+  const [local] = useState(readLocalNetwork)
+  const shown = !user && local ? local : topology
+  const firstName = user?.name?.trim().split(/\s+/)[0]
   const alive = useRef(true)
 
   useEffect(() => {
@@ -180,8 +218,8 @@ export default function DashboardPage() {
     }
   }, [])
 
-  const firewallRules = topology
-    ? topology.nodes.reduce((sum, n) => sum + (n.config.firewallRules?.length ?? 0), 0)
+  const firewallRules = shown
+    ? shown.nodes.reduce((sum, n) => sum + (n.config.firewallRules?.length ?? 0), 0)
     : '–'
 
   const protocols = stats
@@ -190,151 +228,190 @@ export default function DashboardPage() {
         .slice(0, 6)
     : []
 
-  return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto p-4 sm:p-5">
-      <header className="flex items-baseline justify-between gap-3">
-        <h1 className="text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">
-          Overview
-        </h1>
-        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          <span
-            className="h-[7px] w-[7px] rounded-[2px]"
-            style={{
-              background:
-                reachable === false ? 'var(--red)' : reachable ? 'var(--green)' : 'var(--bg-600)',
-            }}
-          />
-          {reachable === false
-            ? 'backend unreachable'
-            : reachable
-              ? 'backend connected'
-              : 'connecting'}
-        </span>
-      </header>
+  const now = new Date()
+  const today = now.toLocaleDateString(undefined, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
 
-      <div className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
-        <section className="flex flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-900)]">
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-2.5">
-            <div className="min-w-0">
-              <h2 className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
-                {topology?.name ?? 'Saved network'}
-              </h2>
-              {topology?.description && (
-                <p className="truncate text-[11px] text-[var(--text-muted)]">
-                  {topology.description}
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto flex max-w-[1240px] flex-col gap-6 p-4 sm:p-8">
+        <header className="flex flex-col gap-3 border-b border-[var(--border)] pb-6">
+          <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            <span>{today}</span>
+            <span className="flex items-center gap-1.5">
+              <span
+                className="h-[7px] w-[7px] rounded-[2px]"
+                style={{
+                  background:
+                    reachable === false
+                      ? 'var(--red)'
+                      : reachable
+                        ? 'var(--green)'
+                        : 'var(--bg-600)',
+                }}
+              />
+              {reachable === false
+                ? 'backend unreachable'
+                : reachable
+                  ? 'backend connected'
+                  : 'connecting'}
+            </span>
+          </div>
+          <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-[var(--text-primary)] sm:text-[34px]">
+            {greetingFor(now.getHours())}
+            {firstName ? (
+              <>
+                , <span className="text-[var(--accent)]">{firstName}</span>
+              </>
+            ) : (
+              ''
+            )}
+            .
+          </h1>
+          <p className="max-w-[60ch] text-[14px] leading-relaxed text-[var(--text-secondary)]">
+            {line}
+          </p>
+          {!user && (
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-[var(--text-muted)]">
+              <span className="rounded-[3px] border border-[var(--border-strong)] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em]">
+                anonymous
+              </span>
+              Networks you build stay in this browser.
+              <Link to="/login" className="text-[var(--accent)] underline-offset-2 hover:underline">
+                Sign in to keep them on an account
+              </Link>
+            </p>
+          )}
+        </header>
+
+        <div className="grid gap-6 lg:grid-cols-12">
+          <section className="flex flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-900)] lg:col-span-7">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-2.5">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                  {!user && local ? 'Pick up where you left off' : 'Sample network'}
+                </p>
+                <h2 className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
+                  {shown?.name ?? 'Network'}
+                </h2>
+              </div>
+              <Link
+                to="/network"
+                className="flex shrink-0 items-center gap-1 rounded-[4px] border border-[var(--border-strong)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              >
+                Open builder <ArrowUpRight size={12} />
+              </Link>
+            </div>
+            <div
+              className="aspect-[640/320] w-full"
+              style={{
+                backgroundImage: 'radial-gradient(#2a302b 1px, transparent 1px)',
+                backgroundSize: '20px 20px',
+              }}
+            >
+              {shown && shown.nodes.length > 0 ? (
+                <TopologyPlan topology={shown} />
+              ) : (
+                <p className="p-4 text-xs text-[var(--text-muted)]">
+                  Nothing drawn yet. Open the builder and drop a device.
                 </p>
               )}
             </div>
-            <Link
-              to="/network"
-              className="flex shrink-0 items-center gap-1 rounded-[4px] border border-[var(--border-strong)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-            >
-              Open <ArrowUpRight size={12} />
-            </Link>
-          </div>
-          <div
-            className="aspect-[640/300] w-full"
-            style={{
-              backgroundImage: 'radial-gradient(#2a302b 1px, transparent 1px)',
-              backgroundSize: '20px 20px',
-            }}
-          >
-            {topology && topology.nodes.length > 0 ? (
-              <TopologyPlan topology={topology} />
-            ) : (
-              <p className="p-4 text-xs text-[var(--text-muted)]">
-                No network yet. Open the builder and drop a device.
-              </p>
-            )}
-          </div>
-          <dl className="grid grid-cols-3 gap-4 border-t border-[var(--border)] px-4 py-3">
-            <Readout label="Devices" value={topology?.nodes.length ?? '–'} />
-            <Readout label="Links" value={topology?.edges.length ?? '–'} />
-            <Readout label="ACL rules" value={firewallRules} />
-          </dl>
-        </section>
-
-        <div className="flex min-h-0 flex-col gap-4">
-          <section className="rounded-lg border border-[var(--border)] bg-[var(--bg-900)] p-4">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <h2 className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                  Capture rate
-                </h2>
-                <p className="mt-1 font-mono text-2xl tabular-nums leading-none text-[var(--text-primary)]">
-                  {stats ? stats.packetsPerSecond.toFixed(1) : '–'}
-                  <span className="ml-1 text-[11px] text-[var(--text-muted)]">pkt/s</span>
-                </p>
-              </div>
-              <p className="text-right font-mono text-[11px] text-[var(--text-muted)]">
-                {stats ? `${stats.total.toLocaleString()} packets` : ''}
-              </p>
-            </div>
-            <div className="mt-3">
-              <Sparkline values={rates} />
-            </div>
-            {protocols.length > 0 && stats && (
-              <>
-                <div
-                  className="mt-4 flex h-2 overflow-hidden rounded-[2px] bg-[var(--bg-800)]"
-                  aria-hidden="true"
-                >
-                  {protocols.map(([proto, count]) => (
-                    <div
-                      key={proto}
-                      style={{
-                        width: `${(count / stats.total) * 100}%`,
-                        background: PROTO_COLORS[proto] ?? '#8a887e',
-                      }}
-                    />
-                  ))}
-                </div>
-                <ul className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-1">
-                  {protocols.map(([proto, count]) => (
-                    <li
-                      key={proto}
-                      className="flex items-center justify-between font-mono text-[11px]"
-                    >
-                      <span className="flex items-center gap-1.5 text-[var(--text-secondary)]">
-                        <span
-                          className="h-[7px] w-[7px] rounded-[2px]"
-                          style={{ background: PROTO_COLORS[proto] ?? '#8a887e' }}
-                        />
-                        {proto}
-                      </span>
-                      <span className="tabular-nums text-[var(--text-muted)]">
-                        {((count / stats.total) * 100).toFixed(0)}%
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
+            <dl className="grid grid-cols-3 gap-4 border-t border-[var(--border)] px-4 py-3">
+              <Readout label="Devices" value={shown?.nodes.length ?? '–'} />
+              <Readout label="Links" value={shown?.edges.length ?? '–'} />
+              <Readout label="ACL rules" value={firewallRules} />
+            </dl>
           </section>
 
-          <nav aria-label="Tools" className="grid gap-2">
-            {TOOLS.map(({ to, name, hint, Icon }) => (
-              <Link
-                key={to}
-                to={to}
-                className="group flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-900)] px-3.5 py-3 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-800)]"
-              >
-                <Icon size={16} className="shrink-0 text-[var(--accent)]" strokeWidth={1.75} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium text-[var(--text-primary)]">
-                    {name}
+          <div className="flex flex-col gap-6 lg:col-span-5">
+            <section className="rounded-lg border border-[var(--border)] bg-[var(--bg-900)] p-4">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <h2 className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                    On the wire
+                  </h2>
+                  <p className="mt-1 font-mono text-2xl leading-none tabular-nums text-[var(--text-primary)]">
+                    {stats ? stats.packetsPerSecond.toFixed(1) : '–'}
+                    <span className="ml-1 text-[11px] text-[var(--text-muted)]">pkt/s</span>
+                  </p>
+                </div>
+                <p className="text-right font-mono text-[11px] text-[var(--text-muted)]">
+                  {stats ? `${stats.total.toLocaleString()} captured` : ''}
+                </p>
+              </div>
+              <div className="mt-3">
+                <Sparkline values={rates} />
+              </div>
+              {protocols.length > 0 && stats && (
+                <>
+                  <div
+                    className="mt-4 flex h-2 overflow-hidden rounded-[2px] bg-[var(--bg-800)]"
+                    aria-hidden="true"
+                  >
+                    {protocols.map(([proto, count]) => (
+                      <div
+                        key={proto}
+                        style={{
+                          width: `${(count / stats.total) * 100}%`,
+                          background: PROTO_COLORS[proto] ?? '#8a887e',
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <ul className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-1">
+                    {protocols.map(([proto, count]) => (
+                      <li
+                        key={proto}
+                        className="flex items-center justify-between font-mono text-[11px]"
+                      >
+                        <span className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+                          <span
+                            className="h-[7px] w-[7px] rounded-[1px]"
+                            style={{ background: PROTO_COLORS[proto] ?? '#8a887e' }}
+                          />
+                          {proto}
+                        </span>
+                        <span className="tabular-nums text-[var(--text-muted)]">
+                          {((count / stats.total) * 100).toFixed(0)}%
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
+
+            <nav aria-label="Tools" className="grid gap-2">
+              <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Start something
+              </p>
+              {TOOLS.map(({ to, name, hint, Icon }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="group flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-900)] px-3.5 py-3 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-800)]"
+                >
+                  <Icon size={16} className="shrink-0 text-[var(--accent)]" strokeWidth={1.75} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-medium text-[var(--text-primary)]">
+                      {name}
+                    </span>
+                    <span className="block truncate text-[11px] text-[var(--text-muted)]">
+                      {hint}
+                    </span>
                   </span>
-                  <span className="block truncate text-[11px] text-[var(--text-muted)]">
-                    {hint}
-                  </span>
-                </span>
-                <ArrowUpRight
-                  size={14}
-                  className="shrink-0 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]"
-                />
-              </Link>
-            ))}
-          </nav>
+                  <ArrowUpRight
+                    size={14}
+                    className="shrink-0 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]"
+                  />
+                </Link>
+              ))}
+            </nav>
+          </div>
         </div>
       </div>
     </div>
