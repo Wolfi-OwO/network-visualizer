@@ -1,3 +1,7 @@
+## [v2.13.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.13.1) — 2026-11-26
+
+Fonts are served as files instead of inlined data: URIs, which the font policy blocked.
+
 ## [v2.12.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.12.1) — 2026-11-26
 
 Fit-to-view stops at 1.25x, so a small network is no longer drawn at three times size.
