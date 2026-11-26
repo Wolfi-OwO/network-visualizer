@@ -319,7 +319,7 @@ export default function GuidedBuild({
                 className={[
                   'rounded-md px-2 py-1.5 transition-colors',
                   isCurrent
-                    ? 'bg-[rgba(88,166,255,0.08)] border border-[var(--accent)]/40'
+                    ? 'bg-[rgba(230,162,60,0.08)] border border-[var(--accent)]/40'
                     : 'border border-transparent',
                 ].join(' ')}
               >
@@ -355,7 +355,7 @@ export default function GuidedBuild({
           })}
 
           {allDone && (
-            <div className="mt-2 p-2.5 rounded-md bg-[rgba(63,185,80,0.1)] border border-[var(--green)]/40">
+            <div className="mt-2 p-2.5 rounded-md bg-[rgba(94,194,127,0.1)] border border-[var(--green)]/40">
               <div className="text-[11px] font-semibold text-[var(--green)] flex items-center gap-1.5">
                 <PartyPopper size={13} /> TechCorp is online!
               </div>

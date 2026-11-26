@@ -27,38 +27,38 @@ const ACTION_CONFIG: Record<
   start: { label: 'Start', color: '#58a6ff', bg: 'rgba(88,166,255,0.12)', Icon: Play },
   switch_forward: {
     label: 'L2 Forward',
-    color: '#3fb950',
-    bg: 'rgba(63,185,80,0.10)',
+    color: '#5ec27f',
+    bg: 'rgba(94,194,127,0.10)',
     Icon: MoveRight,
   },
   route: { label: 'L3 Route', color: '#58a6ff', bg: 'rgba(88,166,255,0.10)', Icon: Route },
   firewall_allow: {
     label: 'FW Allow',
-    color: '#3fb950',
-    bg: 'rgba(63,185,80,0.12)',
+    color: '#5ec27f',
+    bg: 'rgba(94,194,127,0.12)',
     Icon: ShieldCheck,
   },
-  firewall_deny: { label: 'FW Deny', color: '#f85149', bg: 'rgba(248,81,73,0.12)', Icon: ShieldX },
+  firewall_deny: { label: 'FW Deny', color: '#ef6b5f', bg: 'rgba(239,107,95,0.12)', Icon: ShieldX },
   firewall_drop: {
     label: 'FW Drop',
-    color: '#d29922',
+    color: '#e0b040',
     bg: 'rgba(210,153,34,0.12)',
     Icon: ShieldOff,
   },
   delivered: {
     label: 'Delivered',
-    color: '#3fb950',
-    bg: 'rgba(63,185,80,0.15)',
+    color: '#5ec27f',
+    bg: 'rgba(94,194,127,0.15)',
     Icon: CheckCircle,
   },
   ttl_exceeded: {
     label: 'TTL Exceeded',
-    color: '#f85149',
-    bg: 'rgba(248,81,73,0.12)',
+    color: '#ef6b5f',
+    bg: 'rgba(239,107,95,0.12)',
     Icon: TimerOff,
   },
-  no_route: { label: 'No Route', color: '#f85149', bg: 'rgba(248,81,73,0.12)', Icon: RouteOff },
-  port_closed: { label: 'Port Closed', color: '#f85149', bg: 'rgba(248,81,73,0.12)', Icon: Ban },
+  no_route: { label: 'No Route', color: '#ef6b5f', bg: 'rgba(239,107,95,0.12)', Icon: RouteOff },
+  port_closed: { label: 'Port Closed', color: '#ef6b5f', bg: 'rgba(239,107,95,0.12)', Icon: Ban },
 }
 
 interface TracePanelProps {
@@ -70,7 +70,7 @@ interface TracePanelProps {
 function HopRow({ hop, active, done }: { hop: TraceHop; active: boolean; done: boolean }) {
   const cfg = ACTION_CONFIG[hop.action] ?? {
     label: hop.action,
-    color: '#8b949e',
+    color: '#a29f94',
     bg: 'rgba(139,148,158,0.1)',
     Icon: HelpCircle,
   }
@@ -81,7 +81,7 @@ function HopRow({ hop, active, done }: { hop: TraceHop; active: boolean; done: b
     <div
       className={[
         'flex gap-2 p-2 rounded-md border transition-all duration-300',
-        active ? 'border-[var(--accent)] bg-[rgba(88,166,255,0.08)] scale-[1.01]' : '',
+        active ? 'border-[var(--accent)] bg-[rgba(230,162,60,0.08)]' : '',
         !active && done ? 'border-[var(--border)]/50 opacity-90' : '',
         !active && !done ? 'border-transparent opacity-40' : '',
       ].join(' ')}
@@ -138,7 +138,7 @@ export default function TracePanel({ result, activeStep, onClose }: TracePanelPr
       <div
         className={[
           'flex items-center justify-between px-3 py-2 border-b border-[var(--border)] shrink-0',
-          result.success ? 'bg-[rgba(63,185,80,0.08)]' : 'bg-[rgba(248,81,73,0.08)]',
+          result.success ? 'bg-[rgba(94,194,127,0.08)]' : 'bg-[rgba(239,107,95,0.08)]',
         ].join(' ')}
       >
         <div className="flex items-center gap-2">

@@ -2,15 +2,15 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import type { PacketStats } from '../../types/index.ts'
 
 const PROTO_COLORS: Record<string, string> = {
-  HTTP: '#3fb950',
-  HTTPS: '#2ea043',
+  HTTP: '#5ec27f',
+  HTTPS: '#4aa869',
   DNS: '#58a6ff',
-  TCP: '#8b949e',
-  UDP: '#d29922',
-  ICMP: '#f85149',
+  TCP: '#a29f94',
+  UDP: '#e0b040',
+  ICMP: '#ef6b5f',
   ARP: '#bc8cff',
   TLS: '#ffa657',
-  SSH: '#3fb950',
+  SSH: '#5ec27f',
 }
 
 function formatBytes(bytes: number): string {
@@ -74,7 +74,7 @@ export default function StatsPanel({ stats }: StatsPanelProps) {
                   dataKey="value"
                 >
                   {chartData.map((entry, i) => (
-                    <Cell key={i} fill={PROTO_COLORS[entry.name] ?? '#484f58'} />
+                    <Cell key={i} fill={PROTO_COLORS[entry.name] ?? '#3a413b'} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -99,7 +99,7 @@ export default function StatsPanel({ stats }: StatsPanelProps) {
                 <div key={name} className="flex items-center gap-2">
                   <div
                     className="w-2 h-2 rounded-sm shrink-0"
-                    style={{ background: PROTO_COLORS[name] ?? '#484f58' }}
+                    style={{ background: PROTO_COLORS[name] ?? '#3a413b' }}
                   />
                   <span className="text-[11px] font-mono text-[var(--text-secondary)] flex-1">
                     {name}

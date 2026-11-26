@@ -13,7 +13,7 @@ export default function NodePalette({ onDragStart, onActivate }: NodePaletteProp
   return (
     <div
       data-tour="palette"
-      className="flex flex-col h-full overflow-hidden backdrop-blur-xl bg-[var(--glass-bg)] border-r border-[var(--glass-border)] shadow-xl md:shadow-none"
+      className="flex flex-col h-full overflow-hidden bg-[var(--glass-bg)] border-r border-[var(--glass-border)]"
     >
       <div className="panel-header">Devices</div>
       <div className="flex-1 overflow-y-auto p-2 space-y-3">
@@ -40,20 +40,17 @@ export default function NodePalette({ onDragStart, onActivate }: NodePaletteProp
                       onActivate(type)
                     }
                   }}
-                  className="group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing hover:bg-white/[0.06] hover:translate-x-0.5 transition-all duration-200 border border-transparent hover:border-white/10 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-2"
+                  className="group relative flex items-center gap-2.5 rounded-[4px] border border-transparent py-1.5 pl-3 pr-2 cursor-grab select-none transition-colors duration-150 hover:border-[var(--border-strong)] hover:bg-[var(--bg-800)] active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-2"
                 >
+                  {/* the device-type colour is a stripe, the same mark the device carries on the canvas */}
                   <span
-                    className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-110"
-                    style={{
-                      background: m.bg,
-                      border: `1px solid ${m.color}55`,
-                      boxShadow: `0 0 14px -6px ${m.color}`,
-                    }}
-                  >
-                    <Icon size={15} color={m.color} strokeWidth={1.9} />
-                  </span>
+                    className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-[2px]"
+                    style={{ background: m.color }}
+                    aria-hidden="true"
+                  />
+                  <Icon size={16} color={m.color} strokeWidth={1.75} className="shrink-0" />
                   <div className="min-w-0">
-                    <div className="text-xs font-medium text-[var(--text-primary)] truncate">
+                    <div className="font-mono text-[11.5px] font-medium text-[var(--text-primary)] truncate">
                       {m.label}
                     </div>
                     <div className="text-[10px] text-[var(--text-muted)] truncate">{m.hint}</div>
@@ -66,9 +63,8 @@ export default function NodePalette({ onDragStart, onActivate }: NodePaletteProp
       </div>
       <div className="p-2 border-t border-[var(--glass-border)]">
         <p className="text-[10px] text-[var(--text-muted)] text-center leading-relaxed">
-          Drag devices onto the canvas, or focus one and press Enter. Connect handles to wire
-          them. Use the <Power size={10} className="inline -mt-0.5" /> button to power a device
-          on.
+          Drag devices onto the canvas, or focus one and press Enter. Connect handles to wire them.
+          Use the <Power size={10} className="inline -mt-0.5" /> button to power a device on.
         </p>
       </div>
     </div>

@@ -18,16 +18,16 @@ const PROTO_COLOR: Record<string, string> = {
   DHCP: '#2dd4bf',
   MySQL: '#f778ba',
   'TLSv1.3': '#38bdf8',
-  HTTP: '#3fb950',
-  ICMP: '#e3b341',
+  HTTP: '#5ec27f',
+  ICMP: '#e8c15a',
   MQTT: '#7ee787',
   SMB: '#56d4dd',
-  IMAP: '#e3b341',
+  IMAP: '#e8c15a',
   IPP: '#f0a35e',
-  TCP: '#8b949e',
+  TCP: '#a29f94',
   ARP: '#f0883e',
 }
-const protoColor = (p: string) => PROTO_COLOR[p] ?? '#8b949e'
+const protoColor = (p: string) => PROTO_COLOR[p] ?? '#a29f94'
 
 function LayerRow({
   name,
@@ -125,7 +125,7 @@ export default function PacketInspector({
       </div>
 
       {frozen && (
-        <div className="flex items-center gap-1.5 px-3 py-1 text-[10px] text-[var(--green)] bg-[rgba(63,185,80,0.08)] border-b border-[var(--green)]/30">
+        <div className="flex items-center gap-1.5 px-3 py-1 text-[10px] text-[var(--green)] bg-[rgba(94,194,127,0.08)] border-b border-[var(--green)]/30">
           <Pause size={10} className="shrink-0" />
           Frozen — every packet is stopped on the spot. Click any dot on the canvas to capture it.
         </div>
@@ -159,7 +159,7 @@ export default function PacketInspector({
                   onClick={() => onSelect(p.id)}
                   className={[
                     'cursor-pointer',
-                    isSel ? 'bg-[rgba(88,166,255,0.15)]' : 'hover:bg-[var(--bg-800)]',
+                    isSel ? 'bg-[rgba(230,162,60,0.15)]' : 'hover:bg-[var(--bg-800)]',
                   ].join(' ')}
                 >
                   <td className="px-2 py-1 text-[var(--text-muted)]">{i + 1}</td>

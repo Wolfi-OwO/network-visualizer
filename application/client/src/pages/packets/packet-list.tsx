@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { Packet } from '../../types/index.ts'
 
-const COL_WIDTHS = ['50px', '90px', '140px', '140px', '70px', '65px', 'auto']
+const COL_WIDTHS = ['84px', '116px', '140px', '140px', '78px', '68px', 'auto']
 const HEADERS = ['No.', 'Time', 'Source', 'Destination', 'Protocol', 'Length', 'Info']
 
 function protoClass(proto: string) {
@@ -156,24 +156,24 @@ function Cell({ width, children, mono, flex, truncate }: CellProps) {
 
 function protoBadgeColor(proto: string): string {
   const map: Record<string, string> = {
-    HTTP: 'bg-[rgba(63,185,80,0.2)] text-[#3fb950]',
-    HTTPS: 'bg-[rgba(63,185,80,0.15)] text-[#2ea043]',
+    HTTP: 'bg-[rgba(94,194,127,0.2)] text-[#5ec27f]',
+    HTTPS: 'bg-[rgba(94,194,127,0.15)] text-[#4aa869]',
     DNS: 'bg-[rgba(88,166,255,0.2)] text-[#58a6ff]',
-    TCP: 'bg-[rgba(139,148,158,0.2)] text-[#8b949e]',
-    UDP: 'bg-[rgba(210,153,34,0.2)] text-[#d29922]',
-    ICMP: 'bg-[rgba(248,81,73,0.2)] text-[#f85149]',
+    TCP: 'bg-[rgba(139,148,158,0.2)] text-[#a29f94]',
+    UDP: 'bg-[rgba(210,153,34,0.2)] text-[#e0b040]',
+    ICMP: 'bg-[rgba(239,107,95,0.2)] text-[#ef6b5f]',
     ARP: 'bg-[rgba(188,140,255,0.2)] text-[#bc8cff]',
     TLS: 'bg-[rgba(255,166,87,0.2)] text-[#ffa657]',
-    SSH: 'bg-[rgba(63,185,80,0.15)] text-[#3fb950]',
+    SSH: 'bg-[rgba(94,194,127,0.15)] text-[#5ec27f]',
     mDNS: 'bg-[rgba(121,192,255,0.2)] text-[#79c0ff]',
     DHCP: 'bg-[rgba(45,212,191,0.2)] text-[#2dd4bf]',
-    STP: 'bg-[rgba(227,179,65,0.2)] text-[#e3b341]',
+    STP: 'bg-[rgba(227,179,65,0.2)] text-[#e8c15a]',
     NTP: 'bg-[rgba(86,212,221,0.2)] text-[#56d4dd]',
     LLDP: 'bg-[rgba(163,113,247,0.2)] text-[#a371f7]',
     SNMP: 'bg-[rgba(247,120,186,0.2)] text-[#f778ba]',
-    OSPF: 'bg-[rgba(63,185,80,0.2)] text-[#3fb950]',
+    OSPF: 'bg-[rgba(94,194,127,0.2)] text-[#5ec27f]',
     SSDP: 'bg-[rgba(156,163,175,0.2)] text-[#9ca3af]',
     SIP: 'bg-[rgba(255,123,114,0.2)] text-[#ff7b72]',
   }
-  return map[proto] ?? 'bg-[rgba(110,118,129,0.2)] text-[#8b949e]'
+  return map[proto] ?? 'bg-[rgba(110,118,129,0.2)] text-[#a29f94]'
 }

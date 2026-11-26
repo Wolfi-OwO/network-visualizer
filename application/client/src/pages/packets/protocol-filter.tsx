@@ -2,20 +2,20 @@ import { Eye, EyeOff } from 'lucide-react'
 
 // Canonical protocol set with display colors (matches packet row tints)
 export const PROTOCOLS: { id: string; color: string }[] = [
-  { id: 'HTTP', color: '#3fb950' },
+  { id: 'HTTP', color: '#5ec27f' },
   { id: 'TLS', color: '#ffa657' },
   { id: 'DNS', color: '#58a6ff' },
   { id: 'mDNS', color: '#79c0ff' },
   { id: 'DHCP', color: '#2dd4bf' },
   { id: 'ARP', color: '#bc8cff' },
-  { id: 'ICMP', color: '#f85149' },
-  { id: 'TCP', color: '#8b949e' },
-  { id: 'UDP', color: '#d29922' },
-  { id: 'STP', color: '#e3b341' },
+  { id: 'ICMP', color: '#ef6b5f' },
+  { id: 'TCP', color: '#a29f94' },
+  { id: 'UDP', color: '#e0b040' },
+  { id: 'STP', color: '#e8c15a' },
   { id: 'NTP', color: '#56d4dd' },
   { id: 'LLDP', color: '#a371f7' },
   { id: 'SNMP', color: '#f778ba' },
-  { id: 'OSPF', color: '#3fb950' },
+  { id: 'OSPF', color: '#5ec27f' },
   { id: 'SSDP', color: '#9ca3af' },
   { id: 'SIP', color: '#ff7b72' },
 ]
@@ -37,11 +37,11 @@ export default function ProtocolFilter({
 }: ProtocolFilterProps) {
   // Show canonical protocols plus any unexpected ones that actually appeared
   const extra = Object.keys(counts).filter((p) => !PROTOCOLS.some((c) => c.id === p))
-  const all = [...PROTOCOLS, ...extra.map((id) => ({ id, color: '#8b949e' }))]
+  const all = [...PROTOCOLS, ...extra.map((id) => ({ id, color: '#a29f94' }))]
 
   return (
     <div className="relative shrink-0">
-      <div className="flex items-center gap-1.5 px-4 py-1.5 backdrop-blur-xl bg-[var(--bg-900)]/80 border-b border-[var(--glass-border)] overflow-x-auto">
+      <div className="flex items-center gap-1.5 px-4 py-1.5 bg-[var(--bg-900)] border-b border-[var(--glass-border)] overflow-x-auto">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] shrink-0 mr-1">
           Protocols
         </span>
@@ -71,21 +71,21 @@ export default function ProtocolFilter({
               key={id}
               onClick={() => onToggle(id)}
               title={`${on ? 'Hide' : 'Show'} ${id}`}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium font-mono whitespace-nowrap shrink-0 transition-all border hover:brightness-125 active:scale-[0.95]"
+              className="flex items-center gap-1 px-2 py-0.5 rounded-[3px] text-[10px] font-medium font-mono whitespace-nowrap shrink-0 transition-colors border hover:border-[var(--text-muted)]"
               style={{
-                background: on ? `${color}22` : 'transparent',
-                borderColor: on ? `${color}66` : 'var(--border)',
-                color: on ? color : 'var(--text-muted)',
-                opacity: on ? 1 : 0.5,
+                background: on ? 'var(--bg-800)' : 'transparent',
+                borderColor: on ? 'var(--border-strong)' : 'var(--border)',
+                color: on ? 'var(--text-primary)' : 'var(--text-muted)',
+                textDecoration: on ? undefined : 'line-through',
               }}
             >
               <span
-                className="w-1.5 h-1.5 rounded-full shrink-0"
+                className="w-1.5 h-1.5 rounded-[1px] shrink-0"
                 style={{ background: on ? color : 'var(--bg-600)' }}
               />
               {id}
               {count > 0 && (
-                <span className="opacity-70">
+                <span className="text-[var(--text-muted)]">
                   {count > 999 ? `${(count / 1000).toFixed(1)}k` : count}
                 </span>
               )}

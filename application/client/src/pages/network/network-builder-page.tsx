@@ -330,22 +330,22 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
       <div
         style={{
           background: result.success ? '#0d2018' : '#1e0a0a',
-          border: `1.5px solid ${result.success ? '#3fb950' : '#f85149'}`,
+          border: `1.5px solid ${result.success ? '#5ec27f' : '#ef6b5f'}`,
           borderRadius: 10,
-          boxShadow: result.success ? '0 4px 24px #3fb95044' : '0 4px 24px #f8514944',
+          boxShadow: result.success ? '0 4px 24px #5ec27f44' : '0 4px 24px #ef6b5f44',
           padding: '12px 16px',
         }}
       >
         <div className="flex items-center gap-2 mb-2">
           {result.success ? (
-            <CheckCircle size={16} color="#3fb950" />
+            <CheckCircle size={16} color="#5ec27f" />
           ) : result.blocked ? (
-            <XCircle size={16} color="#f85149" />
+            <XCircle size={16} color="#ef6b5f" />
           ) : (
-            <AlertTriangle size={16} color="#d29922" />
+            <AlertTriangle size={16} color="#e0b040" />
           )}
           <span
-            style={{ fontSize: 13, fontWeight: 700, color: result.success ? '#3fb950' : '#f85149' }}
+            style={{ fontSize: 13, fontWeight: 700, color: result.success ? '#5ec27f' : '#ef6b5f' }}
           >
             {result.success
               ? 'Packet Delivered'
@@ -353,7 +353,7 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
                 ? 'Packet Blocked'
                 : 'Delivery Failed'}
           </span>
-          <span style={{ fontSize: 11, color: '#8b949e', marginLeft: 4, fontFamily: 'monospace' }}>
+          <span style={{ fontSize: 11, color: '#a29f94', marginLeft: 4, fontFamily: 'monospace' }}>
             {result.hops.length - 1} hop{result.hops.length !== 2 ? 's' : ''} ·{' '}
             {result.totalLatencyMs.toFixed(2)} ms
           </span>
@@ -361,7 +361,7 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
             onClick={onClose}
             style={{
               marginLeft: 'auto',
-              color: '#6e7681',
+              color: '#8a887e',
               background: 'none',
               border: 'none',
               cursor: 'pointer',
@@ -385,16 +385,16 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
         >
           {[
             { k: 'Proto', v: result.packet.protocol.toUpperCase(), c: '#ffa657' },
-            { k: 'Src', v: result.packet.srcIp, c: '#e6edf3' },
+            { k: 'Src', v: result.packet.srcIp, c: '#e9e6dc' },
             {
               k: 'Dst',
               v: `${result.packet.dstIp}${result.packet.dstPort ? `:${result.packet.dstPort}` : ''}`,
-              c: '#e6edf3',
+              c: '#e9e6dc',
             },
-            { k: 'TTL', v: String(result.packet.ttl), c: '#e6edf3' },
+            { k: 'TTL', v: String(result.packet.ttl), c: '#e9e6dc' },
           ].map(({ k, v, c }) => (
-            <span key={k} style={{ color: '#8b949e' }}>
-              <span style={{ color: '#6e7681' }}>{k} </span>
+            <span key={k} style={{ color: '#a29f94' }}>
+              <span style={{ color: '#8a887e' }}>{k} </span>
               <span style={{ color: c }}>{v}</span>
             </span>
           ))}
@@ -417,15 +417,15 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
             const isDelivered = hop.action === 'delivered'
             return (
               <span key={hop.step} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                {i > 0 && <ArrowRight size={11} style={{ color: '#484f58' }} />}
+                {i > 0 && <ArrowRight size={11} style={{ color: '#3a413b' }} />}
                 <span
                   style={{
                     padding: '1px 6px',
                     borderRadius: 4,
                     fontSize: 10,
-                    background: isBlocked ? '#3d0a0a' : isDelivered ? '#0d2a18' : '#21262d',
-                    color: isBlocked ? '#f85149' : isDelivered ? '#3fb950' : '#8b949e',
-                    border: `1px solid ${isBlocked ? '#f8514944' : isDelivered ? '#3fb95044' : '#30363d'}`,
+                    background: isBlocked ? '#3d0a0a' : isDelivered ? '#0d2a18' : '#1c201d',
+                    color: isBlocked ? '#ef6b5f' : isDelivered ? '#5ec27f' : '#a29f94',
+                    border: `1px solid ${isBlocked ? '#ef6b5f44' : isDelivered ? '#5ec27f44' : '#272c28'}`,
                   }}
                 >
                   {hop.nodeName}
@@ -443,13 +443,13 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
               padding: '8px 10px',
               borderRadius: 6,
               background: '#2d0a0a',
-              border: '1px solid #f8514933',
+              border: '1px solid #ef6b5f33',
             }}
           >
             <div
               style={{
                 fontSize: 11,
-                color: '#f85149',
+                color: '#ef6b5f',
                 fontWeight: 600,
                 marginBottom: 3,
                 display: 'flex',
@@ -460,7 +460,7 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
               <Ban size={12} /> Blocked at {blockedHop.nodeName}
             </div>
             <div
-              style={{ fontSize: 10, color: '#8b949e', fontFamily: 'monospace', lineHeight: 1.6 }}
+              style={{ fontSize: 10, color: '#a29f94', fontFamily: 'monospace', lineHeight: 1.6 }}
             >
               {blockedHop.detail}
             </div>
@@ -473,23 +473,23 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
                   background: '#1a0808',
                   fontSize: 10,
                   fontFamily: 'monospace',
-                  color: '#6e7681',
+                  color: '#8a887e',
                   display: 'flex',
                   gap: 8,
                   flexWrap: 'wrap',
                 }}
               >
                 <span>
-                  <span style={{ color: '#6e7681' }}>Rule #</span>
+                  <span style={{ color: '#8a887e' }}>Rule #</span>
                   <span style={{ color: '#ffa657' }}>{blockedHop.firewallRule.priority}</span>
                 </span>
                 <span>
-                  <span style={{ color: '#6e7681' }}>Action: </span>
-                  <span style={{ color: '#f85149', fontWeight: 700 }}>
+                  <span style={{ color: '#8a887e' }}>Action: </span>
+                  <span style={{ color: '#ef6b5f', fontWeight: 700 }}>
                     {blockedHop.firewallRule.action.toUpperCase()}
                   </span>
                 </span>
-                <span style={{ color: '#8b949e' }}>"{blockedHop.firewallRule.description}"</span>
+                <span style={{ color: '#a29f94' }}>"{blockedHop.firewallRule.description}"</span>
               </div>
             )}
           </div>
@@ -502,9 +502,9 @@ function ResultOverlay({ result, onClose }: { result: TraceResult; onClose: () =
               padding: '6px 10px',
               borderRadius: 6,
               background: '#0a1e10',
-              border: '1px solid #3fb95033',
+              border: '1px solid #5ec27f33',
               fontSize: 10,
-              color: '#3fb950',
+              color: '#5ec27f',
               fontFamily: 'monospace',
               display: 'flex',
               alignItems: 'center',
@@ -1615,7 +1615,7 @@ export default function NetworkBuilderPage() {
                   spawnAgent(
                     back.path,
                     back.edgePath,
-                    '#3fb950',
+                    '#5ec27f',
                     'DHCP ACK',
                     dpkt('ACK', 'reply'),
                     applyLease,
@@ -1729,7 +1729,7 @@ export default function NetworkBuilderPage() {
       { label: string; color: string; usesDns: boolean; appTier?: boolean; group: AmbientProtocol }
     > = {
       www: { label: 'HTTPS', color: '#38bdf8', usesDns: true, appTier: true, group: 'https' },
-      server: { label: 'HTTPS', color: '#3fb950', usesDns: true, appTier: true, group: 'https' },
+      server: { label: 'HTTPS', color: '#5ec27f', usesDns: true, appTier: true, group: 'https' },
       proxy: { label: 'HTTPS', color: '#bc8cff', usesDns: true, appTier: true, group: 'https' },
       api_gateway: {
         label: 'HTTPS',
@@ -1745,7 +1745,7 @@ export default function NetworkBuilderPage() {
         appTier: true,
         group: 'https',
       },
-      mailserver: { label: 'IMAP', color: '#e3b341', usesDns: false, group: 'smb' },
+      mailserver: { label: 'IMAP', color: '#e8c15a', usesDns: false, group: 'smb' },
       fileserver: { label: 'SMB', color: '#56d4dd', usesDns: false, group: 'smb' },
       nas: { label: 'SMB', color: '#56d4dd', usesDns: false, group: 'smb' },
       storage: { label: 'SMB', color: '#56d4dd', usesDns: false, group: 'smb' },
@@ -1852,9 +1852,9 @@ export default function NetworkBuilderPage() {
       const doApp = () => {
         if (Math.random() < 0.65) {
           const rb = back(p)
-          spawnAgent(p.path, p.edgePath, '#8b949e', 'SYN', ctl(src, dst, 'SYN'), () =>
-            spawnAgent(rb.path, rb.edgePath, '#8b949e', 'SYN, ACK', ctl(dst, src, 'SYN, ACK'), () =>
-              spawnAgent(p.path, p.edgePath, '#8b949e', 'ACK', ctl(src, dst, 'ACK'), sendApp),
+          spawnAgent(p.path, p.edgePath, '#a29f94', 'SYN', ctl(src, dst, 'SYN'), () =>
+            spawnAgent(rb.path, rb.edgePath, '#a29f94', 'SYN, ACK', ctl(dst, src, 'SYN, ACK'), () =>
+              spawnAgent(p.path, p.edgePath, '#a29f94', 'ACK', ctl(src, dst, 'ACK'), sendApp),
             ),
           )
         } else sendApp()
@@ -2463,14 +2463,14 @@ export default function NetworkBuilderPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar — kept to a handful of controls; everything occasional lives in "More" */}
-      <div className="relative z-30 flex flex-wrap items-center justify-between gap-2 px-3 py-2 backdrop-blur-xl bg-[var(--glass-bg)] border-b border-[var(--glass-border)] shrink-0">
+      <div className="relative z-30 flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[var(--glass-bg)] border-b border-[var(--glass-border)] shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs font-semibold text-[var(--text-primary)] truncate">
             {topology?.name ?? 'Network Builder'}
           </span>
           {status && <StatusPill status={status} />}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center justify-end gap-2 min-w-0 max-w-full">
           <button
             onClick={undo}
             disabled={historyRef.current.past.length === 0}
@@ -2785,9 +2785,30 @@ export default function NetworkBuilderPage() {
             minZoom={0.1}
             maxZoom={3}
           >
-            <Background variant={BackgroundVariant.Dots} color="#21262d" gap={20} size={1} />
-            <Controls />
-            <MiniMap nodeColor={(n) => meta(n.type ?? '').color} />
+            {/* Graph paper: a fine dot every 20px, and a faint rule every 100px so distances can be judged. */}
+            <Background
+              id="fine"
+              variant={BackgroundVariant.Dots}
+              color="#2a302b"
+              gap={20}
+              size={1.1}
+            />
+            <Background
+              id="coarse"
+              variant={BackgroundVariant.Lines}
+              color="#1a1e1b"
+              gap={100}
+              lineWidth={1}
+            />
+            <Controls showInteractive={false} />
+            <MiniMap
+              className="!hidden sm:!block"
+              style={{ width: 132, height: 84 }}
+              maskColor="rgba(15, 17, 16, 0.72)"
+              nodeColor={(n) => meta(n.type ?? '').color}
+              nodeStrokeWidth={0}
+              pannable
+            />
             <PacketFlightLayer
               flights={flightsRef.current}
               version={flightVersion}

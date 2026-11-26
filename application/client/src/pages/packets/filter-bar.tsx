@@ -25,7 +25,7 @@ export default function FilterBar({ value, onChange }: FilterBarProps) {
       <div
         className={[
           'flex items-center flex-1 min-w-[140px] gap-2 px-2 py-1 rounded border transition-colors',
-          'focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_2px_rgba(88,166,255,0.15)]',
+          'focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_2px_rgba(230,162,60,0.15)]',
           isActive
             ? 'border-[var(--accent)] bg-[var(--bg-800)]'
             : 'border-[var(--border)] bg-[var(--bg-800)]',
