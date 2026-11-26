@@ -84,7 +84,7 @@ export const DEVICE_META: Record<NodeType, DeviceMeta> = {
   switch: {
     label: 'L2 Switch',
     Icon: Network,
-    color: '#3fb950',
+    color: '#5ec27f',
     bg: '#0d2a18',
     role: 'l2',
     hint: 'Layer-2 switching / VLANs',
@@ -106,7 +106,7 @@ export const DEVICE_META: Record<NodeType, DeviceMeta> = {
   firewall: {
     label: 'Firewall',
     Icon: ShieldCheck,
-    color: '#f85149',
+    color: '#ef6b5f',
     bg: '#2a0d0d',
     role: 'security',
     hint: 'Stateful ACL firewall',
@@ -182,7 +182,7 @@ export const DEVICE_META: Record<NodeType, DeviceMeta> = {
   server: {
     label: 'Server',
     Icon: Server,
-    color: '#d29922',
+    color: '#e0b040',
     bg: SRV_BG,
     role: 'server',
     hint: 'Generic server',
@@ -212,7 +212,7 @@ export const DEVICE_META: Record<NodeType, DeviceMeta> = {
   mailserver: {
     label: 'Mail Server',
     Icon: Mail,
-    color: '#e3b341',
+    color: '#e8c15a',
     bg: SRV_BG,
     role: 'server',
     hint: 'SMTP / IMAP',
@@ -254,7 +254,7 @@ export const DEVICE_META: Record<NodeType, DeviceMeta> = {
   nas: {
     label: 'NAS',
     Icon: HardDrive,
-    color: '#8b949e',
+    color: '#a29f94',
     bg: HOST_BG,
     role: 'storage',
     hint: 'Network attached storage',
@@ -264,7 +264,7 @@ export const DEVICE_META: Record<NodeType, DeviceMeta> = {
   storage: {
     label: 'Storage Array',
     Icon: Archive,
-    color: '#6e7681',
+    color: '#8a887e',
     bg: HOST_BG,
     role: 'storage',
     hint: 'SAN / storage system',
@@ -276,7 +276,7 @@ export const DEVICE_META: Record<NodeType, DeviceMeta> = {
   pc: {
     label: 'Workstation',
     Icon: Monitor,
-    color: '#8b949e',
+    color: '#a29f94',
     bg: HOST_BG,
     role: 'endpoint',
     hint: 'Desktop / workstation',
@@ -286,7 +286,7 @@ export const DEVICE_META: Record<NodeType, DeviceMeta> = {
   laptop: {
     label: 'Laptop',
     Icon: Laptop,
-    color: '#8b949e',
+    color: '#a29f94',
     bg: HOST_BG,
     role: 'endpoint',
     hint: 'Portable client',
@@ -296,7 +296,7 @@ export const DEVICE_META: Record<NodeType, DeviceMeta> = {
   phone: {
     label: 'Smartphone',
     Icon: Smartphone,
-    color: '#8b949e',
+    color: '#a29f94',
     bg: HOST_BG,
     role: 'endpoint',
     hint: 'Mobile / VoIP',
@@ -306,7 +306,7 @@ export const DEVICE_META: Record<NodeType, DeviceMeta> = {
   printer: {
     label: 'Printer',
     Icon: Printer,
-    color: '#8b949e',
+    color: '#a29f94',
     bg: HOST_BG,
     role: 'endpoint',
     hint: 'Network printer',
@@ -360,7 +360,7 @@ export const DEVICE_META: Record<NodeType, DeviceMeta> = {
 const FALLBACK: DeviceMeta = {
   label: 'Device',
   Icon: Box,
-  color: '#8b949e',
+  color: '#a29f94',
   bg: HOST_BG,
   role: 'endpoint',
   hint: 'Network device',

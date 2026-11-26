@@ -38,8 +38,8 @@ function Stat({
       <div
         className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
         style={{
-          background: 'rgba(88,166,255,0.12)',
-          boxShadow: 'inset 0 0 0 1px rgba(88,166,255,0.28), 0 0 18px -6px #58a6ff',
+          background: 'rgba(230,162,60,0.12)',
+          boxShadow: 'inset 0 0 0 1px rgba(230,162,60,0.28), 0 0 18px -6px #e6a23c',
         }}
       >
         <Icon size={16} className="text-[var(--accent)] shrink-0" />

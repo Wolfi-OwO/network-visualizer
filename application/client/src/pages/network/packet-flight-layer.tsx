@@ -80,7 +80,7 @@ function FlightLayer({
                 color: f.color,
                 fontFamily: 'monospace',
                 whiteSpace: 'nowrap',
-                textShadow: '0 0 2px #0d1117, 0 0 3px #0d1117',
+                textShadow: '0 0 2px #0f1110, 0 0 3px #0f1110',
               }}
             >
               {/* The reply leg of an exchange travels back to the sender. */}
@@ -110,7 +110,7 @@ function FlightLayer({
               height: 10,
               borderRadius: '50%',
               background: f.color,
-              border: '1px solid #0d1117',
+              border: '1px solid #0f1110',
               boxShadow: `0 0 6px ${f.color}, 0 0 12px ${f.color}66`,
             }}
           />

@@ -18,37 +18,35 @@
 
 @layer base {
   :root {
-    --bg-950: #0d1117;
-    --bg-900: #161b22;
-    --bg-800: #21262d;
-    --bg-700: #30363d;
-    --bg-600: #484f58;
-    --text-primary: #e6edf3;
-    --text-secondary: #8b949e;
-    /* Lightened from #6e7681 — the original measured 4.12:1 on --bg-950 and
-       dropped to 3.31:1 on --bg-800 (the lightest surface it sits on, e.g.
-       card headers), both below the 4.5:1 AA floor for normal-size text.
-       #868d97 clears 4.5:1 against every surface tone in use. */
-    --text-muted: #868d97;
-    --border: #30363d;
-    --border-strong: #444c56;
-    --accent: #58a6ff;
+    --bg-950: #0f1110;
+    --bg-900: #151816;
+    --bg-800: #1c201d;
+    --bg-700: #272c28;
+    --bg-600: #3a413b;
+    --text-primary: #e9e6dc;
+    --text-secondary: #a29f94;
+    /* Muted text has to clear 4.5:1 on the lightest surface it sits on (--bg-800, e.g. card headers); #8a887e
+       measures 4.9:1 there and more on the darker ones. */
+    --text-muted: #8a887e;
+    --border: #272c28;
+    --border-strong: #3b423c;
+    --accent: #e6a23c;
     /* Status-indicator dot in the footer only — kept separate from --green
        (used for generic success/positive states elsewhere) so the two can
        diverge without a footer restyle pulling other UI along with it. */
-    --live: #3fb950;
-    --green: #3fb950;
-    --red: #f85149;
-    --yellow: #d29922;
+    --live: #5ec27f;
+    --green: #5ec27f;
+    --red: #ef6b5f;
+    --yellow: #e0b040;
     --purple: #bc8cff;
     --orange: #ffa657;
-    --accent-2: #a371f7;
+    --accent-2: #7fd1ae;
     /* Chrome surface (headers, sidebar, toolbars). Solid and opaque — reads as
        panels on an instrument, not frosted glass floating over an aurora. */
-    --glass-bg: #161b22;
-    --glass-border: #30363d;
-    --glow-accent: rgba(88, 166, 255, 0.35);
-    --glow-accent-2: rgba(163, 113, 247, 0.3);
+    --glass-bg: #151816;
+    --glass-border: #272c28;
+    --glow-accent: rgba(230, 162, 60, 0.35);
+    --glow-accent-2: rgba(127, 209, 174, 0.3);
 
     /* Motion — a single easing for the few transitions we keep. Restrained. */
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -104,7 +102,7 @@
   }
 
   ::selection {
-    background: rgba(88, 166, 255, 0.28);
+    background: rgba(230, 162, 60, 0.28);
     color: var(--text-primary);
   }
 
@@ -183,7 +181,7 @@
   }
   .card-hover:hover {
     border-color: var(--border-strong);
-    background-color: #1a2029;
+    background-color: #1a1e1b;
   }
   .glass {
     @apply bg-[var(--glass-bg)] border border-[var(--glass-border)];
@@ -199,7 +197,7 @@
       0 24px 50px -20px rgba(0, 0, 0, 0.85);
   }
   .input {
-    @apply bg-[var(--bg-950)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent)] focus:shadow-[0_0_0_2px_rgba(88,166,255,0.15)] placeholder:text-[var(--text-muted)] w-full;
+    @apply bg-[var(--bg-950)] border border-[var(--border)] rounded-md px-3 py-1.5 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent)] focus:shadow-[0_0_0_2px_rgba(230,162,60,0.15)] placeholder:text-[var(--text-muted)] w-full;
     transition:
       border-color 0.15s ease,
       box-shadow 0.15s ease;
@@ -237,8 +235,8 @@
   background-color: transparent !important;
 }
 .react-flow__edge-path {
-  stroke: #58a6ff !important;
-  stroke-width: 2 !important;
+  stroke: #6f746a !important;
+  stroke-width: 1.5 !important;
 }
 .react-flow__edge.selected .react-flow__edge-path {
   stroke: var(--orange) !important;
@@ -247,9 +245,9 @@
   background: var(--glass-bg) !important;
   backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border) !important;
-  border-radius: 10px !important;
+  border-radius: 4px !important;
   overflow: hidden;
-  box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+  box-shadow: none;
 }
 .react-flow__controls-button {
   background: transparent !important;
@@ -268,11 +266,32 @@
   background: var(--glass-bg) !important;
   backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border) !important;
-  border-radius: 10px !important;
-  box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+  border-radius: 4px !important;
+  box-shadow: none;
 }
 .react-flow__minimap-mask {
-  fill: rgba(88, 166, 255, 0.1) !important;
+  fill: rgba(230, 162, 60, 0.1) !important;
+}
+.nv-port {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 2px !important;
+  background: var(--bg-950) !important;
+  border: 1px solid var(--text-muted) !important;
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+.nv-node:hover .nv-port,
+.react-flow__node.selected .nv-port,
+.nv-port.connectingfrom {
+  opacity: 1;
+}
+.nv-port:hover {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
 }
 .react-flow__edge-label {
   font-size: 10px;
@@ -281,11 +300,11 @@
 
 /* Packet rows */
 .proto-HTTP {
-  background: rgba(63, 185, 80, 0.1);
-  border-left: 2px solid #3fb950;
+  background: rgba(94, 194, 127, 0.1);
+  border-left: 2px solid #5ec27f;
 }
 .proto-HTTPS {
-  background: rgba(63, 185, 80, 0.07);
+  background: rgba(94, 194, 127, 0.07);
   border-left: 2px solid #238636;
 }
 .proto-DNS {
@@ -294,15 +313,15 @@
 }
 .proto-TCP {
   background: rgba(139, 148, 158, 0.06);
-  border-left: 2px solid #484f58;
+  border-left: 2px solid #3a413b;
 }
 .proto-UDP {
   background: rgba(210, 153, 34, 0.1);
-  border-left: 2px solid #d29922;
+  border-left: 2px solid #e0b040;
 }
 .proto-ICMP {
-  background: rgba(248, 81, 73, 0.1);
-  border-left: 2px solid #f85149;
+  background: rgba(239, 107, 95, 0.1);
+  border-left: 2px solid #ef6b5f;
 }
 .proto-ARP {
   background: rgba(188, 140, 255, 0.1);
@@ -313,8 +332,8 @@
   border-left: 2px solid #ffa657;
 }
 .proto-SSH {
-  background: rgba(63, 185, 80, 0.07);
-  border-left: 2px solid #2ea043;
+  background: rgba(94, 194, 127, 0.07);
+  border-left: 2px solid #4aa869;
 }
 .proto-mDNS {
   background: rgba(121, 192, 255, 0.08);
@@ -326,7 +345,7 @@
 }
 .proto-STP {
   background: rgba(227, 179, 65, 0.1);
-  border-left: 2px solid #e3b341;
+  border-left: 2px solid #e8c15a;
 }
 .proto-NTP {
   background: rgba(86, 212, 221, 0.09);
@@ -341,8 +360,8 @@
   border-left: 2px solid #f778ba;
 }
 .proto-OSPF {
-  background: rgba(63, 185, 80, 0.08);
-  border-left: 2px solid #3fb950;
+  background: rgba(94, 194, 127, 0.08);
+  border-left: 2px solid #5ec27f;
 }
 .proto-SSDP {
   background: rgba(156, 163, 175, 0.07);
@@ -354,10 +373,10 @@
 }
 .proto-default {
   background: rgba(110, 118, 129, 0.05);
-  border-left: 2px solid #6e7681;
+  border-left: 2px solid #8a887e;
 }
 .row-selected {
-  background: rgba(88, 166, 255, 0.14) !important;
+  background: rgba(230, 162, 60, 0.14) !important;
   box-shadow: inset 2px 0 0 var(--accent);
 }
 

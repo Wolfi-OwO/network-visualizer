@@ -19,11 +19,11 @@ export interface PacketEdgeData extends Record<string, unknown> {
 
 const STATE_COLORS: Record<PacketEdgeState, string> = {
   idle: '#58a6ff',
-  dimmed: '#30363d',
-  path: '#484f58',
-  active: '#3fb950',
-  done: '#3fb950',
-  blocked: '#f85149',
+  dimmed: '#272c28',
+  path: '#3a413b',
+  active: '#5ec27f',
+  done: '#5ec27f',
+  blocked: '#ef6b5f',
 }
 
 const STATE_WIDTH: Record<PacketEdgeState, number> = {
@@ -134,7 +134,7 @@ export function PacketEdge({
   const pathId = `${id}-p`
 
   const isDown = d?.linkStatus === 'down'
-  const stroke = isDown ? '#f85149' : STATE_COLORS[state]
+  const stroke = isDown ? '#ef6b5f' : STATE_COLORS[state]
   const strokeWidth = STATE_WIDTH[state]
   const dashed = isDown || state === 'active' || state === 'blocked'
 
@@ -187,10 +187,10 @@ export function PacketEdge({
         <circle
           key={`dot-${animVersion}`}
           r={5}
-          fill="#3fb950"
-          stroke="#0d1117"
+          fill="#5ec27f"
+          stroke="#0f1110"
           strokeWidth={1.5}
-          style={{ filter: 'drop-shadow(0 0 7px #3fb950) drop-shadow(0 0 14px #3fb95066)' }}
+          style={{ filter: 'drop-shadow(0 0 7px #5ec27f) drop-shadow(0 0 14px #5ec27f66)' }}
         >
           <animateMotion
             ref={beginMotion}
@@ -210,10 +210,10 @@ export function PacketEdge({
           <circle
             key={`bdot-${animVersion}`}
             r={5}
-            fill="#f85149"
-            stroke="#0d1117"
+            fill="#ef6b5f"
+            stroke="#0f1110"
             strokeWidth={1.5}
-            style={{ filter: 'drop-shadow(0 0 7px #f85149)' }}
+            style={{ filter: 'drop-shadow(0 0 7px #ef6b5f)' }}
           >
             <animateMotion
               ref={beginMotion}
@@ -228,7 +228,7 @@ export function PacketEdge({
           </circle>
           {/* The X rides just above the blocked dot. animateMotion drives the <g>,
               so the nested icon travels with it. */}
-          <g key={`bicon-${animVersion}`} style={{ filter: 'drop-shadow(0 0 3px #f85149)' }}>
+          <g key={`bicon-${animVersion}`} style={{ filter: 'drop-shadow(0 0 3px #ef6b5f)' }}>
             <animateMotion
               ref={beginMotion}
               dur={dur}
@@ -239,7 +239,7 @@ export function PacketEdge({
             >
               <mpath href={`#${motionPathId}`} />
             </animateMotion>
-            <X x={-5} y={-13} size={10} color="#f85149" strokeWidth={3} />
+            <X x={-5} y={-13} size={10} color="#ef6b5f" strokeWidth={3} />
           </g>
         </>
       )}
@@ -248,10 +248,10 @@ export function PacketEdge({
       {state === 'done' && (
         <circle
           r={3.5}
-          fill="#3fb950"
-          stroke="#0d1117"
+          fill="#5ec27f"
+          stroke="#0f1110"
           strokeWidth={1}
-          style={{ filter: 'drop-shadow(0 0 4px #3fb950)' }}
+          style={{ filter: 'drop-shadow(0 0 4px #5ec27f)' }}
         >
           <animateMotion dur="0.001s" repeatCount="1" fill="freeze" begin="0s">
             <mpath href={`#${motionPathId}`} />
@@ -269,9 +269,9 @@ export function PacketEdge({
               position: 'absolute',
               transform: `translate(-50%,-50%) translate(${labelX}px,${labelY}px)`,
               fontSize: 10,
-              color: '#8b949e',
+              color: '#a29f94',
               pointerEvents: 'none',
-              background: '#161b22cc',
+              background: '#151816cc',
               padding: '1px 4px',
               borderRadius: 3,
             }}

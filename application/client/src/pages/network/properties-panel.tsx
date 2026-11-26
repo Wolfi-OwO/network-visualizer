@@ -143,7 +143,7 @@ function InterfaceRow({
             e.stopPropagation()
             onUpdate({ ...iface, status: iface.status === 'up' ? 'down' : 'up' })
           }}
-          className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${iface.status === 'up' ? 'bg-[rgba(63,185,80,0.2)] text-[var(--green)]' : 'bg-[rgba(248,81,73,0.2)] text-[var(--red)]'}`}
+          className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${iface.status === 'up' ? 'bg-[rgba(94,194,127,0.2)] text-[var(--green)]' : 'bg-[rgba(239,107,95,0.2)] text-[var(--red)]'}`}
         >
           {iface.status.toUpperCase()}
         </button>
@@ -751,7 +751,7 @@ export default function PropertiesPanel({ node, onClose, onChange }: PropertiesP
             title={powered ? 'Power off' : 'Power on (auto-requests DHCP)'}
             className="flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-medium transition-colors"
             style={{
-              background: powered ? 'rgba(63,185,80,0.15)' : 'var(--bg-800)',
+              background: powered ? 'rgba(94,194,127,0.15)' : 'var(--bg-800)',
               color: powered ? 'var(--green)' : 'var(--text-muted)',
             }}
           >
@@ -1268,7 +1268,7 @@ export default function PropertiesPanel({ node, onClose, onChange }: PropertiesP
             {(config.vlans ?? []).map((vlan) => (
               <div key={vlan.id} className="card p-2">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="badge bg-[rgba(88,166,255,0.2)] text-[var(--accent)] text-[10px] font-mono">
+                  <span className="badge bg-[rgba(230,162,60,0.18)] text-[var(--accent)] text-[10px] font-mono">
                     VLAN {vlan.id}
                   </span>
                   <span className="text-xs font-medium text-[var(--text-primary)]">
