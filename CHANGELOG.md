@@ -1,3 +1,7 @@
+## [v2.12.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.12.0) — 2026-11-26
+
+New look: warm graphite palette with one amber accent, flat device plates with a type stripe and status LED, neutral links, graph-paper canvas, a dashboard that draws the saved network and shows a live capture rate, and a packet table whose first two columns no longer overlap.
+
 ## [v2.11.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.11.0) — 2026-11-24
 
 Ctrl+S saves the network and no longer opens the browser's dialog. Signed out, the network stays in this browser instead of the shared server workspace. The Save button shows slow saves, then Saved or Retry.
