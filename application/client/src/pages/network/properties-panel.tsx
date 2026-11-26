@@ -441,8 +441,68 @@ function FirewallRuleRow({
 }
 
 // ── Blank defaults ───────────────────────────────────────────────────────────
-function newIface(): NetworkInterface {
-  return { name: 'eth0', ipAddress: '', subnetMask: '255.255.255.0', status: 'up', speed: '1 Gbps' }
+/** The next name in the device's own numbering: eth0 -> eth1, GigabitEthernet0/1 -> GigabitEthernet0/2. */
+export function nextInterfaceName(existing: string[]): string {
+  const last = existing[existing.length - 1]
+  if (!last) return 'eth0'
+  const slot = /^(.*?)(\d+)\/(\d+)$/.exec(last)
+  if (slot) {
+    const [, prefix, module] = slot
+    const used = existing
+      .map((n) =>
+        new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}${module}/(\\d+)$`).exec(n),
+      )
+      .filter((m): m is RegExpExecArray => m !== null)
+      .map((m) => Number(m[1]))
+    return `${prefix}${module}/${Math.max(...used) + 1}`
+  }
+  const plain = /^(.*?)(\d+)$/.exec(last)
+  const prefix = plain ? plain[1] : 'eth'
+  let n = plain ? Number(plain[2]) + 1 : existing.length
+  while (existing.includes(`${prefix}${n}`)) n += 1
+  return `${prefix}${n}`
+}
+
+/**
+ * An address for a second (third, ...) card: the same host number one network further on, because a card on the
+ * same network as the first would give the device two routes to one place. Skips networks this device already uses.
+ */
+export function nextInterfaceAddress(existing: NetworkInterface[]): string {
+  const first = existing.find((i) => i.ipAddress && /^\d+\.\d+\.\d+\.\d+$/.test(i.ipAddress))
+  if (!first?.ipAddress) return ''
+  const [a, b, c, d] = first.ipAddress.split('.').map(Number)
+  const taken = new Set(existing.map((i) => i.ipAddress))
+  for (let step = 1; step < 255; step += 1) {
+    const third = (c + step) % 256
+    const candidate = `${a}.${b}.${third}.${d}`
+    if (!taken.has(candidate)) return candidate
+  }
+  return ''
+}
+
+/** A locally administered unicast MAC (02:...), different from every card the device already has. */
+function freshMac(existing: NetworkInterface[]): string {
+  const used = new Set(existing.map((i) => i.macAddress?.toLowerCase()))
+  for (;;) {
+    const bytes = Array.from({ length: 5 }, () =>
+      Math.floor(Math.random() * 256)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    const mac = ['02', ...bytes].join(':')
+    if (!used.has(mac)) return mac
+  }
+}
+
+function newIface(existing: NetworkInterface[]): NetworkInterface {
+  return {
+    name: nextInterfaceName(existing.map((i) => i.name)),
+    ipAddress: nextInterfaceAddress(existing),
+    subnetMask: existing.find((i) => i.subnetMask)?.subnetMask ?? '255.255.255.0',
+    macAddress: freshMac(existing),
+    status: 'up',
+    speed: '1 Gbps',
+  }
 }
 
 function newRoute(priority: number): RoutingTableEntry {
@@ -897,7 +957,7 @@ export default function PropertiesPanel({ node, onClose, onChange }: PropertiesP
               />
             ))}
             <button
-              onClick={() => push({ interfaces: [...ifaces, newIface()] })}
+              onClick={() => push({ interfaces: [...ifaces, newIface(ifaces)] })}
               className="btn-ghost w-full justify-center text-[10px]"
             >
               <Plus size={10} /> Add Interface

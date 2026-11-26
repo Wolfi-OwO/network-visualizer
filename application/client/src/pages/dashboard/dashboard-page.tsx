@@ -16,8 +16,9 @@ const PROTO_COLORS: Record<string, string> = {
   TLS: '#ffa657',
 }
 
-const POLL_MS = 3000
-const HISTORY = 40
+const POLL_MS = 5000 // totals and protocol mix; the rate itself comes from the live stream
+const HISTORY = 40 // seconds shown in the graph
+const SMOOTH_WINDOW_MS = 2500
 
 /** The saved network drawn to scale from its own coordinates: the page shows what was built, not a count of it. */
 function TopologyPlan({ topology }: { topology: NetworkTopology }) {
@@ -101,27 +102,42 @@ function TopologyPlan({ topology }: { topology: NetworkTopology }) {
   )
 }
 
-/** Packets per second, newest on the right, kept in the page while it is open. */
-function Sparkline({ values }: { values: number[] }) {
-  const W = 220
-  const H = 44
-  if (values.length < 2)
-    return <div className="h-11 text-[11px] text-[var(--text-muted)]">collecting…</div>
-  const max = Math.max(1, ...values)
-  const step = W / (HISTORY - 1)
-  const pts = values.map(
-    (v, i) =>
-      `${(W - (values.length - 1 - i) * step).toFixed(1)},${(H - 3 - (v / max) * (H - 8)).toFixed(1)}`,
-  )
+/**
+ * Packets per second over the last HISTORY seconds, built from the individual arrivals so the window slides a
+ * little with every frame instead of jumping once per poll. Points are joined with a smooth curve.
+ */
+function LiveGraph({ arrivals, now }: { arrivals: { t: number; n: number }[]; now: number }) {
+  const W = 320
+  const H = 56
+  const STEP = 1000
+  // one value per second, the newest second ending exactly at `now`
+  const values: number[] = []
+  for (let i = HISTORY; i >= 0; i -= 1) {
+    const to = now - i * STEP
+    const from = to - STEP
+    let n = 0
+    for (const a of arrivals) if (a.t > from && a.t <= to) n += a.n
+    values.push(n)
+  }
+  const max = Math.max(10, ...values)
+  const x = (i: number) => (i / HISTORY) * W
+  const y = (v: number) => H - 4 - (v / max) * (H - 10)
+  let d = `M ${x(0).toFixed(1)} ${y(values[0]).toFixed(1)}`
+  for (let i = 1; i < values.length; i += 1) {
+    const cx = (x(i - 1) + x(i)) / 2
+    d += ` C ${cx.toFixed(1)} ${y(values[i - 1]).toFixed(1)}, ${cx.toFixed(1)} ${y(values[i]).toFixed(1)}, ${x(i).toFixed(1)} ${y(values[i]).toFixed(1)}`
+  }
+  const area = `${d} L ${W} ${H} L 0 ${H} Z`
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
-      className="h-11 w-full"
+      className="h-14 w-full"
       aria-hidden="true"
       preserveAspectRatio="none"
     >
-      <polyline
-        points={pts.join(' ')}
+      <path d={area} fill="var(--accent)" fillOpacity={0.1} />
+      <path
+        d={d}
         fill="none"
         stroke="var(--accent)"
         strokeWidth={1.5}
@@ -184,7 +200,10 @@ const TOOLS = [
 export default function DashboardPage() {
   const [stats, setStats] = useState<PacketStats | null>(null)
   const [topology, setTopology] = useState<NetworkTopology | null>(null)
-  const [rates, setRates] = useState<number[]>([])
+  const arrivals = useRef<{ t: number; n: number }[]>([])
+  const [tick, setTick] = useState(() => Date.now())
+  const [live, setLive] = useState(false)
+  const [rate, setRate] = useState(0)
   const [reachable, setReachable] = useState<boolean | null>(null)
   const { user } = useAuth()
   // one line per visit, picked once so it does not change while the page re-renders
@@ -203,7 +222,6 @@ export default function DashboardPage() {
           if (!alive.current) return
           setStats(r.data.stats)
           setReachable(true)
-          setRates((prev) => [...prev, r.data.stats.packetsPerSecond].slice(-HISTORY))
         })
         .catch(() => alive.current && setReachable(false))
     poll()
@@ -212,9 +230,46 @@ export default function DashboardPage() {
       .getDefault()
       .then((r) => alive.current && setTopology(r.data))
       .catch(() => {})
+
+    // The live feed the capture page uses: every batch of new packets is one arrival. The first message is the
+    // backlog already in the buffer, so it is not counted as traffic happening now.
+    const es = new EventSource('/api/packets/stream')
+    let first = true
+    es.onopen = () => alive.current && setLive(true)
+    es.onerror = () => alive.current && setLive(false)
+    es.onmessage = (ev) => {
+      if (first) {
+        first = false
+        return
+      }
+      try {
+        const batch = JSON.parse(ev.data) as unknown[]
+        arrivals.current.push({ t: Date.now(), n: batch.length })
+      } catch {
+        /* a malformed frame is skipped */
+      }
+    }
+
+    // ~12 frames a second: slide the graph window and ease the number toward the recent average
+    let shown = 0
+    const frame = setInterval(() => {
+      if (!alive.current) return
+      const t = Date.now()
+      const keep = t - (HISTORY + 2) * 1000
+      while (arrivals.current.length && arrivals.current[0].t < keep) arrivals.current.shift()
+      let n = 0
+      for (const a of arrivals.current) if (a.t > t - SMOOTH_WINDOW_MS) n += a.n
+      const target = n / (SMOOTH_WINDOW_MS / 1000)
+      shown += (target - shown) * 0.25
+      setTick(t)
+      setRate(shown)
+    }, 80)
+
     return () => {
       alive.current = false
       clearInterval(t)
+      clearInterval(frame)
+      es.close()
     }
   }, [])
 
@@ -331,11 +386,19 @@ export default function DashboardPage() {
             <section className="rounded-lg border border-[var(--border)] bg-[var(--bg-900)] p-4">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <h2 className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                  <h2 className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
                     On the wire
+                    <span
+                      className="h-[6px] w-[6px] rounded-[1px]"
+                      style={{
+                        background: live ? 'var(--green)' : 'var(--bg-600)',
+                        animation: live ? 'live-pulse 2.4s ease-in-out infinite' : undefined,
+                      }}
+                      title={live ? 'Live' : 'Not connected'}
+                    />
                   </h2>
                   <p className="mt-1 font-mono text-2xl leading-none tabular-nums text-[var(--text-primary)]">
-                    {stats ? stats.packetsPerSecond.toFixed(1) : '–'}
+                    {live ? rate.toFixed(1) : '–'}
                     <span className="ml-1 text-[11px] text-[var(--text-muted)]">pkt/s</span>
                   </p>
                 </div>
@@ -344,7 +407,7 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="mt-3">
-                <Sparkline values={rates} />
+                <LiveGraph arrivals={arrivals.current} now={tick} />
               </div>
               {protocols.length > 0 && stats && (
                 <>
