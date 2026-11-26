@@ -2781,7 +2781,7 @@ export default function NetworkBuilderPage() {
             connectionMode={ConnectionMode.Loose}
             defaultEdgeOptions={{ type: 'packet', data: { packetState: 'idle' } }}
             fitView
-            fitViewOptions={{ padding: 0.15 }}
+            fitViewOptions={{ padding: 0.15, maxZoom: 1.25 }}
             minZoom={0.1}
             maxZoom={3}
           >
