@@ -1,3 +1,7 @@
+## [v2.12.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.12.1) — 2026-11-26
+
+Fit-to-view stops at 1.25x, so a small network is no longer drawn at three times size.
+
 ## [v2.12.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.12.0) — 2026-11-26
 
 New look: warm graphite palette with one amber accent, flat device plates with a type stripe and status LED, neutral links, graph-paper canvas, a dashboard that draws the saved network and shows a live capture rate, and a packet table whose first two columns no longer overlap.
