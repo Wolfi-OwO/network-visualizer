@@ -1,3 +1,7 @@
+## [v2.14.2](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.14.2) — 2026-11-27
+
+The admin stat tiles are flat like the rest of the app, and the README has a current admin console screenshot.
+
 ## [v2.14.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.14.1) — 2026-11-27
 
 The packet stream opens at once and keeps alive, and the overview starts a capture so the rate is live.
