@@ -1,3 +1,7 @@
+## [v2.14.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.14.0) — 2026-11-27
+
+Add Interface gives the next free name, a MAC and an address on the next network instead of another blank eth0. The dashboard rate comes from the live packet stream and slides smoothly.
+
 ## [v2.13.2](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.13.2) — 2026-11-26
 
 The overview greets by time of day and by first name (or marks the visit as anonymous), shows one line per visit, and is laid out around the saved network, the live capture rate and the tools. Fit-to-view stops at 1x so the sample network is no longer blown up on ultrawide screens. Fonts are served as files.
