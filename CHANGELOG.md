@@ -1,3 +1,7 @@
+## [v2.14.1](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.14.1) — 2026-11-27
+
+The packet stream opens at once and keeps alive, and the overview starts a capture so the rate is live.
+
 ## [v2.14.0](https://github.com/Wolfi-OwO/network-visualizer/releases/tag/v2.14.0) — 2026-11-27
 
 Add Interface gives the next free name, a MAC and an address on the next network instead of another blank eth0. The dashboard rate comes from the live packet stream and slides smoothly.
