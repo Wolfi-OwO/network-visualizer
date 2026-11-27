@@ -30,17 +30,17 @@ Build topologies with drag-and-drop, watch live packets flow hop-by-hop, inspect
 
 </div>
 
-![NetViz in action — building a topology, tracing a packet hop-by-hop, capturing traffic and calculating subnets](docs/demo/netviz-demo.gif)
+![NetViz in action — the overview with its live capture rate, the network builder, the packet capture and the CIDR calculator](docs/demo/netviz-demo.gif)
 
-<div align="center"><sub>A 25-second tour — live traffic simulation, a hop-by-hop packet trace, Wireshark-style capture and the CIDR calculator.<br/>Also available as <a href="docs/demo/netviz-demo.mp4">full-resolution video</a> (60 fps).</sub></div>
+<div align="center"><sub>A 40-second tour of the live site: the overview with its live capture rate, the network builder with the sample network, the packet capture and the CIDR calculator.<br/>Also available as <a href="docs/demo/netviz-demo.mp4">full-resolution video</a> (30 fps).</sub></div>
 
 ## Features
 
 ### Dashboard
 
-![NetViz dashboard — capture counters, protocol distribution and topology inventory](docs/screenshots/page/dashboard.png)
+![NetViz overview — a greeting, the saved network drawn to scale, the live capture rate and the tools](docs/screenshots/page/dashboard.png)
 
-- At-a-glance capture counters, protocol distribution and an inventory of the current topology, with quick access to every tool.
+- A greeting by time of day (with your first name when signed in, an anonymous note when not), the saved network drawn to scale from its own coordinates, a live capture rate fed from the packet stream, a protocol bar and quick access to every tool.
 
 ### Network Builder
 
