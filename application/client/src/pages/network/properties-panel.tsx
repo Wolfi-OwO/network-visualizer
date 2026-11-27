@@ -484,11 +484,8 @@ export function nextInterfaceAddress(existing: NetworkInterface[]): string {
 function freshMac(existing: NetworkInterface[]): string {
   const used = new Set(existing.map((i) => i.macAddress?.toLowerCase()))
   for (;;) {
-    const bytes = Array.from({ length: 5 }, () =>
-      Math.floor(Math.random() * 256)
-        .toString(16)
-        .padStart(2, '0'),
-    )
+    const raw = crypto.getRandomValues(new Uint8Array(5))
+    const bytes = Array.from(raw, (v) => v.toString(16).padStart(2, '0'))
     const mac = ['02', ...bytes].join(':')
     if (!used.has(mac)) return mac
   }
