@@ -224,6 +224,12 @@ export default function DashboardPage() {
           setReachable(true)
         })
         .catch(() => alive.current && setReachable(false))
+    // The simulator only produces traffic while a capture is running, so the overview starts one if nobody has:
+    // otherwise the rate would sit at zero until the capture page was opened.
+    captureApi
+      .get()
+      .then((r) => (r.data.capturing ? undefined : captureApi.start()))
+      .catch(() => {})
     poll()
     const t = setInterval(poll, POLL_MS)
     networkApi

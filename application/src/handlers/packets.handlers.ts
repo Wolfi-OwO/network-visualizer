@@ -27,7 +27,14 @@ export function streamPackets(req: Request, res: Response): void {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('Access-Control-Allow-Origin', '*');
+  // Tells nginx-style proxies not to hold the stream back; Caddy flushes on its own once there are bytes to send.
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
+  // Until the first packet exists the stream used to send nothing at all, so a browser behind the proxy never saw
+  // the connection open. A comment line is ignored by EventSource but gets the response moving, and the
+  // heartbeat keeps an idle stream from being closed by something along the way.
+  res.write('retry: 2000\n: connected\n\n');
+  const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), 15_000);
 
   let lastId = 0;
   const tick = () => {
@@ -38,7 +45,10 @@ export function streamPackets(req: Request, res: Response): void {
     }
   };
   const interval = setInterval(tick, 300);
-  req.on('close', () => clearInterval(interval));
+  req.on('close', () => {
+    clearInterval(interval);
+    clearInterval(heartbeat);
+  });
 }
 
 // DELETE /api/packets — clear all captured packets.
