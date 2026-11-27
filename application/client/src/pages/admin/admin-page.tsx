@@ -35,13 +35,7 @@ function Stat({
 }) {
   return (
     <div className="card card-hover flex items-center gap-3 p-4">
-      <div
-        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-        style={{
-          background: 'rgba(230,162,60,0.12)',
-          boxShadow: 'inset 0 0 0 1px rgba(230,162,60,0.28), 0 0 18px -6px #e6a23c',
-        }}
-      >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[4px] border border-[var(--border-strong)] bg-[var(--bg-800)]">
         <Icon size={16} className="text-[var(--accent)] shrink-0" />
       </div>
       <div className="min-w-0">
